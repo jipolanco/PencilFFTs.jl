@@ -1,4 +1,4 @@
-module LapizFFT
+module PencilFFTs
 
 greet() = print("Hello World!")
 
