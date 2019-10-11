@@ -17,6 +17,10 @@ function main()
 
     plan = PencilPlan(comm, P1, P2, Nxyz...)
 
+    if MPI.Comm_rank(comm) == 0
+        show(plan)
+    end
+
     MPI.Finalize()
 end
 

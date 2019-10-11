@@ -2,6 +2,8 @@ module PencilFFTs
 
 export PencilPlan
 
+import Base: show
+
 using MPI
 
 const ArrayRegion = NTuple{3,UnitRange{Int}}
@@ -31,6 +33,9 @@ struct PencilPlan
     # Global dimensions of real data (Nx, Ny, Nz).
     size_global :: Dims{3}
 
+    # Local range of real data in x-pencil configuration.
+    rrange_x :: ArrayRegion
+
     # Local range of complex data, for each pencil configuration.
     crange_x :: ArrayRegion
     crange_y :: ArrayRegion
@@ -43,9 +48,9 @@ struct PencilPlan
             error("Decomposition with (P1, P2) = ($P1, $P2) not compatible with communicator size $Nproc.")
         end
 
-        size_global = (Nx, Ny, Nz)
+        Nxyz = (Nx, Ny, Nz)
 
-        if any(isodd.(size_global))
+        if any(isodd.(Nxyz))
             # TODO Maybe this can be relaxed?
             error("Dimensions (Nx, Ny, Nz) must be even.")
         end
@@ -57,14 +62,26 @@ struct PencilPlan
             MPI.Cart_create(comm, dims, periods, reorder)
         end
 
+        # Local range of real data in x-pencil setting.
+        rrange_x = _get_data_range_x(comm_cart, Nxyz, (P1, P2))
+
         Nxyz_c = (_complex_size_x(Nx), Ny, Nz)  # global dimensions of complex data
 
+        # Local ranges of complex data.
         crange_x = _get_data_range_x(comm_cart, Nxyz_c, (P1, P2))
         crange_y = _get_data_range_y(comm_cart, Nxyz_c, (P1, P2))
         crange_z = _get_data_range_z(comm_cart, Nxyz_c, (P1, P2))
 
-        new(comm_cart, P1, P2, size_global, crange_x, crange_y, crange_z)
+        new(comm_cart, P1, P2, Nxyz, rrange_x, crange_x, crange_y, crange_z)
     end
+end
+
+function show(io::IO, p::PencilPlan)
+    println(io, "$(typeof(p)) over $(p.P1) × $(p.P2) MPI processes.")
+    println(io, "\tReal data dimensions:     ", p.size_global)
+    println(io, "\tLocal input data range:   ", p.rrange_x, "\treal")
+    println(io, "\tLocal output data range:  ", p.crange_z, "\tcomplex")
+    nothing
 end
 
 "Get Cartesian coordinates of current process in communicator."
@@ -84,28 +101,28 @@ function _local_range(p, P, N)
     a:b
 end
 
-"Get local range of complex data in x-pencil configuration."
-function _get_data_range_x(comm_cart, Nxyz_c, (P1, P2))
+"Get local data range in x-pencil configuration."
+function _get_data_range_x(comm_cart, Nxyz, (P1, P2))
     Pxyz = 1, P1, P2
     ijk = _cart_coords(comm_cart)
     @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz_c)
+    _local_range.(ijk, Pxyz, Nxyz)
 end
 
-function _get_data_range_y(comm_cart, Nxyz_c, (P1, P2))
+function _get_data_range_y(comm_cart, Nxyz, (P1, P2))
     Pxyz = P1, 1, P2
     j, i, k = _cart_coords(comm_cart)
     ijk = (i, j, k)
     @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz_c)
+    _local_range.(ijk, Pxyz, Nxyz)
 end
 
-function _get_data_range_z(comm_cart, Nxyz_c, (P1, P2))
+function _get_data_range_z(comm_cart, Nxyz, (P1, P2))
     Pxyz = P1, P2, 1
     k, i, j = _cart_coords(comm_cart)
     ijk = (i, j, k)
     @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz_c)
+    _local_range.(ijk, Pxyz, Nxyz)
 end
 
 end # module
