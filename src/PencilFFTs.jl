@@ -10,7 +10,7 @@ using MPI
 
 # Type definitions
 const FFTReal = Union{Float32,Float64}  # same as FFTW.fftwReal
-const ArrayRegion = NTuple{3,UnitRange{Int}}
+const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
 """
     PencilPlan([T=Float64], comm::MPI.Comm, P1, P2, Nx, Ny, Nz)
@@ -38,12 +38,12 @@ struct PencilPlan{T<:FFTReal}
     size_global :: Dims{3}
 
     # Local range of real data in x-pencil configuration.
-    rrange_x :: ArrayRegion
+    rrange_x :: ArrayRegion{3}
 
     # Local range of complex data, for each pencil configuration.
-    crange_x :: ArrayRegion
-    crange_y :: ArrayRegion
-    crange_z :: ArrayRegion
+    crange_x :: ArrayRegion{3}
+    crange_y :: ArrayRegion{3}
+    crange_z :: ArrayRegion{3}
 
     function PencilPlan(::Type{T}, comm::MPI.Comm, P1, P2, Nx, Ny, Nz) where {T <: FFTReal}
         Nproc = MPI.Comm_size(comm)
