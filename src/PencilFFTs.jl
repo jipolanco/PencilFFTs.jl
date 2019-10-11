@@ -6,10 +6,12 @@ import Base: show
 
 using MPI
 
+# Type definitions
+const FFTReal = Union{Float32,Float64}  # same as FFTW.fftwReal
 const ArrayRegion = NTuple{3,UnitRange{Int}}
 
 """
-    PencilPlan(comm::MPI.Comm, P1, P2, Nx, Ny, Nz)
+    PencilPlan([T=Float64], comm::MPI.Comm, P1, P2, Nx, Ny, Nz)
 
 Create "plan" for pencil-decomposed FFTs.
 
@@ -19,7 +21,7 @@ decomposed directions.
 
 The real-space dimensions of the data to be transformed are `Nx`, `Ny` and `Nz`.
 """
-struct PencilPlan
+struct PencilPlan{T<:FFTReal}
     # MPI communicator with Cartesian topology (describing the x-pencil layout).
     comm_cart_x :: MPI.Comm
 
@@ -41,7 +43,7 @@ struct PencilPlan
     crange_y :: ArrayRegion
     crange_z :: ArrayRegion
 
-    function PencilPlan(comm::MPI.Comm, P1, P2, Nx, Ny, Nz)
+    function PencilPlan(::Type{T}, comm::MPI.Comm, P1, P2, Nx, Ny, Nz) where {T <: FFTReal}
         Nproc = MPI.Comm_size(comm)
 
         if P1 * P2 != Nproc
@@ -72,15 +74,17 @@ struct PencilPlan
         crange_y = _get_data_range_y(comm_cart, Nxyz_c, (P1, P2))
         crange_z = _get_data_range_z(comm_cart, Nxyz_c, (P1, P2))
 
-        new(comm_cart, P1, P2, Nxyz, rrange_x, crange_x, crange_y, crange_z)
+        new{T}(comm_cart, P1, P2, Nxyz, rrange_x, crange_x, crange_y, crange_z)
     end
+
+    PencilPlan(comm::MPI.Comm, args...) = PencilPlan(Float64, comm, args...)
 end
 
-function show(io::IO, p::PencilPlan)
+function show(io::IO, p::PencilPlan{T}) where T
     println(io, "$(typeof(p)) over $(p.P1) × $(p.P2) MPI processes.")
     println(io, "\tReal data dimensions:     ", p.size_global)
-    println(io, "\tLocal input data range:   ", p.rrange_x, "\treal")
-    println(io, "\tLocal output data range:  ", p.crange_z, "\tcomplex")
+    println(io, "\tLocal input data range:   ", p.rrange_x, "\t($T)")
+    println(io, "\tLocal output data range:  ", p.crange_z, "\t($(Complex{T}))")
     nothing
 end
 
