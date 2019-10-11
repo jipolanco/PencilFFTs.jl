@@ -1,8 +1,10 @@
 module PencilFFTs
 
 export PencilPlan
+export input_range, output_range, size_global
+export allocate_input, allocate_output
 
-import Base: show
+import Base: show, eltype
 
 using MPI
 
@@ -81,11 +83,70 @@ struct PencilPlan{T<:FFTReal}
 end
 
 function show(io::IO, p::PencilPlan{T}) where T
-    println(io, "$(typeof(p)) over $(p.P1) × $(p.P2) MPI processes.")
-    println(io, "\tReal data dimensions:     ", p.size_global)
-    println(io, "\tLocal input data range:   ", p.rrange_x, "\t($T)")
-    println(io, "\tLocal output data range:  ", p.crange_z, "\t($(Complex{T}))")
+    print(io, "$(typeof(p)) over $(p.P1) × $(p.P2) MPI processes.")
+    print(io, "\n\tReal data dimensions:     ", size_global(p))
+    print(io, "\n\tLocal input data range:   ", input_range(p), "\t($T)")
+    print(io, "\n\tLocal output data range:  ", output_range(p), "\t($(Complex{T}))")
     nothing
+end
+
+eltype(p::PencilPlan{T}) where T = T
+
+"""
+    size_global(p::PencilPlan)
+
+Global dimensions of 3D input data in real space.
+"""
+size_global(p::PencilPlan) = p.size_global
+
+"""
+    input_range(p::PencilPlan)
+
+Local range of real input data `(x1:x2, y1:y2, z1:z2)`.
+"""
+input_range(p::PencilPlan) = p.rrange_x
+
+"""
+    output_range(p::PencilPlan)
+
+Local range of complex output data `(x1:x2, y1:y2, z1:z2)`.
+
+**Note:** output data should be accessed in `(z, y, x)` order.
+"""
+output_range(p::PencilPlan) = p.crange_z
+
+"""
+    allocate_input(p::PencilPlan, [extra_dims...])
+
+Allocate input (real) array for the given plan.
+
+Array data is not initialised.
+
+Additional dimensions (for instance representing vector or matrix components)
+may be added using the `extra_dims` arguments:
+
+    allocate_input(p, 3)        # 3-component vector field
+    allocate_input(p, 3, 4)     # 3x4 tensor field
+
+The extra dimensions are the last (slowest) dimensions of the returned array.
+
+See also: [`allocate_output`](@ref)
+"""
+function allocate_input(p::PencilPlan{T}, extra_dims::Vararg{Int}) where T
+    Nxyz = length.(input_range(p))
+    Array{T}(undef, Nxyz..., extra_dims...)
+end
+
+"""
+    allocate_output(p::PencilPlan, [extra_dims...])
+
+Allocate output (complex) array for the given plan.
+
+See also: [`allocate_input`](@ref)
+"""
+function allocate_output(p::PencilPlan{T}, extra_dims::Vararg{Int}) where T
+    Nx, Ny, Nz = length.(output_range(p))
+    Array{Complex{T}}(undef, Nz, Ny, Nx, extra_dims...)
 end
 
 "Get Cartesian coordinates of current process in communicator."
