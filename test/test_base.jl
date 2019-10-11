@@ -13,8 +13,11 @@ function test_plan(::Type{T}; extra_dims=()) where T
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
 
-    P1 = Nproc > 1 ? 2 : 1
-    P2 = Nproc ÷ P1
+    # Let MPI_Dims_create choose the values of (P1, P2).
+    P1, P2 = let pdims = zeros(Int, 2)
+        MPI.Dims_create!(Nproc, pdims)
+        pdims[1], pdims[2]
+    end
 
     plan = PencilPlan(T, comm, P1, P2, Nxyz...)
 
@@ -22,7 +25,7 @@ function test_plan(::Type{T}; extra_dims=()) where T
     uF = allocate_output(plan, extra_dims...)
 
     if MPI.Comm_rank(comm) == 0
-        @show plan
+        @show summary(plan)
         @show summary(u)
         @show summary(uF)
         println()

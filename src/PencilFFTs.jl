@@ -4,7 +4,7 @@ export PencilPlan
 export input_range, output_range, size_global
 export allocate_input, allocate_output
 
-import Base: show, eltype
+import Base: show, summary, eltype
 
 using MPI
 
@@ -22,6 +22,7 @@ Data is decomposed among MPI processes in communicator `comm` (usually
 decomposed directions.
 
 The real-space dimensions of the data to be transformed are `Nx`, `Ny` and `Nz`.
+
 """
 struct PencilPlan{T<:FFTReal}
     # MPI communicator with Cartesian topology (describing the x-pencil layout).
@@ -41,6 +42,7 @@ struct PencilPlan{T<:FFTReal}
     rrange_x :: ArrayRegion{3}
 
     # Local range of complex data, for each pencil configuration.
+    # Ranges are in (x, y, z) order.
     crange_x :: ArrayRegion{3}
     crange_y :: ArrayRegion{3}
     crange_z :: ArrayRegion{3}
@@ -83,10 +85,16 @@ struct PencilPlan{T<:FFTReal}
 end
 
 function show(io::IO, p::PencilPlan{T}) where T
-    print(io, "$(typeof(p)) over $(p.P1) × $(p.P2) MPI processes.")
+    print(io, typeof(p), " over $(p.P1)×$(p.P2) MPI processes.")
     print(io, "\n\tReal data dimensions:     ", size_global(p))
     print(io, "\n\tLocal input data range:   ", input_range(p), "\t($T)")
     print(io, "\n\tLocal output data range:  ", output_range(p), "\t($(Complex{T}))")
+    nothing
+end
+
+function summary(io::IO, p::PencilPlan)
+    print(io, join(size_global(p), '×'), ' ', typeof(p),
+          " over $(p.P1)×$(p.P2) MPI processes.")
     nothing
 end
 
@@ -149,14 +157,14 @@ function allocate_output(p::PencilPlan{T}, extra_dims::Vararg{Int}) where T
     Array{Complex{T}}(undef, Nz, Ny, Nx, extra_dims...)
 end
 
-"Get Cartesian coordinates of current process in communicator."
+# Get Cartesian coordinates of current process in communicator.
 function _cart_coords(comm_cart) :: NTuple{3,Int}  # (1, p1, p2)
     maxdims = 3
     coords = MPI.Cart_coords(comm_cart, maxdims) .+ 1  # >= 1
     coords[1], coords[2], coords[3]
 end
 
-"Length of first dimension when data is in complex space."
+# Length of first dimension when data is in complex space.
 _complex_size_x(Nx) = (Nx >>> 1) + 1  # Nx/2 + 1
 
 function _local_range(p, P, N)
@@ -166,7 +174,7 @@ function _local_range(p, P, N)
     a:b
 end
 
-"Get local data range in x-pencil configuration."
+# Get local data range in x-pencil configuration.
 function _get_data_range_x(comm_cart, Nxyz, (P1, P2))
     Pxyz = 1, P1, P2
     ijk = _cart_coords(comm_cart)
