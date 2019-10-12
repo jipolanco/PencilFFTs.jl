@@ -6,7 +6,13 @@ export allocate_input, allocate_output
 
 import Base: show, summary, eltype
 
-using MPI
+import FFTW
+import MPI
+
+include("data_ranges.jl")
+
+# Constants (TODO use this...)
+const FFTW_PLAN_FLAGS = FFTW.ESTIMATE
 
 # Type definitions
 const FFTReal = Union{Float32,Float64}  # same as FFTW.fftwReal
@@ -47,11 +53,19 @@ struct PencilPlan{T<:FFTReal}
     crange_y :: ArrayRegion{3}
     crange_z :: ArrayRegion{3}
 
-    function PencilPlan(::Type{T}, comm::MPI.Comm, P1, P2, Nx, Ny, Nz) where {T <: FFTReal}
+    # Buffers for transforms and transpositions.
+    data_xr :: Array{T,3}               # (x, y, z)
+    data_xc :: Array{Complex{T},3}      # (x, y, z) [Nxc = Nx/2 + 1]
+    data_yc :: Array{Complex{T},3}      # (y, z, x)
+    data_zc :: Array{Complex{T},3}      # (z, y, x)
+
+    function PencilPlan(::Type{T}, comm::MPI.Comm, P1, P2,
+                        Nx, Ny, Nz) where {T <: FFTReal}
         Nproc = MPI.Comm_size(comm)
 
         if P1 * P2 != Nproc
-            error("Decomposition with (P1, P2) = ($P1, $P2) not compatible with communicator size $Nproc.")
+            error("Decomposition with (P1, P2) = ($P1, $P2) not compatible",
+                  " with communicator size $Nproc.")
         end
 
         Nxyz = (Nx, Ny, Nz)
@@ -78,7 +92,18 @@ struct PencilPlan{T<:FFTReal}
         crange_y = _get_data_range_y(comm_cart, Nxyz_c, (P1, P2))
         crange_z = _get_data_range_z(comm_cart, Nxyz_c, (P1, P2))
 
-        new{T}(comm_cart, P1, P2, Nxyz, rrange_x, crange_x, crange_y, crange_z)
+        # Data buffers.
+        data_xr = Array{T}(undef, length.(rrange_x))
+        data_xc = Array{T}(undef, length.(crange_x))
+        data_yc = let (Nx, Ny, Nz) = length.(crange_y)
+            Array{Complex{T}}(undef, Ny, Nz, Nx)
+        end
+        data_zc = let (Nx, Ny, Nz) = length.(crange_z)
+            Array{Complex{T}}(undef, Nz, Ny, Nx)
+        end
+
+        new{T}(comm_cart, P1, P2, Nxyz, rrange_x, crange_x, crange_y, crange_z,
+               data_xr, data_xc, data_yc, data_zc)
     end
 
     PencilPlan(comm::MPI.Comm, args...) = PencilPlan(Float64, comm, args...)
@@ -157,45 +182,7 @@ function allocate_output(p::PencilPlan{T}, extra_dims::Vararg{Int}) where T
     Array{Complex{T}}(undef, Nz, Ny, Nx, extra_dims...)
 end
 
-# Get Cartesian coordinates of current process in communicator.
-function _cart_coords(comm_cart) :: NTuple{3,Int}  # (1, p1, p2)
-    maxdims = 3
-    coords = MPI.Cart_coords(comm_cart, maxdims) .+ 1  # >= 1
-    coords[1], coords[2], coords[3]
-end
-
 # Length of first dimension when data is in complex space.
 _complex_size_x(Nx) = (Nx >>> 1) + 1  # Nx/2 + 1
-
-function _local_range(p, P, N)
-    @assert 1 <= p <= P
-    a = (N * (p - 1)) ÷ P + 1
-    b = (N * p) ÷ P
-    a:b
-end
-
-# Get local data range in x-pencil configuration.
-function _get_data_range_x(comm_cart, Nxyz, (P1, P2))
-    Pxyz = 1, P1, P2
-    ijk = _cart_coords(comm_cart)
-    @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz)
-end
-
-function _get_data_range_y(comm_cart, Nxyz, (P1, P2))
-    Pxyz = P1, 1, P2
-    j, i, k = _cart_coords(comm_cart)
-    ijk = (i, j, k)
-    @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz)
-end
-
-function _get_data_range_z(comm_cart, Nxyz, (P1, P2))
-    Pxyz = P1, P2, 1
-    k, i, j = _cart_coords(comm_cart)
-    ijk = (i, j, k)
-    @assert all(1 .<= ijk .<= Pxyz)
-    _local_range.(ijk, Pxyz, Nxyz)
-end
 
 end # module
