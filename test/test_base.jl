@@ -38,6 +38,8 @@ function test_plan(::Type{T}; extra_dims=()) where T
     let (rx, ry, rz) = output_range(plan)
         @test size(uF) == (length.((rz, ry, rx))..., extra_dims...)
     end
+
+    nothing
 end
 
 function main()
