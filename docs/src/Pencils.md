@@ -19,5 +19,12 @@ Topology{N}
 
 ```@docs
 allocate
+index_permutation
 transpose!
+```
+
+## Devdocs
+
+```@docs
+put_colon
 ```

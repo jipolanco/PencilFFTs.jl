@@ -1,18 +1,14 @@
-# Get ranks of Cartesian communicator arranged in a matrix representing the
-# N-dimensional Cartesian topology.
-function get_cart_ranks_matrix(::Val{N}, comm::MPI.Comm) where N
-    Ndims = MPI_Cartdim_get(comm)
-    @assert Ndims == N
+# Get ranks of one-dimensional Cartesian sub-communicator.
+function get_cart_ranks_subcomm(subcomm::MPI.Comm)
+    @assert MPI_Cartdim_get(subcomm) == 1  # sub-communicator should be 1D
+    Nproc = MPI.Comm_size(subcomm)
 
-    dims_array, _, _ = MPI_Cart_get(comm, Ndims)
-    dims = ntuple(i -> dims_array[i], Val(N))
+    ranks = Vector{Int}(undef, Nproc)
+    coords = Ref{Cint}()
 
-    ranks = Matrix{Int}(undef, dims)
-    coords = Vector{Cint}(undef, N)
-
-    for I in CartesianIndices(dims)
-        coords .= Tuple(I) .- 1  # MPI uses zero-based indexing
-        ranks[I] = MPI_Cart_rank(comm, coords)
+    for n = 1:Nproc
+        coords[] = n - 1  # MPI uses zero-based indexing
+        ranks[n] = MPI_Cart_rank(subcomm, coords)
     end
 
     ranks
