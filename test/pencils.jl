@@ -25,6 +25,10 @@ function main()
     reorder = false
     comm = MPI.Cart_create(MPI.COMM_WORLD, dims, periods, reorder)
 
+    # @code_warntype Pencils.get_cart_ranks_matrix(Val(2), comm)
+    # @code_warntype Pencils.create_subcomms(Val(2), comm)
+    # @code_warntype Pencils.Topology{2}(comm)
+
     pen1 = Pencil{1}(comm, Nxyz)
 
     pen1_bis = Pencil{1}(pen1)
@@ -38,6 +42,11 @@ function main()
         @show pen2.axes_all
         @show pen3.axes_all
     end
+
+    u1 = allocate(pen1)
+    u2 = allocate(pen2)
+
+    transpose!(u2, pen2, u1, pen1)
 
     MPI.Finalize()
 end

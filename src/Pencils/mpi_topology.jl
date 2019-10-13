@@ -1,14 +1,14 @@
 # Get ranks of Cartesian communicator arranged in a matrix representing the
-# Cartesian topology.
-function get_cart_ranks_matrix(comm::MPI.Comm)
+# N-dimensional Cartesian topology.
+function get_cart_ranks_matrix(::Val{N}, comm::MPI.Comm) where N
     Ndims = MPI_Cartdim_get(comm)
-    @assert Ndims == 2  # only 2D topology is supported
+    @assert Ndims == N
 
     dims_array, _, _ = MPI_Cart_get(comm, Ndims)
-    dims = (dims_array[1], dims_array[2])
+    dims = ntuple(i -> dims_array[i], Val(N))
 
     ranks = Matrix{Int}(undef, dims)
-    coords = Vector{Cint}(undef, 2)
+    coords = Vector{Cint}(undef, N)
 
     for I in CartesianIndices(dims)
         coords .= Tuple(I) .- 1  # MPI uses zero-based indexing
@@ -16,6 +16,15 @@ function get_cart_ranks_matrix(comm::MPI.Comm)
     end
 
     ranks
+end
+
+function create_subcomms(::Val{N}, comm::MPI.Comm) where N
+    remain_dims = Vector{Cint}(undef, N)
+    ntuple(Val(N)) do n
+        fill!(remain_dims, zero(Cint))
+        remain_dims[n] = one(Cint)
+        MPI_Cart_sub(comm, remain_dims)
+    end
 end
 
 ## MPI wrappers ##
@@ -62,4 +71,23 @@ function MPI_Cart_rank(comm::MPI.Comm,
                        coords::AbstractArray{T}) where T <: Integer
     ccoords = Cint.(coords[:])
     MPI_Cart_rank(comm, ccoords)
+end
+
+function MPI_Cart_sub(comm::MPI.Comm, remain_dims::MPI.MPIBuffertype{Cint})
+    newcomm = MPI.Comm()
+    # int MPI_Cart_sub(MPI_Comm comm, const int remain_dims[], MPI_Comm *newcomm)
+    MPI.@mpichk ccall((:MPI_Cart_sub, MPI.libmpi), Cint,
+                      (MPI.MPI_Comm, Ptr{Cint}, Ptr{MPI.MPI_Comm}),
+                      comm, remain_dims, newcomm)
+    if newcomm.val != MPI.MPI_COMM_NULL
+        MPI.refcount_inc()
+        finalizer(MPI.free, newcomm)
+    end
+    newcomm
+end
+
+function MPI_Cart_sub(comm::MPI.Comm,
+                      remain_dims::AbstractArray{T}) where T <: Integer
+    cremain_dims = Cint.(remain_dims[:])
+    MPI_Cart_sub(comm, cremain_dims)
 end

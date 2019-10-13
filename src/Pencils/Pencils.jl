@@ -9,15 +9,64 @@ module Pencils
 using MPI
 
 export Pencil
-
-include("data_ranges.jl")
-include("mpi_topology.jl")
+export allocate
+export transpose!
 
 # Describes the portion of an array held by a given MPI process.
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
 # TODO
-# - create sub-communicators for each decomposition direction?
+# - define PencilArray array wrappers containing data + pencil info
+# - define PencilArray data allocators from one or more pencils.
+#   The returned array must be large enough to fit data from all pencils.
+
+"""
+    Topology{N}
+
+Describes an N-dimensional Cartesian MPI decomposition topology.
+"""
+struct Topology{N}
+    # MPI communicator with Cartesian topology.
+    comm :: MPI.Comm
+
+    # Subcommunicators associated to the two decomposed directions.
+    subcomms :: NTuple{N,MPI.Comm}
+
+    # Number of MPI processes along the decomposed directions.
+    dims :: Dims{N}
+
+    # Coordinates of the local process in the Cartesian topology.
+    # Indices are >= 1.
+    coords_local :: Dims{N}
+
+    # Maps Cartesian coordinates to MPI ranks.
+    ranks :: Matrix{Int}
+
+    function Topology{N}(comm_cart::MPI.Comm) where N
+        # Get dimensions of MPI topology.
+        # This will fail if comm_cart doesn't have Cartesian topology!
+        Ndims = MPI_Cartdim_get(comm_cart)
+
+        if Ndims != N
+            throw(ArgumentError(
+                "Cartesian communicator must have $N dimensions."))
+        end
+
+        dims, coords_local = begin
+            dims_vec, _, coords_vec = MPI_Cart_get(comm_cart, N)
+            coords_vec .+= 1  # switch to one-based indexing
+            map(X -> ntuple(n -> X[n], Val(N)), (dims_vec, coords_vec))
+        end
+
+        ranks = get_cart_ranks_matrix(Val(N), comm_cart)
+        @assert ranks[coords_local...] == MPI.Comm_rank(comm_cart)
+
+        subcomms = create_subcomms(Val(N), comm_cart)
+        @assert MPI.Comm_size.(subcomms) === dims
+
+        new{N}(comm_cart, subcomms, dims, coords_local, ranks)
+    end
+end
 
 """
     Pencil{D}
@@ -31,7 +80,8 @@ The pencil is oriented in the direction `D` (with `D ∈ 1:3`).
 
     Pencil{D}(comm_cart::MPI.Comm, size_global) where D
 
-Define pencil decomposition along direction `D` for an array of dimensions `size_global = (Nx, Ny, Nz)`.
+Define pencil decomposition along direction `D` for an array of dimensions
+`size_global = (Nx, Ny, Nz)`.
 
 The MPI communicator `comm_cart` must have a 2D Cartesian topology.
 This kind of communicator is usually obtained from `MPI.Cart_create`.
@@ -47,18 +97,9 @@ transpositions between the two configurations.
 
 """
 struct Pencil{D}
-    # MPI communicator.
-    comm :: MPI.Comm
-
-    # Number of MPI processes along the decomposed directions.
-    cart_dims :: Dims{2}
-
-    # Coordinates of the local pencil in the Cartesian topology.
-    # Indices are >= 1.
-    cart_coords_local :: Dims{2}
-
-    # Maps Cartesian coordinates of pencils to MPI ranks.
-    cart_ranks :: Matrix{Int}
+    # Two-dimensional MPI decomposition info.
+    # This should be the same for all pencil configurations.
+    topology :: Topology{2}
 
     # Global array dimensions (Nx, Ny, Nz).
     size_global :: Dims{3}
@@ -69,30 +110,11 @@ struct Pencil{D}
     # Part of the array held by the local process.
     axes_local :: ArrayRegion{3}
 
-    function Pencil{D}(comm_cart::MPI.Comm, size_global::NTuple{3}) where D
-        # Get dimensions of MPI topology.
-        # This will fail if comm_cart doesn't have Cartesian topology!
-        Ndims = MPI_Cartdim_get(comm_cart)
-
-        if Ndims != 2
-            throw(ArgumentError(
-                "Cartesian communicator must have two dimensions."))
-        end
-
-        cart_dims, cart_coords_local = let maxdims = 2
-            dims, _, coords = MPI_Cart_get(comm_cart, maxdims)
-            coords .+= 1  # switch to one-based indexing
-            (dims[1], dims[2]), (coords[1], coords[2])
-        end
-
-        cart_ranks = get_cart_ranks_matrix(comm_cart)
-        @assert cart_ranks[cart_coords_local...] == MPI.Comm_rank(comm_cart)
-
-        axes_all = get_axes_matrix(Val(D), cart_dims, size_global)
-        axes_local = axes_all[cart_coords_local...]
-
-        new{D}(comm_cart, cart_dims, cart_coords_local, cart_ranks,
-               size_global, axes_all, axes_local)
+    function Pencil{D}(comm_cart::MPI.Comm, size_global::Dims{3}) where D
+        topology = Topology{2}(comm_cart)
+        axes_all = get_axes_matrix(Val(D), topology.dims, size_global)
+        axes_local = axes_all[topology.coords_local...]
+        new{D}(topology, size_global, axes_all, axes_local)
     end
 
     # Case S = D (not very useful...)
@@ -100,11 +122,23 @@ struct Pencil{D}
 
     # General case S != D
     function Pencil{D}(p::Pencil{S}) where {D, S}
-        axes_all = get_axes_matrix(Val(D), p.cart_dims, p.size_global)
-        axes_local = axes_all[p.cart_coords_local...]
-        new(p.comm, p.cart_dims, p.cart_coords_local, p.cart_ranks,
-            p.size_global, axes_all, axes_local)
+        axes_all = get_axes_matrix(Val(D), p.topology.dims, p.size_global)
+        axes_local = axes_all[p.topology.coords_local...]
+        new(p.topology, p.size_global, axes_all, axes_local)
     end
 end
+
+include("data_ranges.jl")
+include("mpi_topology.jl")
+include("transpose.jl")
+
+size_local(p::Pencil) = length.(p.axes_local)
+
+"""
+    allocate(p::Pencil, [T=Float64])
+
+Allocate uninitialised 3D array with the dimensions of the given pencil.
+"""
+allocate(p::Pencil, ::Type{T}=Float64) where T = Array{T}(undef, size_local(p))
 
 end

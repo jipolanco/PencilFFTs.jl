@@ -12,4 +12,12 @@ Pencils
 
 ```@docs
 Pencil{D}
+Topology{N}
+```
+
+## Functions
+
+```@docs
+allocate
+transpose!
 ```
