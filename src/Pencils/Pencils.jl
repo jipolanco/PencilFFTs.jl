@@ -17,6 +17,9 @@ export transpose!
 # Describes the portion of an array held by a given MPI process.
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
+# Describes indices of an array as a tuple.
+const Indices{N} = NTuple{N,Int} where N
+
 # Number of dimensions of Cartesian MPI topology.
 const TOPOLOGY_DIMS = 2
 
@@ -166,6 +169,7 @@ end
 
 include("data_ranges.jl")
 include("mpi_topology.jl")
+include("permutations.jl")
 include("transpose.jl")
 
 """
@@ -176,35 +180,6 @@ Get index permutation associated to the given pencil.
 Returns `nothing` if there is no associated permutation.
 """
 index_permutation(p::Pencil) = p.perm
-
-# Permute tuple values.
-permute_indices(t::NTuple, ::Nothing) = t
-permute_indices(t::NTuple{N}, perm::Permutation{N}) where N = map(p -> t[p], perm)
-permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
-
-# Get "relative" permutation needed to get from `x` to `y`, i.e., such
-# that `permute_indices(x, perm) == y`.
-# It is **assumed** that both tuples have the same elements, possibly in
-# different order.
-function relative_permutation(x::Permutation{N}, y::Permutation{N}) where {N}
-    # TODO There must be a better algorithm for this...
-    perm = map(y) do v
-        findfirst(u -> u == v, x) :: Int
-    end
-    @assert permute_indices(x, perm) === y
-    perm
-end
-
-relative_permutation(::Nothing, y::Permutation) = y
-relative_permutation(::Nothing, ::Nothing) = nothing
-
-# In this case, the result is the inverse permutation of `x`, such that
-# `permute_indices(x, perm) == (1, 2, 3, ...)`.
-relative_permutation(x::Permutation{N}, ::Nothing) where N =
-    relative_permutation(x, ntuple(n -> n, N))  # TODO better way to do this?
-
-relative_permutation(p::Pencil, q::Pencil) =
-    relative_permutation(p.perm, q.perm)
 
 # Dimensions (Nx, Ny, Nz) of local data (possibly permuted).
 # Set `permute=nothing` to disable index permutation.
@@ -223,6 +198,23 @@ function size_remote(p::Pencil, dims::Vararg{Union{Int,Colon},TOPOLOGY_DIMS};
     # Returns an array with as many dimensions as colons in `dims`.
     axes = p.axes_all[dims...]
     [permute_indices(length.(ax), permute) for ax in axes]
+end
+
+"""
+    to_local(p::Pencil, global_inds; permute=p.perm)
+
+Convert non-permuted global indices to local indices, which are permuted by default.
+"""
+to_local(p::Pencil, global_inds::Indices{3}; permute=p.perm) =
+    permute_indices(global_inds .- first.(p.axes_local) .+ 1, permute)
+
+function to_local(p::Pencil, global_inds::ArrayRegion{3}; permute=p.perm)
+    ind = map(global_inds, p.axes_local) do rg, rl
+        @assert step(rg) == 1
+        δ = 1 - first(rl)
+        (first(rg) + δ):(last(rg) + δ)
+    end :: ArrayRegion{3}
+    permute_indices(ind, permute)
 end
 
 """

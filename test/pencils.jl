@@ -66,6 +66,9 @@ function main()
         # @code_warntype Pencils.Topology{2}(comm)
         # @code_warntype Pencils.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
+        # @code_warntype Pencils.to_local(pen2, (1, 2, 3))
+        # @code_warntype Pencils.to_local(pen2, (1:2, 1:2, 1:2))
+
         # @code_warntype Pencils.put_colon(Val(1), (2, 3, 4))
 
         # @code_warntype Pencils.size_remote(pen1, 1, 1)

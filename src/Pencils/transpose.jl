@@ -100,14 +100,16 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     recv_req = similar(send_req)
 
     for n in eachindex(send)
-        # Dimensions of data that I need to send to (receive from) process n.
+        # Global data range that I need to send to process n.
         # Intersections must be done with unpermuted indices!
-        # Data is sent and received with the permutation associated to Pin.
-        sdims = permute_indices(length.(intersect.(idims_local, odims[n])), Pin)
+        # Note: Data is sent and received with the permutation associated to Pin.
+        srange = permute_indices((intersect.(idims_local, odims[n])), Pin)
+
+        # Dimensions of data that I will receive from process n.
         rdims = permute_indices(length.(intersect.(odims_local, idims[n])), Pin)
 
         # TODO avoid copy / allocation!!
-        send[n] = in[Base.OneTo.(sdims)...]
+        send[n] = in[to_local(Pin, srange)...]
         recv[n] = Array{T,N}(undef, rdims...)
 
         # Send data to process.
@@ -127,18 +129,18 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     # ordering to Pout ordering.
     let perm = relative_permutation(Pin, Pout)
         for n in eachindex(recv)
-            # TODO avoid repeated operations...
-            # Non-permuted indices of received data.
-            nind = intersect.(odims_local, idims[n])
+            # TODO
+            # - avoid repeated operations...
+            # - use more consistent variable names with the code above
 
-            # Permuted indices of output data.
-            oind = permute_indices(nind, Pout)
+            # Non-permuted global indices of received data.
+            rrange = intersect.(odims_local, idims[n])
 
-            # TODO this is probably not very efficient...
-            for I in CartesianIndices(oind)
-                J = permute_indices(Tuple(I), perm)
-                out[I] = recv[n][J...]
-            end
+            # Permuted local indices of output data.
+            orange = to_local(Pout, rrange)
+
+            # Copy locally transposed data to `out`.
+            permutedims!(@view(out[orange...]), recv[n], perm)
         end
     end
 

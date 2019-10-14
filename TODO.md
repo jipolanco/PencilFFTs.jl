@@ -33,6 +33,9 @@
 
 - try to add new `MPI.Cart_*` functions to `MPI.jl`
 
+- compatibility with other distributed array packages? (`MPIArrays`,
+  `DistributedArrays`?)
+
 ## Other ideas
 
 - Define arrays with [custom
