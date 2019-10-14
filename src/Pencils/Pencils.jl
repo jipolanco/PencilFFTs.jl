@@ -187,6 +187,7 @@ permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
 # It is **assumed** that both tuples have the same elements, possibly in
 # different order.
 function relative_permutation(x::Permutation{N}, y::Permutation{N}) where {N}
+    # TODO There must be a better algorithm for this...
     perm = map(y) do v
         findfirst(u -> u == v, x) :: Int
     end
@@ -198,9 +199,9 @@ relative_permutation(::Nothing, y::Permutation) = y
 relative_permutation(::Nothing, ::Nothing) = nothing
 
 # In this case, the result is the inverse permutation of `x`, such that
-# `permute_indices(x, nothing) == (1, 2, 3, ...)`.
-# Also note that the inverse permutation of `x` is `x` itself!
-relative_permutation(x::Permutation, ::Nothing) = x
+# `permute_indices(x, perm) == (1, 2, 3, ...)`.
+relative_permutation(x::Permutation{N}, ::Nothing) where N =
+    relative_permutation(x, ntuple(n -> n, N))  # TODO better way to do this?
 
 relative_permutation(p::Pencil, q::Pencil) =
     relative_permutation(p.perm, q.perm)

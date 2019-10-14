@@ -38,6 +38,10 @@ function main()
         @test Pencils.permute_indices((:a, :b, :c), (2, 3, 1)) === (:b, :c, :a)
         a2b = Pencils.relative_permutation(a, b)
         @test Pencils.permute_indices(a, a2b) === b
+
+        x = (3, 1, 2)
+        x2nothing = Pencils.relative_permutation(x, nothing)
+        @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
     end
 
     if myrank == 0
@@ -70,7 +74,8 @@ function main()
         # @code_warntype Pencils.size_remote(pen1, :, :)
 
         # @code_warntype Pencils.permute_indices(Nxyz, (2, 3, 1))
-        @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
+        # @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
+        # @code_warntype Pencils.relative_permutation((1, 2, 3), nothing)
 
         @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
     end
