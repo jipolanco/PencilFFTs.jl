@@ -91,6 +91,7 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     # - avoid allocations and copies
     # - avoid sending data to myself
     # - use @inbounds
+    # - compare with MPI.Alltoallv
 
     # 1. Send and receive data (TODO avoid allocations...)
     send = Vector{Array{T,N}}(undef, Nproc)
@@ -112,12 +113,11 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
         send[n] = in[to_local(Pin, srange)...]
         recv[n] = Array{T,N}(undef, rdims...)
 
-        # Send data to process.
-        let tag = 42
-            rank = topology.ranks[R][n]  # actual rank of the other process
-            send_req[n] = MPI.Isend(send[n], rank, tag, comm)
-            recv_req[n] = MPI.Irecv!(recv[n], rank, tag, comm)
-        end
+        # Exchange data with the other process (non-blocking operations).
+        tag = 42
+        rank = topology.ranks[R][n]  # actual rank of the other process
+        send_req[n] = MPI.Isend(send[n], rank, tag, comm)
+        recv_req[n] = MPI.Irecv!(recv[n], rank, tag, comm)
     end
 
     # TODO
@@ -128,6 +128,7 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     # Here we need to know the relative index permutation to go from Pin
     # ordering to Pout ordering.
     let perm = relative_permutation(Pin, Pout)
+        no_perm = perm === nothing || perm === identity_permutation(Val(3))
         for n in eachindex(recv)
             # TODO
             # - avoid repeated operations...
@@ -139,8 +140,15 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
             # Permuted local indices of output data.
             orange = to_local(Pout, rrange)
 
-            # Copy locally transposed data to `out`.
-            permutedims!(@view(out[orange...]), recv[n], perm)
+            src = recv[n]
+            dest = @view out[orange...]
+
+            # Copy data to `out`, permuting dimensions if required.
+            if no_perm
+                copy!(dest, src)
+            else
+                permutedims!(dest, recv[n], perm)
+            end
         end
     end
 
