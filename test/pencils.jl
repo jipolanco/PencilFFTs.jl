@@ -80,7 +80,7 @@ function main()
         # @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
         # @code_warntype Pencils.relative_permutation((1, 2, 3), nothing)
 
-        @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
+        # @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
     end
 
     MPI.Finalize()

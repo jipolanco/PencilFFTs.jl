@@ -61,6 +61,7 @@ function transpose_impl!(out::AbstractArray{T,N}, Pout::Pencil{2},
     # Transposition is performed in the first Cartesian dimension
     # (P1 = 2 -> 1), hence R = 1.
     # TODO what happens if I put Val(2)? Error somewhere?
+    @assert Pin.decomp_dims[1] == 2 && Pout.decomp_dims[1] == 1
     transpose_impl!(Val(1), out, Pout, in, Pin)
 end
 
@@ -128,7 +129,7 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     # Here we need to know the relative index permutation to go from Pin
     # ordering to Pout ordering.
     let perm = relative_permutation(Pin, Pout)
-        no_perm = perm === nothing || perm === identity_permutation(Val(3))
+        no_perm = is_identity_permutation(perm)
         for n in eachindex(recv)
             # TODO
             # - avoid repeated operations...

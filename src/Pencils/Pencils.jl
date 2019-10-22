@@ -141,6 +141,12 @@ struct Pencil{D, P<:OptionalPermutation{3}}
     # These dimensions are *before* permutation by perm.
     size_global :: Dims{3}
 
+    # Decomposition directions.
+    # Example: for x-pencils, this is (2, 3).
+    # TODO remove the `D` parameter and make this an input.
+    # Also generalise 2 -> N.
+    decomp_dims :: NTuple{2,Int}
+
     # Part of the array held by every process.
     # These dimensions are *before* permutation by perm.
     axes_all :: Array{ArrayRegion{3}, TOPOLOGY_DIMS}
@@ -154,19 +160,22 @@ struct Pencil{D, P<:OptionalPermutation{3}}
     function Pencil{D}(comm_cart::MPI.Comm, size_global::Dims{3};
                        permute::P=nothing) where {D, P<:OptionalPermutation{3}}
         topology = Topology{2}(comm_cart)
+        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(3 - 1))  # example: D = 2 -> (1, 3)
         axes_all = get_axes_matrix(Val(D), topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
-        new{D,P}(topology, size_global, axes_all, axes_local, permute)
+        new{D,P}(topology, size_global, decomp_dims, axes_all, axes_local, permute)
     end
 
     function Pencil{D}(p::Pencil{S}; permute::P=nothing) where
             {D, S, P<:OptionalPermutation{3}}
+        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(3 - 1))
         axes_all = get_axes_matrix(Val(D), p.topology.dims, p.size_global)
         axes_local = axes_all[p.topology.coords_local...]
-        new{D,P}(p.topology, p.size_global, axes_all, axes_local, permute)
+        new{D,P}(p.topology, p.size_global, decomp_dims, axes_all, axes_local, permute)
     end
 end
 
+include("arrays.jl")
 include("data_ranges.jl")
 include("mpi_topology.jl")
 include("permutations.jl")
@@ -216,14 +225,5 @@ function to_local(p::Pencil, global_inds::ArrayRegion{3}; permute=p.perm)
     end :: ArrayRegion{3}
     permute_indices(ind, permute)
 end
-
-"""
-    allocate(p::Pencil, [T=Float64])
-
-Allocate uninitialised 3D array with the dimensions of the given pencil.
-
-Data is permuted if the pencil was defined with a given permutation.
-"""
-allocate(p::Pencil, ::Type{T}=Float64) where T = Array{T}(undef, size_local(p))
 
 end
