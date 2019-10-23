@@ -10,8 +10,9 @@ using MPI
 
 import Base: ndims
 
-export Pencil
-export allocate, index_permutation
+export Pencil, PencilArray
+export index_permutation
+export size_local
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.
@@ -20,18 +21,40 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 # Describes indices of an array as a tuple.
 const Indices{N} = NTuple{N,Int} where N
 
-# Number of dimensions of Cartesian MPI topology.
+# Number of dimensions of Cartesian MPI topology (this will be removed...).
 const TOPOLOGY_DIMS = 2
 
+# Number of spatial dimensions (this will be removed...).
+const SPATIAL_DIMS = 3
+
 # TODO
-# - define PencilArray array wrappers containing data + pencil info
 # - define PencilArray data allocators from one or more pencils.
 #   The returned array must be large enough to fit data from all pencils.
+# - rename Topology -> MPITopology / DistributedTopology
 
 """
     Topology{N}
 
 Describes an N-dimensional Cartesian MPI decomposition topology.
+
+---
+
+    Topology(comm::MPI.Comm, pdims::Dims{N}) where N
+
+Create N-dimensional MPI topology information.
+
+The `pdims` tuple specifies the number of MPI processes to put in every
+dimension of the topology. The product of its values must be equal to the number
+of processes in communicator `comm`.
+
+# Example
+
+```julia
+# Divide 2D topology into 4×2 blocks.
+comm = MPI.COMM_WORLD
+@assert MPI.Comm_size(comm) == 8
+topology = Topology(comm, (4, 2))
+```
 
 ---
 
@@ -45,7 +68,7 @@ struct Topology{N}
     # MPI communicator with Cartesian topology.
     comm :: MPI.Comm
 
-    # Subcommunicators associated to the two decomposed directions.
+    # Subcommunicators associated to the decomposed directions.
     subcomms :: NTuple{N,MPI.Comm}
 
     # Number of MPI processes along the decomposed directions.
@@ -58,6 +81,16 @@ struct Topology{N}
     # Maps Cartesian coordinates to MPI ranks in each of the `subcomms`
     # communicators.
     ranks :: NTuple{N,Vector{Int}}
+
+    function Topology(comm::MPI.Comm, pdims::Dims{N}) where N
+        # Create Cartesian communicator.
+        comm_cart = let dims = collect(pdims) :: Vector{Int}
+            periods = zeros(Int, N)  # this is not very important...
+            reorder = false
+            MPI.Cart_create(comm, dims, periods, reorder)
+        end
+        Topology{N}(comm_cart)
+    end
 
     function Topology{N}(comm_cart::MPI.Comm) where N
         # Get dimensions of MPI topology.
@@ -90,24 +123,31 @@ ndims(t::Topology{N}) where N = N
 const Permutation{N} = NTuple{N,Int}
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
+# TODO
+# Generalise Pencil
+# - replace pencil orientation `D` with decomposition dimensions `decomp_dims`
+#   (with dimension `M`). This will enable slab decomposition.
+# - add parameter M = number of decomposed directions
+# - add parameter N = total number of dimensions
+# - don't require Cartesian communicator
+
 """
-    Pencil{D}
+    Pencil{D,N}
 
-Describes the decomposition of a 3D array in a single pencil decomposition
-configuration.
+Describes the decomposition of an N-dimensional Cartesian geometry among MPI
+processes.
 
-The pencil is oriented in the direction `D` (with `D ∈ 1:3`), meaning that
-MPI decomposition is performed in the other two directions.
+The pencil is oriented in the direction `D` (with `D ∈ 1:N`), meaning that
+MPI decomposition is performed in the other directions.
 
 ---
 
-    Pencil{D}(comm_cart::MPI.Comm, size_global; permute::P=nothing) where {D, P}
+    Pencil{D}(topology::Topology, size_global; permute::P=nothing) where {D, P}
 
-Define pencil decomposition along direction `D` for an array of dimensions
-`size_global = (Nx, Ny, Nz)`.
+Define pencil decomposition along direction `D` for an N-dimensional array of
+size `size_global = (N1, N2, ...)`.
 
-The MPI communicator `comm_cart` must have a 2D Cartesian topology.
-This kind of communicator is usually obtained from `MPI.Cart_create`.
+Data is distributed over the given M-dimensional MPI topology (with `M < N`).
 
 The optional parameter `perm` should be a tuple defining a permutation of the
 data indices. This may be useful for performance reasons, since it may be
@@ -117,8 +157,8 @@ direction.
 # Examples
 
 ```julia
-Pencil{D}(comm, (4, 8, 12))             # data is in (Nx, Ny, Nz) order
-Pencil{D}(comm, (4, 8, 12), (3, 2, 1))  # data is in (Nz, Ny, Nx) order
+Pencil{D}(topology, (4, 8, 12))             # data is in (Nx, Ny, Nz) order
+Pencil{D}(topology, (4, 8, 12), (3, 2, 1))  # data is in (Nz, Ny, Nx) order
 ```
 
 ---
@@ -131,49 +171,61 @@ The new pencil is constructed in a way that enables efficient data
 transpositions between the two configurations.
 
 """
-struct Pencil{D, P<:OptionalPermutation{3}}
+struct Pencil{D, P<:OptionalPermutation{SPATIAL_DIMS}}
     # Two-dimensional MPI decomposition info.
     # This should be the same for all pencil configurations.
-    # TODO generalise to N dimensions (1 <= N <= 3)?
     topology :: Topology{TOPOLOGY_DIMS}
 
     # Global array dimensions (Nx, Ny, Nz).
     # These dimensions are *before* permutation by perm.
-    size_global :: Dims{3}
+    size_global :: Dims{SPATIAL_DIMS}
 
     # Decomposition directions.
     # Example: for x-pencils, this is (2, 3).
     # TODO remove the `D` parameter and make this an input.
-    # Also generalise 2 -> N.
-    decomp_dims :: NTuple{2,Int}
+    # Also generalise TOPOLOGY_DIMS -> M.
+    decomp_dims :: NTuple{TOPOLOGY_DIMS,Int}
 
     # Part of the array held by every process.
     # These dimensions are *before* permutation by perm.
-    axes_all :: Array{ArrayRegion{3}, TOPOLOGY_DIMS}
+    axes_all :: Array{ArrayRegion{SPATIAL_DIMS}, TOPOLOGY_DIMS}
 
-    # Part of the array held by the local process.
-    axes_local :: ArrayRegion{3}
+    # Part of the array held by the local process (before permutation).
+    axes_local :: ArrayRegion{SPATIAL_DIMS}
+
+    # Part of the array held by the local process (after permutation).
+    axes_local_perm :: ArrayRegion{SPATIAL_DIMS}
 
     # Optional axes permutation.
     perm :: P
 
-    function Pencil{D}(comm_cart::MPI.Comm, size_global::Dims{3};
-                       permute::P=nothing) where {D, P<:OptionalPermutation{3}}
-        topology = Topology{2}(comm_cart)
-        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(3 - 1))  # example: D = 2 -> (1, 3)
+    function Pencil{D}(topology::Topology{M}, size_global::Dims{SPATIAL_DIMS};
+                       permute::P=nothing) where {D, P, M}
+        @assert M === TOPOLOGY_DIMS === SPATIAL_DIMS - 1  # for now...
+        # Example: D = 2 -> decomp_dims = (1, 3)
+        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(SPATIAL_DIMS - 1))
         axes_all = get_axes_matrix(Val(D), topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
-        new{D,P}(topology, size_global, decomp_dims, axes_all, axes_local, permute)
+        axes_local_perm = permute_indices(axes_local, permute)
+        new{D,P}(topology, size_global, decomp_dims, axes_all, axes_local,
+                 axes_local_perm, permute)
     end
 
     function Pencil{D}(p::Pencil{S}; permute::P=nothing) where
-            {D, S, P<:OptionalPermutation{3}}
-        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(3 - 1))
-        axes_all = get_axes_matrix(Val(D), p.topology.dims, p.size_global)
-        axes_local = axes_all[p.topology.coords_local...]
-        new{D,P}(p.topology, p.size_global, decomp_dims, axes_all, axes_local, permute)
+            {D, S, P<:OptionalPermutation{SPATIAL_DIMS}}
+        Pencil{D}(p.topology, p.size_global, permute=permute)
     end
 end
+
+"""
+    ndims(p::Pencil)
+
+Number of spatial dimensions associated to pencil data.
+
+This corresponds to the total number of dimensions of the space, which includes
+the decomposed and non-decomposed dimensions.
+"""
+ndims(::Pencil) = SPATIAL_DIMS
 
 include("arrays.jl")
 include("data_ranges.jl")
@@ -190,10 +242,16 @@ Returns `nothing` if there is no associated permutation.
 """
 index_permutation(p::Pencil) = p.perm
 
-# Dimensions (Nx, Ny, Nz) of local data (possibly permuted).
-# Set `permute=nothing` to disable index permutation.
-size_local(p::Pencil; permute=p.perm) =
-    permute_indices(length.(p.axes_local), permute)
+"""
+    size_local(p::Pencil; permute=true)
+
+Local dimensions of the Cartesian grid held by the pencil.
+
+By default the dimensions are permuted to match those of the associated data
+arrays.
+"""
+size_local(p::Pencil; permute::Bool=true) :: Dims{SPATIAL_DIMS} =
+    length.(permute ? p.axes_local_perm : p.axes_local)
 
 # Dimensions of remote data for a single process.
 # TODO do I need this?

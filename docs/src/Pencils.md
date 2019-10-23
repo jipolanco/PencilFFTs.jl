@@ -11,15 +11,19 @@ Pencils
 ## Types
 
 ```@docs
-Pencil{D}
-Topology{N}
+Topology
+Pencil
+PencilArray
 ```
 
 ## Functions
 
 ```@docs
-allocate
+gather
 index_permutation
+ndims
+size_local
+to_local
 transpose!
 ```
 
