@@ -11,25 +11,32 @@ const ITERATIONS = 100
 
 mutable struct BenchTimes
     iterations :: Int
-    transpositions :: Vector{Float64}
-    BenchTimes() = new(0, zeros(4))
+    transpositions :: Matrix{Float64}
+    BenchTimes() = new(0, zeros(2, 2))
 end
 
 function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
     topo = Topology(comm, proc_dims)
+    M = length(proc_dims)
+    @assert M in (1, 2)
 
-    pen1 = Pencil(topo, data_dims, (2, 3))
-    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
-    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+    if M == 1  # slab decomposition
+        pen1 = Pencil(topo, data_dims, (2, ))
+        pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
+        pen3 = Pencil(pen2, (1, ), permute=(3, 2, 1))
+    elseif M == 2  # pencil decomposition
+        pen1 = Pencil(topo, data_dims, (2, 3))
+        pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
+        pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+    end
 
-    u1 = PencilArray(pen1, Float64)
-    u2 = PencilArray(pen2, Float64)
-    u3 = PencilArray(pen3, Float64)
+    u = PencilArray.((pen1, pen2, pen3), Float64)
 
     myrank = MPI.Comm_rank(comm)
     rng = MersenneTwister(42 + myrank)
-    randn!(rng, u1)
-    u1 .+= 10 * myrank
+    randn!(rng, u[1])
+    u[1] .+= 10 * myrank
+    u_orig = copy(u[1])
 
     times = BenchTimes()
 
@@ -38,25 +45,27 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
 
         # TODO create macro
         let t0 = MPI.Wtime()
-            transpose!(u2, u1)
-            times.transpositions[1] += MPI.Wtime() - t0
+            transpose!(u[2], u[1])
+            times.transpositions[1, 1] += MPI.Wtime() - t0
         end
 
         let t0 = MPI.Wtime()
-            transpose!(u3, u2)
-            times.transpositions[2] += MPI.Wtime() - t0
+            transpose!(u[3], u[2])
+            times.transpositions[2, 1] += MPI.Wtime() - t0
         end
 
         let t0 = MPI.Wtime()
-            transpose!(u2, u3)
-            times.transpositions[3] += MPI.Wtime() - t0
+            transpose!(u[2], u[3])
+            times.transpositions[1, 2] += MPI.Wtime() - t0
         end
 
         let t0 = MPI.Wtime()
-            transpose!(u1, u2)
-            times.transpositions[4] += MPI.Wtime() - t0
+            transpose!(u[1], u[2])
+            times.transpositions[2, 2] += MPI.Wtime() - t0
         end
     end
+
+    @test u[1] == u_orig
 
     times.transpositions ./= times.iterations
 
@@ -76,6 +85,13 @@ function main()
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
+
+    # Slab decompositions
+    benchmark_decomp(comm, (Nproc, ), DIMS)
+
+    # Pencil decompositions
+    benchmark_decomp(comm, (1, Nproc), DIMS)
+    benchmark_decomp(comm, (Nproc, 1), DIMS)
 
     # Let MPI_Dims_create choose the decomposition.
     proc_dims = let pdims = zeros(Int, 2)
