@@ -4,7 +4,7 @@
 
 import MPI: mpiexec
 
-const TEST_FILES = ("pencils.jl", "test_base.jl", )
+const TEST_FILES = ("pencils.jl", "test_base.jl", "benchmarks.jl")
 
 function main()
     Nproc = clamp(Sys.CPU_THREADS, 4, 8)

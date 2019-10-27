@@ -11,7 +11,7 @@ using MPI
 import Base: ndims, size, length
 import LinearAlgebra: transpose!
 
-export Pencil, PencilArray
+export Pencil, PencilArray, Topology
 export gather
 export get_comm
 export index_permutation
@@ -156,8 +156,6 @@ const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 # Generalise Pencil
 # - replace pencil orientation `D` with decomposition dimensions `decomp_dims`
 #   (with dimension `M`). This will enable slab decomposition.
-# - add parameter M = number of decomposed directions
-# - add parameter N = total number of dimensions
 # - don't require Cartesian communicator
 
 """

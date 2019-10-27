@@ -22,8 +22,10 @@ PencilArray
 gather
 get_comm
 index_permutation
+length
 ndims
 ndims_extra
+size
 size_global
 size_local
 to_local

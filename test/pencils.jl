@@ -55,7 +55,7 @@ end
 function main()
     MPI.Init()
 
-    Nxyz = (160, 221, 203)
+    Nxyz = (16, 21, 41)
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
@@ -92,9 +92,6 @@ function main()
         @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
     end
 
-    @test Pencils.put_colon(Val(1), (2, 3, 4)) === (:, 3, 4)
-    @test Pencils.put_colon(Val(3), (2, 3, 4)) === (2, 3, :)
-
     @assert Pencils.size_local(pen1) ==
         Pencils.size_remote(pen1, pen1.topology.coords_local...)
 
@@ -126,8 +123,6 @@ function main()
         # @code_warntype Pencils.to_local(pen2, (1:2, 1:2, 1:2))
 
         # @code_warntype Pencils.size_local(pen2)
-
-        # @code_warntype Pencils.put_colon(Val(1), (2, 3, 4))
 
         # @code_warntype PencilArray(pen2)
         # @code_warntype PencilArray(pen2, 3, 4)
