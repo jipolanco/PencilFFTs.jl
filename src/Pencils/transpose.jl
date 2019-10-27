@@ -119,7 +119,7 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
 
         # Exchange data with the other process (non-blocking operations).
         tag = 42
-        rank = topology.ranks[R][n]  # actual rank of the other process
+        rank = topology.subcomm_ranks[R][n]  # actual rank of the other process
         send_req[n] = MPI.Isend(send[n], rank, tag, comm)
         recv_req[n] = MPI.Irecv!(recv[n], rank, tag, comm)
     end

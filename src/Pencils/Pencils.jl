@@ -8,9 +8,12 @@ module Pencils
 
 using MPI
 
-import Base: ndims
+import Base: ndims, size, length
+import LinearAlgebra: transpose!
 
 export Pencil, PencilArray
+export gather
+export get_comm
 export index_permutation
 export ndims_extra
 export size_local, size_global
@@ -79,9 +82,12 @@ struct Topology{N}
     # Indices are >= 1.
     coords_local :: Dims{N}
 
+    # Maps Cartesian coordinates to MPI ranks in the `comm` communicator.
+    ranks :: Array{Int,N}
+
     # Maps Cartesian coordinates to MPI ranks in each of the `subcomms`
-    # communicators.
-    ranks :: NTuple{N,Vector{Int}}
+    # subcommunicators.
+    subcomm_ranks :: NTuple{N,Vector{Int}}
 
     function Topology(comm::MPI.Comm, pdims::Dims{N}) where N
         # Create Cartesian communicator.
@@ -112,14 +118,42 @@ struct Topology{N}
         subcomms = create_subcomms(Val(N), comm_cart)
         @assert MPI.Comm_size.(subcomms) === dims
 
-        ranks = get_cart_ranks_subcomm.(subcomms)
-        # @assert ranks[coords_local...] == MPI.Comm_rank(comm_cart)
+        ranks = get_cart_ranks(Val(N), comm_cart)
+        @assert ranks[coords_local...] == MPI.Comm_rank(comm_cart)
 
-        new{N}(comm_cart, subcomms, dims, coords_local, ranks)
+        subcomm_ranks = get_cart_ranks_subcomm.(subcomms)
+
+        new{N}(comm_cart, subcomms, dims, coords_local, ranks, subcomm_ranks)
     end
 end
 
+"""
+    ndims(t::Topology)
+
+Get dimensionality of Cartesian topology.
+"""
 ndims(t::Topology{N}) where N = N
+
+"""
+    size(t::Topology)
+
+Get dimensions of Cartesian topology.
+"""
+size(t::Topology) = t.dims
+
+"""
+    length(t::Topology)
+
+Get total size of Cartesian topology (i.e. total number of MPI processes).
+"""
+length(t::Topology) = prod(size(t))
+
+"""
+    get_comm(t::Topology)
+
+Get MPI communicator associated to an MPI Cartesian topology.
+"""
+get_comm(t::Topology) = t.comm
 
 const Permutation{N} = NTuple{N,Int}
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
@@ -227,6 +261,13 @@ This corresponds to the total number of dimensions of the space, which includes
 the decomposed and non-decomposed dimensions.
 """
 ndims(::Pencil) = SPATIAL_DIMS
+
+"""
+    get_comm(p::Pencil)
+
+Get MPI communicator associated to an MPI decomposition scheme.
+"""
+get_comm(p::Pencil) = get_comm(p.topology)
 
 include("arrays.jl")
 include("data_ranges.jl")

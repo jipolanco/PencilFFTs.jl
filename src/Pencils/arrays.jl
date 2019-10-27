@@ -102,18 +102,85 @@ associated pencil configuration.
 size_global(x::PencilArray) = (x.extra_dims..., size_global(x.pencil)...)
 
 """
-    gather(x::PencilArray, root::Integer)
+    get_comm(x::PencilArray)
+
+Get MPI communicator associated to a pencil-distributed array.
+"""
+get_comm(x::PencilArray) = get_comm(x.pencil)
+
+"""
+    gather(x::PencilArray, [root::Integer=0])
 
 Gather data from all MPI processes into one (big) array.
 
 Data is received by the `root` process.
 
+Returns the full array on the `root` process, and `nothing` on the other
+processes.
+
 This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
-function gather(x::PencilArray, root::Integer)
-    comm = p.topology.comm
+function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
+    comm = get_comm(x)
     rank = MPI.Comm_rank(comm)
-    # TODO!!
-    nothing
+    mpi_tag = 42
+    pencil = x.pencil
+
+    # Each process sends its data to the root process.
+    # If the local indices are permuted, the permutation is reverted before
+    # sending the data.
+    data = let perm = pencil.perm
+        if is_identity_permutation(perm)
+            x.data
+        else
+            # Apply inverse permutation.
+            # TODO make this work with extra dimensions
+            invperm = relative_permutation(perm, nothing)
+            permutedims(x.data, invperm)  # creates copy!
+        end
+    end
+
+    send_req = MPI.Isend(data, root, mpi_tag, comm)
+
+    if rank != root
+        # Wait for data to be sent, then return.
+        MPI.Wait!(send_req)
+        return nothing
+    end
+
+    # Receive data (root only).
+    topo = pencil.topology
+    Nproc = length(topo)
+    recv = Vector{Array{T,N}}(undef, Nproc)
+    recv_req = Vector{MPI.Request}(undef, Nproc)
+
+    for n in eachindex(recv)
+        # Global data range that I will receive from process n.
+        # TODO make this work with extra dimensions
+        rrange = pencil.axes_all[n]
+        rdims = length.(rrange)
+
+        # TODO avoid allocation?
+        recv[n] = Array{T,N}(undef, rdims...)
+
+        src_rank = topo.ranks[n]  # actual rank of sending process
+        recv_req[n] = MPI.Irecv!(recv[n], src_rank, mpi_tag, comm)
+    end
+
+    # TODO
+    # - use Waitany! and unpack the data as soon as it's done
+    MPI.Wait!(send_req)  # root to root communication
+    MPI.Waitall!(recv_req)
+
+    # Unpack data.
+    dest = Array{T,N}(undef, size_global(x))
+
+    for n in eachindex(recv)
+        # TODO make this work with extra dimensions
+        rrange = pencil.axes_all[n]
+        dest[rrange...] .= recv[n]
+    end
+
+    dest
 end

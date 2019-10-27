@@ -5,6 +5,8 @@ using PencilFFTs.Pencils
 using MPI
 
 using InteractiveUtils
+using LinearAlgebra
+using Random
 using Test
 
 function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
@@ -30,9 +32,22 @@ function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
         w = PencilArray(p, zeros(T, 3, psize...))
         @test size_global(w) === (3, size_global(p)...)
 
-        @code_warntype PencilArray(p, zeros(T, 3, psize...))
-        @code_warntype size_global(w)
+        # @code_warntype PencilArray(p, zeros(T, 3, psize...))
+        # @code_warntype size_global(w)
     end
+
+    nothing
+end
+
+function compare_distributed_arrays(u_local::PencilArray, v_local::PencilArray)
+    u = gather(u_local)
+    v = gather(v_local)
+
+    if u === nothing || v === nothing
+        return
+    end
+
+    @test u == v
 
     nothing
 end
@@ -44,6 +59,8 @@ function main()
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
+
+    rng = MersenneTwister(42 + myrank)
 
     # Let MPI_Dims_create choose the values of (P1, P2).
     P1, P2 = let pdims = zeros(Int, 2)
@@ -90,7 +107,12 @@ function main()
     u1 = PencilArray(pen1)
     u2 = PencilArray(pen2)
 
+    # Set initial random data.
+    randn!(rng, u1)
+    u1 .+= 10 * myrank
+
     transpose!(u2, u1)
+    compare_distributed_arrays(u1, u2)
 
     if Nproc == 1
         # @code_warntype Pencils.create_subcomms(Val(2), comm)

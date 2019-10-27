@@ -20,6 +20,7 @@ PencilArray
 
 ```@docs
 gather
+get_comm
 index_permutation
 ndims
 ndims_extra
