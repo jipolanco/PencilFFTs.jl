@@ -12,7 +12,8 @@ import Base: ndims
 
 export Pencil, PencilArray
 export index_permutation
-export size_local
+export ndims_extra
+export size_local, size_global
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.
@@ -252,6 +253,17 @@ arrays.
 """
 size_local(p::Pencil; permute::Bool=true) :: Dims{SPATIAL_DIMS} =
     length.(permute ? p.axes_local_perm : p.axes_local)
+
+"""
+    size_global(p::Pencil)
+
+Global dimensions of the Cartesian grid associated to the given domain
+decomposition.
+
+Unlike `size_local`, the returned dimensions are *not* permuted to match the
+dimensions of the local data.
+"""
+size_global(p::Pencil) = p.size_global
 
 # Dimensions of remote data for a single process.
 # TODO do I need this?

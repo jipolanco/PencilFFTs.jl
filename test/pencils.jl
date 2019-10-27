@@ -27,7 +27,11 @@ function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
         @test_throws DimensionMismatch PencilArray(p, zeros(T, psize..., 3))
 
         # This is allowed.
-        PencilArray(p, zeros(T, 3, psize...))
+        w = PencilArray(p, zeros(T, 3, psize...))
+        @test size_global(w) === (3, size_global(p)...)
+
+        @code_warntype PencilArray(p, zeros(T, 3, psize...))
+        @code_warntype size_global(w)
     end
 
     nothing

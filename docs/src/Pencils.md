@@ -22,6 +22,8 @@ PencilArray
 gather
 index_permutation
 ndims
+ndims_extra
+size_global
 size_local
 to_local
 transpose!
