@@ -70,13 +70,14 @@ function main()
 
     topo = Pencils.Topology(comm, (P1, P2))
 
-    pen1 = Pencil{1}(topo, Nxyz)
-    pen2 = Pencil{2}(pen1, permute=(2, 1, 3))
-    pen3 = Pencil{3}(pen1, permute=(3, 2, 1))
+    pen1 = Pencil(topo, Nxyz, (2, 3))
+    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
 
     test_array_wrappers(pen2, Float32)
     test_array_wrappers(pen3, Float64)
 
+    @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) === (1, 42, 12, 1, 1)
     @test index_permutation(pen1) === nothing
     @test index_permutation(pen2) === (2, 1, 3)
 

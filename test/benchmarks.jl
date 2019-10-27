@@ -18,9 +18,9 @@ end
 function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
     topo = Topology(comm, proc_dims)
 
-    pen1 = Pencil{1}(topo, data_dims)
-    pen2 = Pencil{2}(pen1, permute=(2, 1, 3))
-    pen3 = Pencil{3}(pen1, permute=(3, 2, 1))
+    pen1 = Pencil(topo, data_dims, (2, 3))
+    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
 
     u1 = PencilArray(pen1, Float64)
     u2 = PencilArray(pen2, Float64)

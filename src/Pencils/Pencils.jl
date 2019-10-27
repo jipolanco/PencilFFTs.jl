@@ -154,27 +154,25 @@ const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
 # TODO
 # Generalise Pencil
-# - replace pencil orientation `D` with decomposition dimensions `decomp_dims`
-#   (with dimension `M`). This will enable slab decomposition.
 # - don't require Cartesian communicator
 
 """
-    Pencil{D,N}
+    Pencil{N,M}
 
-Describes the decomposition of an N-dimensional Cartesian geometry among MPI
-processes.
-
-The pencil is oriented in the direction `D` (with `D ∈ 1:N`), meaning that
-MPI decomposition is performed in the other directions.
+Describes the decomposition of an `N`-dimensional Cartesian geometry among MPI
+processes along `M` directions (with `M < N`).
 
 ---
 
-    Pencil{D}(topology::Topology, size_global; permute::P=nothing) where {D, P}
+    Pencil(topology::Topology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
+           permute::P=nothing) where {N, M, P}
 
-Define pencil decomposition along direction `D` for an N-dimensional array of
-size `size_global = (N1, N2, ...)`.
+Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
-Data is distributed over the given M-dimensional MPI topology (with `M < N`).
+The dimensions of the geometry are given by `size_global = (N1, N2, ...)`.
+
+Data is distributed over the given `M`-dimensional MPI topology (with `M < N`).
+The decomposed dimensions are given by `decomp_dims`. **SORTED?**
 
 The optional parameter `perm` should be a tuple defining a permutation of the
 data indices. This may be useful for performance reasons, since it may be
@@ -183,14 +181,18 @@ direction.
 
 # Examples
 
+Decompose a 3D geometry of global dimensions ``N_x × N_y × N_z = 4×8×12`` along
+the second (``y``) and third (``z``) dimensions.
 ```julia
-Pencil{D}(topology, (4, 8, 12))             # data is in (Nx, Ny, Nz) order
-Pencil{D}(topology, (4, 8, 12), (3, 2, 1))  # data is in (Nz, Ny, Nx) order
+Pencil(topology, (4, 8, 12), (2, 3))             # data is in (x, y, z) order
+Pencil(topology, (4, 8, 12), (2, 3), (3, 2, 1))  # data is in (z, y, x) order
 ```
+In the second case, the actual data is stored in `(z, y, x)` order within
+each MPI process.
 
 ---
 
-    Pencil{D}(p::Pencil{S}; permute::P=nothing) where {D, S, P}
+    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M}; permute::P=nothing)
 
 Create new pencil configuration from an existent one.
 
@@ -198,8 +200,7 @@ The new pencil is constructed in a way that enables efficient data
 transpositions between the two configurations.
 
 """
-struct Pencil{D,  # pencil orientation (will be removed...)
-              N,  # spatial dimensions
+struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
               P<:OptionalPermutation{N},  # optional index permutation
              }
@@ -212,7 +213,6 @@ struct Pencil{D,  # pencil orientation (will be removed...)
 
     # Decomposition directions.
     # Example: for x-pencils, this is (2, 3, ..., N).
-    # TODO remove the `D` parameter and make this an input.
     decomp_dims :: Dims{M}
 
     # Part of the array held by every process.
@@ -228,22 +228,19 @@ struct Pencil{D,  # pencil orientation (will be removed...)
     # Optional axes permutation.
     perm :: P
 
-    function Pencil{D}(topology::Topology{M}, size_global::Dims{N};
-                       permute::P=nothing) where
-            {D, N, M, P<:OptionalPermutation{N}}
-        @assert M === N - 1  # TODO remove requirement
-        # Example: (D = 2, M = 2, N = 3) -> decomp_dims = (1, 3)
-        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(M))
-        axes_all = get_axes_matrix(Val(D), topology.dims, size_global)
+    function Pencil(topology::Topology{M}, size_global::Dims{N},
+                    decomp_dims::Dims{M};
+                    permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
+        axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
-        new{D,N,M,P}(topology, size_global, decomp_dims, axes_all, axes_local,
-                     axes_local_perm, permute)
+        new{N,M,P}(topology, size_global, decomp_dims, axes_all, axes_local,
+                   axes_local_perm, permute)
     end
 
-    function Pencil{D}(p::Pencil{S,N}; permute::P=nothing) where
-            {D, S, N, P<:OptionalPermutation{N}}
-        Pencil{D}(p.topology, p.size_global, permute=permute)
+    function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M};
+                    permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
+        Pencil(p.topology, p.size_global, decomp_dims, permute=permute)
     end
 end
 
@@ -255,7 +252,7 @@ Number of spatial dimensions associated to pencil data.
 This corresponds to the total number of dimensions of the space, which includes
 the decomposed and non-decomposed dimensions.
 """
-ndims(::Pencil{D,N} where D) where N = N
+ndims(::Pencil{N}) where N = N
 
 """
     get_comm(p::Pencil)
@@ -287,7 +284,7 @@ Local dimensions of the Cartesian grid held by the pencil.
 By default the dimensions are permuted to match those of the associated data
 arrays.
 """
-size_local(p::Pencil{D,N} where D; permute::Bool=true) where N =
+size_local(p::Pencil{N}; permute::Bool=true) where N =
     length.(permute ? p.axes_local_perm : p.axes_local) :: Dims{N}
 
 """
@@ -303,13 +300,13 @@ size_global(p::Pencil) = p.size_global
 
 # Dimensions of remote data for a single process.
 # TODO do I need this?
-size_remote(p::Pencil{D,N,M} where {D,N}, coords::Vararg{Int,M};
+size_remote(p::Pencil{N,M} where N, coords::Vararg{Int,M};
             permute=p.perm) where M =
     permute_indices(length.(p.axes_all[coords...]), permute)
 
 # Dimensions (Nx, Ny, Nz) of remote data for multiple processes.
 # TODO do I need this?
-function size_remote(p::Pencil{D,N,M} where {D,N},
+function size_remote(p::Pencil{N,M} where N,
                      coords::Vararg{Union{Int,Colon},M};
                      permute=p.perm) where M
     # Returns an array with as many dimensions as colons in `dims`.
@@ -322,13 +319,13 @@ end
 
 Convert non-permuted global indices to local indices, which are permuted by default.
 """
-function to_local(p::Pencil{D,N} where D, global_inds::Indices{N};
+function to_local(p::Pencil{N}, global_inds::Indices{N};
                   permute=true) where N
     ind = global_inds .- first.(p.axes_local) .+ 1
     permute ? permute_indices(ind, p.perm) : ind
 end
 
-function to_local(p::Pencil{D,N} where D, global_inds::ArrayRegion{N};
+function to_local(p::Pencil{N}, global_inds::ArrayRegion{N};
                   permute=true) where N
     ind = map(global_inds, p.axes_local) do rg, rl
         @assert step(rg) == 1
