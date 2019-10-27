@@ -141,10 +141,9 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
         end
     end
 
-    send_req = MPI.Isend(data, root, mpi_tag, comm)
-
     if rank != root
         # Wait for data to be sent, then return.
+        send_req = MPI.Isend(data, root, mpi_tag, comm)
         MPI.Wait!(send_req)
         return nothing
     end
@@ -155,28 +154,34 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
     recv = Vector{Array{T,N}}(undef, Nproc)
     recv_req = Vector{MPI.Request}(undef, Nproc)
 
+    root_index = -1
+
     for n in eachindex(recv)
         # Global data range that I will receive from process n.
         # TODO make this work with extra dimensions
         rrange = pencil.axes_all[n]
         rdims = length.(rrange)
 
-        # TODO avoid allocation?
-        recv[n] = Array{T,N}(undef, rdims...)
-
         src_rank = topo.ranks[n]  # actual rank of sending process
-        recv_req[n] = MPI.Irecv!(recv[n], src_rank, mpi_tag, comm)
+        if src_rank == root
+            root_index = n
+            recv_req[n] = MPI.REQUEST_NULL
+        else
+            # TODO avoid allocation?
+            recv[n] = Array{T,N}(undef, rdims...)
+            recv_req[n] = MPI.Irecv!(recv[n], src_rank, mpi_tag, comm)
+        end
     end
-
-    # TODO
-    # - use Waitany! and unpack the data as soon as it's done
-    MPI.Wait!(send_req)  # root to root communication
-    MPI.Waitall!(recv_req)
 
     # Unpack data.
     dest = Array{T,N}(undef, size_global(x))
 
-    for n in eachindex(recv)
+    # Copy local data.
+    dest[pencil.axes_local...] .= data
+
+    # Copy remote data.
+    for m = 2:Nproc
+        n, status = MPI.Waitany!(recv_req)
         # TODO make this work with extra dimensions
         rrange = pencil.axes_all[n]
         dest[rrange...] .= recv[n]
