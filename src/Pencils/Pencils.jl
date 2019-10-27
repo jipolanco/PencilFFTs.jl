@@ -25,12 +25,6 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 # Describes indices of an array as a tuple.
 const Indices{N} = NTuple{N,Int} where N
 
-# Number of dimensions of Cartesian MPI topology (this will be removed...).
-const TOPOLOGY_DIMS = 2
-
-# Number of spatial dimensions (this will be removed...).
-const SPATIAL_DIMS = 3
-
 # TODO
 # - define PencilArray data allocators from one or more pencils.
 #   The returned array must be large enough to fit data from all pencils.
@@ -206,48 +200,51 @@ The new pencil is constructed in a way that enables efficient data
 transpositions between the two configurations.
 
 """
-struct Pencil{D, P<:OptionalPermutation{SPATIAL_DIMS}}
-    # Two-dimensional MPI decomposition info.
-    # This should be the same for all pencil configurations.
-    topology :: Topology{TOPOLOGY_DIMS}
+struct Pencil{D,  # pencil orientation (will be removed...)
+              N,  # spatial dimensions
+              M,  # MPI topology dimensions (< N)
+              P<:OptionalPermutation{N},  # optional index permutation
+             }
+    # M-dimensional MPI decomposition info (with M < N).
+    topology :: Topology{M}
 
-    # Global array dimensions (Nx, Ny, Nz).
+    # Global array dimensions (N1, N2, ...).
     # These dimensions are *before* permutation by perm.
-    size_global :: Dims{SPATIAL_DIMS}
+    size_global :: Dims{N}
 
     # Decomposition directions.
-    # Example: for x-pencils, this is (2, 3).
+    # Example: for x-pencils, this is (2, 3, ..., N).
     # TODO remove the `D` parameter and make this an input.
-    # Also generalise TOPOLOGY_DIMS -> M.
-    decomp_dims :: NTuple{TOPOLOGY_DIMS,Int}
+    decomp_dims :: Dims{M}
 
     # Part of the array held by every process.
     # These dimensions are *before* permutation by perm.
-    axes_all :: Array{ArrayRegion{SPATIAL_DIMS}, TOPOLOGY_DIMS}
+    axes_all :: Array{ArrayRegion{N}, M}
 
     # Part of the array held by the local process (before permutation).
-    axes_local :: ArrayRegion{SPATIAL_DIMS}
+    axes_local :: ArrayRegion{N}
 
     # Part of the array held by the local process (after permutation).
-    axes_local_perm :: ArrayRegion{SPATIAL_DIMS}
+    axes_local_perm :: ArrayRegion{N}
 
     # Optional axes permutation.
     perm :: P
 
-    function Pencil{D}(topology::Topology{M}, size_global::Dims{SPATIAL_DIMS};
-                       permute::P=nothing) where {D, P, M}
-        @assert M === TOPOLOGY_DIMS === SPATIAL_DIMS - 1  # for now...
-        # Example: D = 2 -> decomp_dims = (1, 3)
-        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(SPATIAL_DIMS - 1))
+    function Pencil{D}(topology::Topology{M}, size_global::Dims{N};
+                       permute::P=nothing) where
+            {D, N, M, P<:OptionalPermutation{N}}
+        @assert M === N - 1  # TODO remove requirement
+        # Example: (D = 2, M = 2, N = 3) -> decomp_dims = (1, 3)
+        decomp_dims = ntuple(n -> (n < D) ? n : n + 1, Val(M))
         axes_all = get_axes_matrix(Val(D), topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
-        new{D,P}(topology, size_global, decomp_dims, axes_all, axes_local,
-                 axes_local_perm, permute)
+        new{D,N,M,P}(topology, size_global, decomp_dims, axes_all, axes_local,
+                     axes_local_perm, permute)
     end
 
-    function Pencil{D}(p::Pencil{S}; permute::P=nothing) where
-            {D, S, P<:OptionalPermutation{SPATIAL_DIMS}}
+    function Pencil{D}(p::Pencil{S,N}; permute::P=nothing) where
+            {D, S, N, P<:OptionalPermutation{N}}
         Pencil{D}(p.topology, p.size_global, permute=permute)
     end
 end
@@ -260,7 +257,7 @@ Number of spatial dimensions associated to pencil data.
 This corresponds to the total number of dimensions of the space, which includes
 the decomposed and non-decomposed dimensions.
 """
-ndims(::Pencil) = SPATIAL_DIMS
+ndims(::Pencil{D,N} where D) where N = N
 
 """
     get_comm(p::Pencil)
@@ -292,8 +289,8 @@ Local dimensions of the Cartesian grid held by the pencil.
 By default the dimensions are permuted to match those of the associated data
 arrays.
 """
-size_local(p::Pencil; permute::Bool=true) :: Dims{SPATIAL_DIMS} =
-    length.(permute ? p.axes_local_perm : p.axes_local)
+size_local(p::Pencil{D,N} where D; permute::Bool=true) where N =
+    length.(permute ? p.axes_local_perm : p.axes_local) :: Dims{N}
 
 """
     size_global(p::Pencil)
@@ -308,15 +305,17 @@ size_global(p::Pencil) = p.size_global
 
 # Dimensions of remote data for a single process.
 # TODO do I need this?
-size_remote(p::Pencil, dims::Vararg{Int,TOPOLOGY_DIMS}; permute=p.perm) =
-    permute_indices(length.(p.axes_all[dims...]), permute)
+size_remote(p::Pencil{D,N,M} where {D,N}, coords::Vararg{Int,M};
+            permute=p.perm) where M =
+    permute_indices(length.(p.axes_all[coords...]), permute)
 
 # Dimensions (Nx, Ny, Nz) of remote data for multiple processes.
 # TODO do I need this?
-function size_remote(p::Pencil, dims::Vararg{Union{Int,Colon},TOPOLOGY_DIMS};
-                     permute=p.perm)
+function size_remote(p::Pencil{D,N,M} where {D,N},
+                     coords::Vararg{Union{Int,Colon},M};
+                     permute=p.perm) where M
     # Returns an array with as many dimensions as colons in `dims`.
-    axes = p.axes_all[dims...]
+    axes = p.axes_all[coords...]
     [permute_indices(length.(ax), permute) for ax in axes]
 end
 
@@ -325,15 +324,17 @@ end
 
 Convert non-permuted global indices to local indices, which are permuted by default.
 """
-to_local(p::Pencil, global_inds::Indices{3}; permute=p.perm) =
+to_local(p::Pencil{D,N} where D, global_inds::Indices{N};
+         permute=p.perm) where N =
     permute_indices(global_inds .- first.(p.axes_local) .+ 1, permute)
 
-function to_local(p::Pencil, global_inds::ArrayRegion{3}; permute=p.perm)
+function to_local(p::Pencil{D,N} where D, global_inds::ArrayRegion{N};
+                  permute=p.perm) where N
     ind = map(global_inds, p.axes_local) do rg, rl
         @assert step(rg) == 1
         δ = 1 - first(rl)
         (first(rg) + δ):(last(rg) + δ)
-    end :: ArrayRegion{3}
+    end :: ArrayRegion{N}
     permute_indices(ind, permute)
 end
 
