@@ -318,22 +318,24 @@ function size_remote(p::Pencil{D,N,M} where {D,N},
 end
 
 """
-    to_local(p::Pencil, global_inds; permute=p.perm)
+    to_local(p::Pencil, global_inds; permute=true)
 
 Convert non-permuted global indices to local indices, which are permuted by default.
 """
-to_local(p::Pencil{D,N} where D, global_inds::Indices{N};
-         permute=p.perm) where N =
-    permute_indices(global_inds .- first.(p.axes_local) .+ 1, permute)
+function to_local(p::Pencil{D,N} where D, global_inds::Indices{N};
+                  permute=true) where N
+    ind = global_inds .- first.(p.axes_local) .+ 1
+    permute ? permute_indices(ind, p.perm) : ind
+end
 
 function to_local(p::Pencil{D,N} where D, global_inds::ArrayRegion{N};
-                  permute=p.perm) where N
+                  permute=true) where N
     ind = map(global_inds, p.axes_local) do rg, rl
         @assert step(rg) == 1
         δ = 1 - first(rl)
         (first(rg) + δ):(last(rg) + δ)
     end :: ArrayRegion{N}
-    permute_indices(ind, permute)
+    permute ? permute_indices(ind, p.perm) : ind
 end
 
 end

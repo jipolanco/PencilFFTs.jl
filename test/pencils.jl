@@ -97,22 +97,30 @@ function main()
 
     u1 = PencilArray(pen1)
     u2 = PencilArray(pen2)
+    u3 = PencilArray(pen3)
 
     # Set initial random data.
     randn!(rng, u1)
     u1 .+= 10 * myrank
+    u1_orig = copy(u1)
 
+    # Direct u1 -> u3 transposition is not possible!
+    @test_throws ArgumentError transpose!(u3, u1)
+
+    # Transpose back and forth between different pencil configurations
     transpose!(u2, u1)
-    @time transpose!(u2, u1)
-
-    let t0 = MPI.Wtime()
-        transpose!(u2, u1)
-        dt = MPI.Wtime() - t0
-        MPI.Barrier(comm)
-        myrank == 0 && @info "transpose: $dt seconds"
-    end
-
     compare_distributed_arrays(u1, u2)
+
+    transpose!(u3, u2)
+    compare_distributed_arrays(u2, u3)
+
+    transpose!(u2, u3)
+    compare_distributed_arrays(u2, u3)
+
+    transpose!(u1, u2)
+    compare_distributed_arrays(u1, u2)
+
+    @test u1_orig == u1
 
     if Nproc == 1
         # @code_warntype Pencils.create_subcomms(Val(2), comm)

@@ -23,23 +23,22 @@ function assert_compatible(p::Pencil, q::Pencil)
         throw(ArgumentError("Pencil topologies must be the same."))
     end
     if p.size_global !== q.size_global
-        throw(ArgumentError("Global data sizes must be the same between " *
-                            "different pencil configurations."))
+        throw(ArgumentError(
+            "Global data sizes must be the same between different pencil " *
+            " configurations. Got $(p.size_global) ≠ $(q.size_global)."))
     end
     # Check that decomp_dims differ on exactly one value.
     if sum(p.decomp_dims .!= q.decomp_dims) != 1
         throw(ArgumentError(
-            "Pencil configurations must differ in exactly one dimension."))
+            "Pencil decompositions must differ in exactly one dimension. " *
+            "Got decomposed dimensions $(p.decomp_dims) and $(q.decomp_dims)."))
     end
     nothing
 end
 
 
-# TODO generalise to all pencil types
-# Transpose Pencil{1} -> Pencil{2}.
-# Decomposition dimensions switch from (2, 3) to (1, 3).
-function transpose_impl!(out::PencilArray{T,N}, Pout::Pencil{2},
-                         in::PencilArray{T,N}, Pin::Pencil{1}) where {T, N}
+function transpose_impl!(out::PencilArray{T,N}, Pout::Pencil,
+                         in::PencilArray{T,N}, Pin::Pencil) where {T, N}
     @assert in.pencil === Pin
     @assert out.pencil === Pout
 
@@ -51,24 +50,24 @@ function transpose_impl!(out::PencilArray{T,N}, Pout::Pencil{2},
     end
     assert_compatible(Pin, Pout)
 
-    # Transposition is performed in the first Cartesian dimension
-    # (P1 = 2 -> 1), hence R = 1.
-    # TODO what happens if I put Val(2)? Error somewhere?
-    @assert Pin.decomp_dims[1] == 2 && Pout.decomp_dims[1] == 1
+    # Note: the `decomp_dims` tuples of both pencils must differ by at most one
+    # value (as just checked by `assert_compatible`). The transposition is
+    # performed along the dimension R where that difference happens.
+    R = findfirst(Pin.decomp_dims .!= Pout.decomp_dims)
 
-    # These should be the same (TODO verify!):
-    transpose_impl!(1, out, Pout, in, Pin)
-    # transpose_impl!(1, out.data, Pout, in.data, Pin)
+    if R === nothing
+        # Both pencil configurations are identical, so we just copy the data.
+        # Actually, this case is currently forbidden by `assert_compatible`.
+        return copy!(out, in)
+    end
+
+    transpose_impl!(R, out, Pout, in, Pin)
 end
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) among which the
 # transposition is performed.
-function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil{2},
-                         in::AbstractArray{T,N}, Pin::Pencil{1}) where {T, N}
-    # Pencil{1} -> Pencil{2} transpose **must** be done via subgroup 1
-    @assert R == 1
-    @assert N == 3  # for now only this is supported
-
+function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
+                         in::AbstractArray{T,N}, Pin::Pencil) where {T, N}
     @assert Pin.topology === Pout.topology
     topology = Pin.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
@@ -113,14 +112,13 @@ function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil{2},
 
     for (n, ind) in enumerate(remote_inds)
         # Global data range that I need to send to process n.
-        # Intersections must be done with unpermuted indices!
-        # Note: Data is sent and received with the permutation associated to Pin.
-        srange = permute_indices((intersect.(idims_local, odims[ind])), Pin)
+        srange = intersect.(idims_local, odims[ind])
 
         # Dimensions of data that I will receive from process n.
         rdims = permute_indices(length.(intersect.(odims_local, idims[ind])), Pin)
 
         # TODO avoid copy / allocation!!
+        # Note: Data is sent and received with the permutation associated to Pin.
         send[n] = in[to_local(Pin, srange)...]
 
         # Exchange data with the other process (non-blocking operations).

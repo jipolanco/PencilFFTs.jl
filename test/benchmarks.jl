@@ -41,9 +41,22 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
             transpose!(u2, u1)
             times.transpositions[1] += MPI.Wtime() - t0
         end
-    end
 
-    # @test gather(u1) == gather(u2)
+        let t0 = MPI.Wtime()
+            transpose!(u3, u2)
+            times.transpositions[2] += MPI.Wtime() - t0
+        end
+
+        let t0 = MPI.Wtime()
+            transpose!(u2, u3)
+            times.transpositions[3] += MPI.Wtime() - t0
+        end
+
+        let t0 = MPI.Wtime()
+            transpose!(u1, u2)
+            times.transpositions[4] += MPI.Wtime() - t0
+        end
+    end
 
     times.transpositions ./= times.iterations
 
