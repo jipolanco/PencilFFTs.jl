@@ -9,8 +9,8 @@ using Test
 const DIMS = (128, 192, 64)
 const ITERATIONS = 100
 
-mutable struct BenchTimes
-    iterations :: Int
+struct BenchTimes
+    iterations :: Ref{Int}
     transpositions :: Matrix{Float64}
     BenchTimes() = new(0, zeros(2, 2))
 end
@@ -41,7 +41,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
     times = BenchTimes()
 
     for it = 1:ITERATIONS
-        times.iterations += 1
+        times.iterations[] += 1
 
         # TODO create macro
         let t0 = MPI.Wtime()
@@ -67,12 +67,12 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
 
     @test u[1] == u_orig
 
-    times.transpositions ./= times.iterations
+    times.transpositions ./= times.iterations[]
 
     if myrank == 0
         @show proc_dims
         @show data_dims
-        @show times.iterations
+        @show times.iterations[]
         @show times.transpositions
         println()
     end
