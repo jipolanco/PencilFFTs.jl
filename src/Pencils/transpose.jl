@@ -80,6 +80,8 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     topology = Pin.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
     Nproc = topology.dims[R]
+    myrank = topology.subcomm_ranks[R][topology.coords_local[R]]
+    @assert myrank == MPI.Comm_rank(comm)
     @assert Nproc == MPI.Comm_size(comm)
     @assert MPI.Comm_rank(comm) < Nproc
 
@@ -104,6 +106,8 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
     recv = similar(send)
     recv_req = similar(send_req)
 
+    index_local_req = -1  # request index associated to local exchange
+
     for n in eachindex(send)
         # Global data range that I need to send to process n.
         # Intersections must be done with unpermuted indices!
@@ -115,28 +119,36 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
 
         # TODO avoid copy / allocation!!
         send[n] = in[to_local(Pin, srange)...]
-        recv[n] = Array{T,N}(undef, rdims...)
 
         # Exchange data with the other process (non-blocking operations).
         tag = 42
         rank = topology.subcomm_ranks[R][n]  # actual rank of the other process
-        send_req[n] = MPI.Isend(send[n], rank, tag, comm)
-        recv_req[n] = MPI.Irecv!(recv[n], rank, tag, comm)
+        if rank == myrank
+            recv[n] = send[n]
+            send_req[n] = recv_req[n] = MPI.REQUEST_NULL
+            index_local_req = n
+        else
+            recv[n] = Array{T,N}(undef, rdims...)
+            send_req[n] = MPI.Isend(send[n], rank, tag, comm)
+            recv_req[n] = MPI.Irecv!(recv[n], rank, tag, comm)
+        end
     end
-
-    # TODO
-    # - use Waitany! and unpack the data as soon as it's done
-    MPI.Waitall!([send_req; recv_req])
 
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pin
     # ordering to Pout ordering.
     let perm = relative_permutation(Pin, Pout)
         no_perm = is_identity_permutation(perm)
-        for n in eachindex(recv)
+
+        for m = 1:Nproc
             # TODO
             # - avoid repeated operations...
             # - use more consistent variable names with the code above
+            if m == 1
+                n = index_local_req  # copy local data first
+            else
+                n, status = MPI.Waitany!(recv_req)
+            end
 
             # Non-permuted global indices of received data.
             rrange = intersect.(odims_local, idims[n])
@@ -155,6 +167,9 @@ function transpose_impl!(::Val{R}, out::AbstractArray{T,N}, Pout::Pencil{2},
             end
         end
     end
+
+    # Wait for all our data to be sent before returning.
+    MPI.Waitall!(send_req)
 
     out
 end

@@ -55,7 +55,7 @@ end
 function main()
     MPI.Init()
 
-    Nxyz = (16, 31, 13)
+    Nxyz = (160, 221, 203)
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
@@ -92,12 +92,6 @@ function main()
         @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
     end
 
-    if myrank == 0
-        @show pen1.axes_all
-        @show pen2.axes_all
-        @show pen3.axes_all
-    end
-
     @test Pencils.put_colon(Val(1), (2, 3, 4)) === (:, 3, 4)
     @test Pencils.put_colon(Val(3), (2, 3, 4)) === (2, 3, :)
 
@@ -112,6 +106,15 @@ function main()
     u1 .+= 10 * myrank
 
     transpose!(u2, u1)
+    @time transpose!(u2, u1)
+
+    let t0 = MPI.Wtime()
+        transpose!(u2, u1)
+        dt = MPI.Wtime() - t0
+        MPI.Barrier(comm)
+        myrank == 0 && @info "transpose: $dt seconds"
+    end
+
     compare_distributed_arrays(u1, u2)
 
     if Nproc == 1
@@ -139,8 +142,10 @@ function main()
         # @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
         # @code_warntype Pencils.relative_permutation((1, 2, 3), nothing)
 
-        @code_warntype transpose!(u2, u1)
-        @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
+        # @code_warntype gather(u2)
+
+        # @code_warntype transpose!(u2, u1)
+        # @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
     end
 
     MPI.Finalize()
