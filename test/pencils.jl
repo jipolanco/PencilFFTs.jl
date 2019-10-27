@@ -86,7 +86,7 @@ function main()
     u1 = PencilArray(pen1)
     u2 = PencilArray(pen2)
 
-    transpose!(u2, pen2, u1, pen1)
+    transpose!(u2, u1)
 
     if Nproc == 1
         # @code_warntype Pencils.create_subcomms(Val(2), comm)
@@ -113,7 +113,8 @@ function main()
         # @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
         # @code_warntype Pencils.relative_permutation((1, 2, 3), nothing)
 
-        # @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
+        @code_warntype transpose!(u2, u1)
+        @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
     end
 
     MPI.Finalize()

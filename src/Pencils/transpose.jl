@@ -1,15 +1,10 @@
 """
-    transpose!(out::AbstractArray{T}, Pout::Pencil{S}, Pin::Pencil{D},
-               in::AbstractArray{T}) where {T, D, S}
+    transpose!(out::PencilArray{T,N}, in::PencilArray{T,N})
 
-Transpose data from the `Pin` to the `Pout` pencil configuration.
+Transpose data from one pencil configuration to the other.
 """
-function transpose!(out::AbstractArray{T}, Pout::Pencil{S},
-                    in::AbstractArray{T}, Pin::Pencil{D}) where {T, D, S}
-    assert_compatible(Pin, in)
-    assert_compatible(Pout, out)
-    transpose_impl!(out, Pout, in, Pin)
-end
+transpose!(out::PencilArray{T,N}, in::PencilArray{T,N}) where {T, N} =
+    transpose_impl!(out, out.pencil, in, in.pencil)
 
 function assert_compatible(p::Pencil, x::AbstractArray)
     if ndims(x) != 3
@@ -54,15 +49,23 @@ function put_colon(::Val{R}, x::NTuple{N}) where {R,N}
     (a..., :, b...)
 end
 
+# TODO generalise to all pencil types
 # Transpose Pencil{1} -> Pencil{2}.
 # Decomposition dimensions switch from (2, 3) to (1, 3).
-function transpose_impl!(out::AbstractArray{T,N}, Pout::Pencil{2},
-                         in::AbstractArray{T,N}, Pin::Pencil{1}) where {T, N}
+function transpose_impl!(out::PencilArray{T,N}, Pout::Pencil{2},
+                         in::PencilArray{T,N}, Pin::Pencil{1}) where {T, N}
+    @assert in.pencil === Pin
+    @assert out.pencil === Pout
+    assert_compatible(Pin, Pout)
+
     # Transposition is performed in the first Cartesian dimension
     # (P1 = 2 -> 1), hence R = 1.
     # TODO what happens if I put Val(2)? Error somewhere?
     @assert Pin.decomp_dims[1] == 2 && Pout.decomp_dims[1] == 1
-    transpose_impl!(Val(1), out, Pout, in, Pin)
+
+    # These should be the same (TODO verify!):
+    # transpose_impl!(Val(1), out, Pout, in, Pin)
+    transpose_impl!(Val(1), out.data, Pout, in.data, Pin)
 end
 
 # R: index of MPI subgroup among which the transposition is performed
