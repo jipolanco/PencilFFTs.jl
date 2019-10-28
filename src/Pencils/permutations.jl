@@ -36,3 +36,8 @@ identity_permutation(::Val{N}) where N = ntuple(identity, N)
 is_identity_permutation(::Nothing) = true
 is_identity_permutation(perm::Permutation{N}) where N =
     perm === identity_permutation(Val(N))
+
+# Prepend `M` non-permuted dimensions to the given permutation.
+# Example: prepend_to_permutation(Val(2), (2, 3, 1)) = (1, 2, 4, 5, 3).
+prepend_to_permutation(::Val{M}, perm::Permutation) where M =
+    (ntuple(identity, M)..., (M .+ perm)...)

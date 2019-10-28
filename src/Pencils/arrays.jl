@@ -126,6 +126,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
     rank = MPI.Comm_rank(comm)
     mpi_tag = 42
     pencil = x.pencil
+    extra_dims = x.extra_dims
 
     # Each process sends its data to the root process.
     # If the local indices are permuted, the permutation is reverted before
@@ -135,9 +136,9 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             x.data
         else
             # Apply inverse permutation.
-            # TODO make this work with extra dimensions
             invperm = relative_permutation(perm, nothing)
-            permutedims(x.data, invperm)  # creates copy!
+            p = prepend_to_permutation(Val(length(extra_dims)), invperm)
+            permutedims(x.data, p)  # creates copy!
         end
     end
 
@@ -158,7 +159,6 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     for n in eachindex(recv)
         # Global data range that I will receive from process n.
-        # TODO make this work with extra dimensions
         rrange = pencil.axes_all[n]
         rdims = length.(rrange)
 
@@ -168,7 +168,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             recv_req[n] = MPI.REQUEST_NULL
         else
             # TODO avoid allocation?
-            recv[n] = Array{T,N}(undef, rdims...)
+            recv[n] = Array{T,N}(undef, extra_dims..., rdims...)
             recv_req[n] = MPI.Irecv!(recv[n], src_rank, mpi_tag, comm)
         end
     end
@@ -177,14 +177,14 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
     dest = Array{T,N}(undef, size_global(x))
 
     # Copy local data.
-    dest[pencil.axes_local...] .= data
+    colons_extra_dims = ntuple(n -> Colon(), Val(length(extra_dims)))
+    dest[colons_extra_dims..., pencil.axes_local...] .= data
 
     # Copy remote data.
     for m = 2:Nproc
         n, status = MPI.Waitany!(recv_req)
-        # TODO make this work with extra dimensions
         rrange = pencil.axes_all[n]
-        dest[rrange...] .= recv[n]
+        dest[colons_extra_dims..., rrange...] .= recv[n]
     end
 
     dest

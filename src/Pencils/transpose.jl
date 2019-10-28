@@ -35,7 +35,7 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
         return copy!(dest, src)
     end
 
-    @inbounds transpose_impl!(R, dest, src)
+    transpose_impl!(R, dest, src)
 end
 
 function assert_compatible(p::Pencil, q::Pencil)
@@ -80,6 +80,11 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     @assert Nproc == MPI.Comm_size(comm)
     @assert MPI.Comm_rank(comm) < Nproc
 
+    @assert in.extra_dims === out.extra_dims
+    extra_dims = in.extra_dims
+    prod_extra_dims = prod(extra_dims)
+    colons_extra_dims = ntuple(n -> Colon(), Val(length(extra_dims)))
+
     # Cartesian indices of the remote MPI processes included in the subgroup.
     # Example: if coords_local = (2, 3) and R = 1, then remote_inds holds the
     # indices in (:, 3).
@@ -104,7 +109,8 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # - compare with MPI.Alltoallv
 
     # Length of data that I will "send" to myself.
-    length_send_local = prod(length.(intersect.(idims_local, odims_local)))
+    length_send_local =
+        prod(length.(intersect.(idims_local, odims_local))) * prod_extra_dims
 
     # Total data to be sent / received.
     length_send = length(in) - length_send_local
@@ -134,14 +140,14 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         rrange = intersect.(odims_local, idims[ind])
         rdims = permute_indices(length.(rrange), Pi)
 
-        length_recv_n = prod(rdims)
+        length_recv_n = prod(rdims) * prod_extra_dims
         recv_offsets[n] = irecv
         irecv_prev = irecv
         irecv += length_recv_n
         recv_buf_view = @view recv_buf[(irecv_prev + 1):irecv]
 
         # Note: data is sent and received with the permutation associated to Pi.
-        to_send = @view in[to_local(Pi, srange)...]
+        to_send = @view in[colons_extra_dims..., to_local(Pi, srange)...]
 
         # Exchange data with the other process (non-blocking operations).
         tag = 42
@@ -172,8 +178,16 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pi
     # ordering to Po ordering.
-    let perm = relative_permutation(Pi, Po)
-        no_perm = is_identity_permutation(perm)
+    let perm_base = relative_permutation(Pi, Po)
+        no_perm = is_identity_permutation(perm_base)
+
+        if !no_perm
+            # Shift permutation, taking into account extra dimensions.
+            # Example: if there are 2 extra dimensions, and perm_base =
+            # (2, 3, 1), then perm = (1, 2, 4, 5, 3).
+            Nextra = length(extra_dims)
+            perm = prepend_to_permutation(Val(Nextra), perm_base)
+        end
 
         for m = 1:Nproc
             if m == 1
@@ -188,7 +202,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             rrange = intersect.(odims_local, idims[ind])
             rdims = permute_indices(length.(rrange), Pi)
 
-            length_recv_n = prod(rdims)
+            length_recv_n = prod(rdims) * prod_extra_dims
             off = recv_offsets[n]
             recv_buf_view = @view recv_buf[(off + 1):(off + length_recv_n)]
 
@@ -196,13 +210,14 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             orange = to_local(Po, rrange)
 
             src = recv_buf_view
-            dest = @view out[orange...]
+            dest = @view out[colons_extra_dims..., orange...]
 
             # Copy data to `out`, permuting dimensions if required.
             if no_perm
                 copyto!(dest, src)
             else
-                permutedims!(dest, reshape(src, rdims), perm)
+                shape = (extra_dims..., rdims...)
+                permutedims!(dest, reshape(src, shape), perm)
             end
         end
     end

@@ -133,6 +133,13 @@ function main()
         compare_distributed_arrays(u1, u2)
     end
 
+    # Test arrays with extra dimensions.
+    let u1 = PencilArray(pen1, 3, 4), u2 = PencilArray(pen2, 3, 4)
+        rand!(rng, u1)
+        transpose!(u2, u1)
+        compare_distributed_arrays(u1, u2)
+    end
+
     if Nproc == 1
         # @code_warntype Pencils.create_subcomms(Val(2), comm)
         # @code_warntype Pencils.Topology{2}(comm)
