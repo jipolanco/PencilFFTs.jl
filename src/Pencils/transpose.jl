@@ -62,7 +62,8 @@ end
 # - https://discourse.julialang.org/t/big-overhead-with-the-new-lazy-reshape-reinterpret/7635
 # - https://github.com/JuliaLang/julia/issues/28980
 unsafe_as_array(::Type{T}, x::Vector{UInt8}) where T =
-    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), length(x) ÷ sizeof(T))
+    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), length(x) ÷ sizeof(T),
+                own=false)
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
