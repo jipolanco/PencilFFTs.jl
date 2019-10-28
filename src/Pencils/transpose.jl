@@ -56,6 +56,14 @@ function assert_compatible(p::Pencil, q::Pencil)
     nothing
 end
 
+# Reinterpret UInt8 array as a different type of array.
+# This is a workaround to the performance issues when using `reinterpret`.
+# See for instance:
+# - https://discourse.julialang.org/t/big-overhead-with-the-new-lazy-reshape-reinterpret/7635
+# - https://github.com/JuliaLang/julia/issues/28980
+unsafe_as_array(::Type{T}, x::Vector{UInt8}) where T =
+    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), length(x) ÷ sizeof(T))
+
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
 # TODO accept callback function (how? in-place/out-of-place?)
@@ -91,7 +99,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     odims = Po.axes_all
 
     # TODO
-    # - avoid allocations and copies
+    # - avoid copies?
     # - use @simd?
     # - compare with MPI.Alltoallv
 
@@ -102,12 +110,18 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     length_send = length(in) - length_send_local
     length_recv = length(out)  # includes local exchange with myself
 
-    # 1. Send and receive data (TODO avoid allocations...)
-    send_buf = Vector{T}(undef, length_send)
+    # 1. Send and receive data.
+    # Note: I prefer to resize the original UInt8 array instead of the "unsafe"
+    # Array{T}.
+    resize!(Po.send_buf, sizeof(T) * length_send)
+    send_buf = unsafe_as_array(T, Po.send_buf)
+    @assert length(send_buf) == length_send
     send_req = Vector{MPI.Request}(undef, Nproc)
     isend = 0  # current index in send_buf
 
-    recv_buf = Vector{T}(undef, length_recv)
+    resize!(Po.recv_buf, sizeof(T) * length_recv)
+    recv_buf = unsafe_as_array(T, Po.recv_buf)
+    @assert length(recv_buf) == length_recv
     recv_req = similar(send_req)
     irecv = 0  # current index in recv_buf
     recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf

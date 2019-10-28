@@ -152,7 +152,7 @@ function main()
         # @code_warntype gather(u2)
 
         # @code_warntype transpose!(u2, u1)
-        # @code_warntype Pencils.transpose_impl!(Val(1), u2, pen2, u1, pen1)
+        # @code_warntype Pencils.transpose_impl!(1, u2, u1)
     end
 
     MPI.Finalize()

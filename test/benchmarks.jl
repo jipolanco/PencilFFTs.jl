@@ -9,7 +9,7 @@ using Profile
 using Random
 using Test
 
-const PROFILE = true
+const PROFILE = false
 const PROFILE_OUTPUT = "profile.txt"
 
 const DIMS = (128, 192, 64)

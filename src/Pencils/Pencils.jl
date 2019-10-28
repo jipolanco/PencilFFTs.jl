@@ -196,8 +196,12 @@ each MPI process.
 
 Create new pencil configuration from an existent one.
 
-The new pencil is constructed in a way that enables efficient data
-transpositions between the two configurations.
+This constructor ensures that both pencil configurations are compatible for data
+transpositions between one and the other.
+
+Moreover, if a new pencil is created using this constructor, data buffers for
+transpositions are shared among the two pencils, meaning that global memory
+usage is reduced.
 
 """
 struct Pencil{N,  # spatial dimensions
@@ -228,19 +232,26 @@ struct Pencil{N,  # spatial dimensions
     # Optional axes permutation.
     perm :: P
 
+    # Data buffers for transpositions.
+    send_buf :: Vector{UInt8}
+    recv_buf :: Vector{UInt8}
+
     function Pencil(topology::Topology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M};
-                    permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
+                    permute::P=nothing,
+                    send_buf=UInt8[], recv_buf=UInt8[],
+                   ) where {N, M, P<:OptionalPermutation{N}}
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
         new{N,M,P}(topology, size_global, decomp_dims, axes_all, axes_local,
-                   axes_local_perm, permute)
+                   axes_local_perm, permute, send_buf, recv_buf)
     end
 
     function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M};
                     permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
-        Pencil(p.topology, p.size_global, decomp_dims, permute=permute)
+        Pencil(p.topology, p.size_global, decomp_dims, permute=permute,
+               send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
 end
 
