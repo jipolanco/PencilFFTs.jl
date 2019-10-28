@@ -149,7 +149,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         if rank == myrank
             # Copy directly to_send -> recv_buf_view.
             @assert length(recv_buf_view) == length(to_send)
-            copyto!(recv_buf_view, vec(to_send))
+            copyto!(recv_buf_view, to_send)
             send_req[n] = recv_req[n] = MPI.REQUEST_NULL
             index_local_req = n
         else
@@ -160,7 +160,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             isend += length(to_send)
             send_buf_view = @view send_buf[(isend_prev + 1):isend]
             @assert length(to_send) == length(send_buf_view)
-            copyto!(send_buf_view, vec(to_send))
+            copyto!(send_buf_view, to_send)
             send_req[n] = MPI.Isend(send_buf_view, rank, tag, comm)
             recv_req[n] = MPI.Irecv!(recv_buf_view, rank, tag, comm)
         end
