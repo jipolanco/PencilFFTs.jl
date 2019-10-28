@@ -1,11 +1,10 @@
 # TODO
 
+## FFTs
+
 - Include FFTW plans in PencilPlan
 
 - Reduce array allocations (buffers)
-
-- Split `PencilPlan`: define `PlanData` and `FFTPlans` types.
-  Or define a type for each pencil configuration / 1D transform.
 
 - Vector (or tensor) transforms
   * use fastest or slowest indices for components?
@@ -21,15 +20,14 @@
 
 - Multithreading?
 
-- Special treatment for slab (1D) decomposition
-
 ## Pencils
+
+- add optional callbacks to `transpose!`. This could be used to compute FFTs
+  while data is being received.
 
 - functions to exchange ghost data between pencils
 
 - parallel HDF5 I/O (optional?)
-
-- function to gather values from all processes. May be useful for testing...
 
 - try to add new `MPI.Cart_*` functions to `MPI.jl`
 
