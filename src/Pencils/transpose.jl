@@ -1,5 +1,5 @@
 """
-    transpose!(out::PencilArray{T,N}, in::PencilArray{T,N})
+    transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N})
 
 Transpose data from one pencil configuration to the other.
 
@@ -15,8 +15,28 @@ The two pencil configurations must be compatible for transposition:
   not in `(1, 2)`.
 
 """
-transpose!(out::PencilArray{T,N}, in::PencilArray{T,N}) where {T, N} =
-    transpose_impl!(out, out.pencil, in, in.pencil)
+function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
+    # Verifications
+    if src.extra_dims !== dest.extra_dims
+        throw(ArgumentError(
+            "Incompatible number of extra dimensions of PencilArrays: " *
+            "$(src.extra_dims) != $(dest.extra_dims)"))
+    end
+    assert_compatible(src.pencil, dest.pencil)
+
+    # Note: the `decomp_dims` tuples of both pencils must differ by at most one
+    # value (as just checked by `assert_compatible`). The transposition is
+    # performed along the dimension R where that difference happens.
+    R = findfirst(src.pencil.decomp_dims .!= dest.pencil.decomp_dims)
+
+    if R === nothing
+        # Both pencil configurations are identical, so we just copy the data.
+        # Actually, this case is currently forbidden by `assert_compatible`.
+        return copy!(dest, src)
+    end
+
+    transpose_impl!(R, dest, src)
+end
 
 function assert_compatible(p::Pencil, q::Pencil)
     if p.topology !== q.topology
@@ -36,49 +56,20 @@ function assert_compatible(p::Pencil, q::Pencil)
     nothing
 end
 
-
-function transpose_impl!(out::PencilArray{T,N}, Pout::Pencil,
-                         in::PencilArray{T,N}, Pin::Pencil) where {T, N}
-    @assert in.pencil === Pin
-    @assert out.pencil === Pout
-
-    # Verifications
-    if in.extra_dims !== out.extra_dims
-        throw(ArgumentError(
-            "Incompatible number of extra dimensions of PencilArrays: " *
-            "$(in.extra_dims) != $(out.extra_dims)"))
-    end
-    assert_compatible(Pin, Pout)
-
-    # Note: the `decomp_dims` tuples of both pencils must differ by at most one
-    # value (as just checked by `assert_compatible`). The transposition is
-    # performed along the dimension R where that difference happens.
-    R = findfirst(Pin.decomp_dims .!= Pout.decomp_dims)
-
-    if R === nothing
-        # Both pencil configurations are identical, so we just copy the data.
-        # Actually, this case is currently forbidden by `assert_compatible`.
-        return copy!(out, in)
-    end
-
-    transpose_impl!(R, out, Pout, in, Pin)
-end
-
-# R: index of MPI subgroup (dimension of MPI Cartesian topology) among which the
+# R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
-function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
-                         in::AbstractArray{T,N}, Pin::Pencil) where {T, N}
-    @assert Pin.topology === Pout.topology
-    topology = Pin.topology
+function transpose_impl!(R::Int, out::PencilArray{T,N},
+                         in::PencilArray{T,N}) where {T, N}
+    Pi = in.pencil
+    Po = out.pencil
+    @assert Pi.topology === Po.topology
+    topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
     Nproc = topology.dims[R]
     myrank = topology.subcomm_ranks[R][topology.coords_local[R]]
     @assert myrank == MPI.Comm_rank(comm)
     @assert Nproc == MPI.Comm_size(comm)
     @assert MPI.Comm_rank(comm) < Nproc
-
-    idims_local = Pin.axes_local
-    odims_local = Pout.axes_local
 
     # Cartesian indices of the remote MPI processes included in the subgroup.
     # Example: if coords_local = (2, 3) and R = 1, then remote_inds holds the
@@ -92,13 +83,16 @@ function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
         end
     end
 
-    idims = Pin.axes_all
-    odims = Pout.axes_all
+    idims_local = Pi.axes_local
+    odims_local = Po.axes_local
+
+    idims = Pi.axes_all
+    odims = Po.axes_all
 
     # TODO
+    # - linear buffers
     # - avoid allocations and copies
-    # - avoid sending data to myself
-    # - use @inbounds
+    # - use @inbounds and @simd
     # - compare with MPI.Alltoallv
 
     # 1. Send and receive data (TODO avoid allocations...)
@@ -115,11 +109,11 @@ function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
         srange = intersect.(idims_local, odims[ind])
 
         # Dimensions of data that I will receive from process n.
-        rdims = permute_indices(length.(intersect.(odims_local, idims[ind])), Pin)
+        rdims = permute_indices(length.(intersect.(odims_local, idims[ind])), Pi)
 
         # TODO avoid copy / allocation!!
-        # Note: Data is sent and received with the permutation associated to Pin.
-        send[n] = in[to_local(Pin, srange)...]
+        # Note: Data is sent and received with the permutation associated to Pi.
+        send[n] = in[to_local(Pi, srange)...]
 
         # Exchange data with the other process (non-blocking operations).
         tag = 42
@@ -136,9 +130,9 @@ function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
     end
 
     # 2. Unpack data and perform local transposition.
-    # Here we need to know the relative index permutation to go from Pin
-    # ordering to Pout ordering.
-    let perm = relative_permutation(Pin, Pout)
+    # Here we need to know the relative index permutation to go from Pi
+    # ordering to Po ordering.
+    let perm = relative_permutation(Pi, Po)
         no_perm = is_identity_permutation(perm)
 
         for m = 1:Nproc
@@ -156,7 +150,7 @@ function transpose_impl!(R::Int, out::AbstractArray{T,N}, Pout::Pencil,
             rrange = intersect.(odims_local, idims[ind])
 
             # Permuted local indices of output data.
-            orange = to_local(Pout, rrange)
+            orange = to_local(Po, rrange)
 
             src = recv[n]
             dest = @view out[orange...]
