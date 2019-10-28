@@ -201,7 +201,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
 
             # Copy data to `out`, permuting dimensions if required.
             if no_perm
-                copy!(dest, src)
+                copyto!(dest, src)
             else
                 # TODO optimise, using linear indices along `src`
                 permutedims!(dest, reshape(src, rdims), perm)
