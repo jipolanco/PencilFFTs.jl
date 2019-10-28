@@ -2,6 +2,8 @@
 
 using PencilFFTs.Pencils
 
+import Base: show
+
 using MPI
 using Random
 using Test
@@ -9,10 +11,40 @@ using Test
 const DIMS = (128, 192, 64)
 const ITERATIONS = 100
 
-struct BenchTimes
-    iterations :: Ref{Int}
-    transpositions :: Matrix{Float64}
-    BenchTimes() = new(0, zeros(2, 2))
+# Benchmark time accumulator.
+mutable struct BenchTimes
+    iterations  :: Int
+    elapsedtime :: UInt64  # elapsed times in ns
+    gc_alloc_bytes :: Int
+    gc_total_time  :: Int
+    gc_alloc_count :: Int
+    BenchTimes() = new(0, 0, 0, 0, 0)
+end
+
+function show(io::IO, times::BenchTimes)
+    # This is the same function called by the @time macro.
+    Base.time_print(times.elapsedtime / times.iterations,
+                    times.gc_alloc_bytes / times.iterations,
+                    times.gc_total_time / times.iterations,
+                    times.gc_alloc_count / times.iterations)
+    print(io, " [$(times.iterations) iterations]")
+end
+
+# Based on the @time implementation.
+# Elapsed time is accumulated in the `times` struct.
+macro mpi_time(times, ex)
+    quote
+        $(esc(times)).iterations += 1
+        local stats = Base.gc_num()
+        local elapsedtime = time_ns()
+        local val = $(esc(ex))
+        $(esc(times)).elapsedtime += time_ns() - elapsedtime
+        local diff = Base.GC_Diff(Base.gc_num(), stats)
+        $(esc(times)).gc_alloc_bytes += diff.allocd
+        $(esc(times)).gc_total_time += diff.total_time
+        $(esc(times)).gc_alloc_count += Base.gc_alloc_count(diff)
+        val
+    end
 end
 
 function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
@@ -38,42 +70,30 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
     u[1] .+= 10 * myrank
     u_orig = copy(u[1])
 
-    times = BenchTimes()
+    times = ntuple(n -> BenchTimes(), 4)
+
+    # Precompile functions
+    transpose!(u[2], u[1])
+    transpose!(u[3], u[2])
+    transpose!(u[2], u[3])
+    transpose!(u[1], u[2])
 
     for it = 1:ITERATIONS
-        times.iterations[] += 1
-
-        # TODO create macro
-        let t0 = MPI.Wtime()
-            transpose!(u[2], u[1])
-            times.transpositions[1, 1] += MPI.Wtime() - t0
-        end
-
-        let t0 = MPI.Wtime()
-            transpose!(u[3], u[2])
-            times.transpositions[2, 1] += MPI.Wtime() - t0
-        end
-
-        let t0 = MPI.Wtime()
-            transpose!(u[2], u[3])
-            times.transpositions[1, 2] += MPI.Wtime() - t0
-        end
-
-        let t0 = MPI.Wtime()
-            transpose!(u[1], u[2])
-            times.transpositions[2, 2] += MPI.Wtime() - t0
-        end
+        @mpi_time times[1] transpose!(u[2], u[1])
+        @mpi_time times[2] transpose!(u[3], u[2])
+        @mpi_time times[3] transpose!(u[2], u[3])
+        @mpi_time times[4] transpose!(u[1], u[2])
     end
 
     @test u[1] == u_orig
 
-    times.transpositions ./= times.iterations[]
-
     if myrank == 0
-        @show proc_dims
-        @show data_dims
-        @show times.iterations[]
-        @show times.transpositions
+        println(
+            """
+            Processes:          $proc_dims
+            Data dimensions:    $data_dims
+            Transpositions:""")
+        println.(times)
         println()
     end
 
