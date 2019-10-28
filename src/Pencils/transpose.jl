@@ -67,7 +67,6 @@ unsafe_as_array(::Type{T}, x::Vector{UInt8}) where T =
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
-# TODO accept callback function (how? in-place/out-of-place?)
 function transpose_impl!(R::Int, out::PencilArray{T,N},
                          in::PencilArray{T,N}) where {T, N}
     Pi = in.pencil
@@ -203,7 +202,6 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             if no_perm
                 copyto!(dest, src)
             else
-                # TODO optimise, using linear indices along `src`
                 permutedims!(dest, reshape(src, rdims), perm)
             end
         end

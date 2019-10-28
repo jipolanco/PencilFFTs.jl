@@ -22,8 +22,7 @@
 
 ## Pencils
 
-- add optional callbacks to `transpose!`. This could be used to compute FFTs
-  while data is being received.
+- add optional callbacks to `transpose!`?
 
 - functions to exchange ghost data between pencils
 

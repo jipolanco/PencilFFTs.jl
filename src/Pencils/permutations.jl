@@ -1,8 +1,5 @@
 ## Permutation operations ##
 
-# TODO
-# - use TupleTools for some tuple operations? (sortperm, permute, ...)
-
 # Permute tuple values.
 permute_indices(t::NTuple, ::Nothing) = t
 permute_indices(t::NTuple{N}, perm::Permutation{N}) where N = map(p -> t[p], perm)

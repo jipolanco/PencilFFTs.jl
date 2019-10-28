@@ -26,8 +26,6 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 const Indices{N} = NTuple{N,Int} where N
 
 # TODO
-# - define PencilArray data allocators from one or more pencils.
-#   The returned array must be large enough to fit data from all pencils.
 # - rename Topology -> MPITopology / DistributedTopology
 
 """
@@ -151,10 +149,6 @@ get_comm(t::Topology) = t.comm
 
 const Permutation{N} = NTuple{N,Int}
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
-
-# TODO
-# Generalise Pencil
-# - don't require Cartesian communicator
 
 """
     Pencil{N,M}
