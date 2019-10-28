@@ -5,8 +5,12 @@ using PencilFFTs.Pencils
 import Base: show
 
 using MPI
+using Profile
 using Random
 using Test
+
+const PROFILE = true
+const PROFILE_OUTPUT = "profile.txt"
 
 const DIMS = (128, 192, 64)
 const ITERATIONS = 100
@@ -95,6 +99,19 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
             Transpositions:""")
         println.(times)
         println()
+    end
+
+    if PROFILE
+        Profile.clear()
+        @profile for it = 1:ITERATIONS
+            transpose!(u[2], u[1])
+            transpose!(u[3], u[2])
+            transpose!(u[2], u[3])
+            transpose!(u[1], u[2])
+        end
+        if myrank == 0
+            open(io -> Profile.print(io, maxdepth=6), PROFILE_OUTPUT, "w")
+        end
     end
 
     nothing
