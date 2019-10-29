@@ -5,6 +5,9 @@ permute_indices(t::NTuple, ::Nothing) = t
 permute_indices(t::NTuple{N}, perm::Permutation{N}) where N = map(p -> t[p], perm)
 permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
 
+permute_indices(I::CartesianIndex, perm) =
+    CartesianIndex(permute_indices(Tuple(I), perm))
+
 # Get "relative" permutation needed to get from `x` to `y`, i.e., such
 # that `permute_indices(x, perm) == y`.
 # It is assumed that both tuples have the same elements, possibly in different

@@ -90,6 +90,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # indices in (:, 3).
     TopologyIndex = CartesianIndex{ndims(topology)}
     remote_inds = Vector{TopologyIndex}(undef, Nproc)
+    # TODO avoid creating array?
     let coords = collect(topology.coords_local)  # convert tuple to array
         for n in eachindex(remote_inds)
             coords[R] = n
@@ -107,6 +108,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # - avoid copies?
     # - use @simd?
     # - compare with MPI.Alltoallv
+    # - split into multiple functions
 
     # Length of data that I will "send" to myself.
     length_send_local =
@@ -178,16 +180,8 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pi
     # ordering to Po ordering.
-    let perm_base = relative_permutation(Pi, Po)
-        no_perm = is_identity_permutation(perm_base)
-
-        if !no_perm
-            # Shift permutation, taking into account extra dimensions.
-            # Example: if there are 2 extra dimensions, and perm_base =
-            # (2, 3, 1), then perm = (1, 2, 4, 5, 3).
-            Nextra = length(extra_dims)
-            perm = prepend_to_permutation(Val(Nextra), perm_base)
-        end
+    let perm = relative_permutation(Pi, Po)
+        no_perm = is_identity_permutation(perm)
 
         for m = 1:Nproc
             if m == 1
@@ -216,8 +210,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             if no_perm
                 copyto!(dest, src)
             else
-                shape = (extra_dims..., rdims...)
-                permutedims!(dest, reshape(src, shape), perm)
+                _copy_permuted!(dest, src, perm, rdims, extra_dims)
             end
         end
     end
@@ -226,4 +219,28 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     MPI.Waitall!(send_req)
 
     out
+end
+
+function _copy_permuted!(dest::AbstractArray{T,N}, src::AbstractVector{T},
+                         perm_base::Permutation{P}, src_dims_base::Dims{P},
+                         extra_dims::Dims{E}) where {T,N,P,E}
+    @assert !is_identity_permutation(perm_base)
+    @assert P + E == N
+
+    n = 0
+    @inbounds for I in CartesianIndices(src_dims_base)
+        J = permute_indices(I, perm_base)
+        for K in CartesianIndices(extra_dims)
+            n += 1
+            dest[K, J] = src[n]
+        end
+    end
+
+    # The commented code below does the same, but it's very slow when
+    # `extra_dims` is not empty. If it is empty, it's about as fast as above.
+    #     src_shape = (extra_dims..., src_dims_base...)
+    #     perm = prepend_to_permutation(Val(E), perm_base)
+    #     permutedims!(dest, reshape(src, src_shape), perm)
+
+    dest
 end
