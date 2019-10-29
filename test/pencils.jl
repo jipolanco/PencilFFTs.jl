@@ -43,16 +43,21 @@ function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
 end
 
 function compare_distributed_arrays(u_local::PencilArray, v_local::PencilArray)
-    u = gather(u_local)
-    v = gather(v_local)
+    comm = get_comm(u_local)
+    root = 0
+    myrank = MPI.Comm_rank(comm)
 
-    if u === nothing || v === nothing
-        return
+    u = gather(u_local, root)
+    v = gather(v_local, root)
+
+    same = Ref(false)
+    if u !== nothing && v !== nothing
+        @assert myrank == root
+        same[] = u == v
     end
+    MPI.Bcast!(same, length(same), root, comm)
 
-    @test u == v
-
-    nothing
+    same[]
 end
 
 function main()
@@ -66,12 +71,12 @@ function main()
     rng = MersenneTwister(42 + myrank)
 
     # Let MPI_Dims_create choose the values of (P1, P2).
-    P1, P2 = let pdims = zeros(Int, 2)
+    proc_dims = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
         pdims[1], pdims[2]
     end
 
-    topo = Pencils.Topology(comm, (P1, P2))
+    topo = Pencils.Topology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
     pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
@@ -113,16 +118,16 @@ function main()
 
     # Transpose back and forth between different pencil configurations
     transpose!(u2, u1)
-    compare_distributed_arrays(u1, u2)
+    @test compare_distributed_arrays(u1, u2)
 
     transpose!(u3, u2)
-    compare_distributed_arrays(u2, u3)
+    @test compare_distributed_arrays(u2, u3)
 
     transpose!(u2, u3)
-    compare_distributed_arrays(u2, u3)
+    @test compare_distributed_arrays(u2, u3)
 
     transpose!(u1, u2)
-    compare_distributed_arrays(u1, u2)
+    @test compare_distributed_arrays(u1, u2)
 
     @test u1_orig == u1
 
@@ -130,14 +135,29 @@ function main()
     let pen2 = Pencil(pen1, (1, 3))
         u2 = PencilArray(pen2)
         transpose!(u2, u1)
-        compare_distributed_arrays(u1, u2)
+        @test compare_distributed_arrays(u1, u2)
     end
 
     # Test arrays with extra dimensions.
-    let u1 = PencilArray(pen1, 3, 4), u2 = PencilArray(pen2, 3, 4)
-        rand!(rng, u1)
+    let u1 = PencilArray(pen1, 3, 4)
+        u2 = PencilArray(pen2, 3, 4)
+        u3 = PencilArray(pen3, 3, 4)
+        randn!(rng, u1)
         transpose!(u2, u1)
-        compare_distributed_arrays(u1, u2)
+        @test compare_distributed_arrays(u1, u2)
+        transpose!(u3, u2)
+        @test compare_distributed_arrays(u2, u3)
+    end
+
+    # Test slab (1D) decomposition.
+    let topo = Topology(comm, (Nproc, ))
+        pen1 = Pencil(topo, Nxyz, (1, ))
+        pen2 = Pencil(pen1, (2, ))
+        u1 = PencilArray(pen1)
+        u2 = PencilArray(pen2)
+        randn!(rng, u1)
+        transpose!(u2, u1)
+        @test compare_distributed_arrays(u1, u2)
     end
 
     if Nproc == 1

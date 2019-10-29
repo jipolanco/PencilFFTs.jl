@@ -5,12 +5,15 @@ using PencilFFTs.Pencils
 import Base: show
 
 using MPI
+
+using InteractiveUtils
 using Profile
 using Random
 using Test
 
 const PROFILE = false
 const PROFILE_OUTPUT = "profile.txt"
+const PROFILE_DEPTH = 8
 
 const DIMS = (128, 192, 64)
 const ITERATIONS = 100
@@ -27,6 +30,7 @@ end
 
 function show(io::IO, times::BenchTimes)
     # This is the same function called by the @time macro.
+    # TODO stuff should be printed to `io`
     Base.time_print(times.elapsedtime / times.iterations,
                     times.gc_alloc_bytes / times.iterations,
                     times.gc_total_time / times.iterations,
@@ -51,22 +55,31 @@ macro mpi_time(times, ex)
     end
 end
 
-function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
+# Slab decomposition
+function create_pencils(topo::Topology{1}, data_dims)
+    pen1 = Pencil(topo, data_dims, (2, ))
+    pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, (2, ), permute=(3, 2, 1))
+    pen1, pen2, pen3
+end
+
+# Pencil decomposition
+function create_pencils(topo::Topology{2}, data_dims)
+    pen1 = Pencil(topo, data_dims, (2, 3))
+    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+    pen1, pen2, pen3
+end
+
+function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
+                          extra_dims::Tuple=())
     topo = Topology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
 
-    if M == 1  # slab decomposition
-        pen1 = Pencil(topo, data_dims, (2, ))
-        pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
-        pen3 = Pencil(pen2, (1, ), permute=(3, 2, 1))
-    elseif M == 2  # pencil decomposition
-        pen1 = Pencil(topo, data_dims, (2, 3))
-        pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
-        pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
-    end
+    pens = create_pencils(topo, data_dims)
 
-    u = PencilArray.((pen1, pen2, pen3), Float64)
+    u = PencilArray.(pens, Float64, extra_dims...)
 
     myrank = MPI.Comm_rank(comm)
     rng = MersenneTwister(42 + myrank)
@@ -95,7 +108,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
         println(
             """
             Processes:          $proc_dims
-            Data dimensions:    $data_dims
+            Data dimensions:    $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
             Transpositions:""")
         println.(times)
         println()
@@ -110,7 +123,8 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple)
             transpose!(u[1], u[2])
         end
         if myrank == 0
-            open(io -> Profile.print(io, maxdepth=6), PROFILE_OUTPUT, "w")
+            open(io -> Profile.print(io, maxdepth=PROFILE_DEPTH),
+                 PROFILE_OUTPUT, "w")
         end
     end
 
@@ -137,6 +151,9 @@ function main()
     end
 
     benchmark_decomp(comm, proc_dims, DIMS)
+
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, ))
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4))
 
     MPI.Finalize()
 end
