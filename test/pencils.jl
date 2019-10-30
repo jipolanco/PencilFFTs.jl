@@ -187,6 +187,7 @@ function main()
 
         # @code_warntype transpose!(u2, u1)
         # @code_warntype Pencils.transpose_impl!(1, u2, u1)
+        # @code_warntype Pencils._get_remote_indices(1, (2, 3), 8)
     end
 
     MPI.Finalize()

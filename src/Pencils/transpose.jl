@@ -83,20 +83,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     @assert in.extra_dims === out.extra_dims
     extra_dims = in.extra_dims
     prod_extra_dims = prod(extra_dims)
-    colons_extra_dims = ntuple(n -> Colon(), Val(length(extra_dims)))
-
-    # Cartesian indices of the remote MPI processes included in the subgroup.
-    # Example: if coords_local = (2, 3) and R = 1, then remote_inds holds the
-    # indices in (:, 3).
-    TopologyIndex = CartesianIndex{ndims(topology)}
-    remote_inds = Vector{TopologyIndex}(undef, Nproc)
-    # TODO avoid creating array?
-    let coords = collect(topology.coords_local)  # convert tuple to array
-        for n in eachindex(remote_inds)
-            coords[R] = n
-            remote_inds[n] = TopologyIndex(coords...)
-        end
-    end
+    remote_inds = _get_remote_indices(R, topology.coords_local, Nproc)
 
     idims_local = Pi.axes_local
     odims_local = Po.axes_local
@@ -142,14 +129,12 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         # Global data range that I need to send to process n.
         srange = intersect.(idims_local, odims[ind])
         length_send_n = prod(length.(srange)) * prod_extra_dims
+        local_send_range = to_local(Pi, srange)
 
         # Determine amount of data to be received.
         rrange = intersect.(odims_local, idims[ind])
-        rdims = length.(rrange)
         length_recv_n = prod(length.(rrange)) * prod_extra_dims
         recv_offsets[n] = irecv
-
-        local_send_range = to_local(Pi, srange)
 
         # Exchange data with the other process (non-blocking operations).
         # Note: data is sent and received with the permutation associated to Pi.
@@ -213,6 +198,22 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     MPI.Waitall!(send_req)
 
     out
+end
+
+# Cartesian indices of the remote MPI processes included in the subgroup of
+# index `R`.
+# Example: if coords_local = (2, 3, 5) and R = 1, then this function returns the
+# indices corresponding to (:, 3, 5).
+function _get_remote_indices(R::Int, coords_local::Dims{M}, Nproc::Int) where M
+    t = ntuple(Val(M)) do i
+        if i == R
+            1:Nproc
+        else
+            c = coords_local[i]
+            c:c
+        end
+    end
+    CartesianIndices(t)
 end
 
 function _copy_to_vec!(dest::Vector{T},
