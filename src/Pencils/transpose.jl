@@ -61,9 +61,8 @@ end
 # See for instance:
 # - https://discourse.julialang.org/t/big-overhead-with-the-new-lazy-reshape-reinterpret/7635
 # - https://github.com/JuliaLang/julia/issues/28980
-unsafe_as_array(::Type{T}, x::Vector{UInt8}) where T =
-    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), length(x) ÷ sizeof(T),
-                own=false)
+unsafe_as_array(::Type{T}, x::Vector{UInt8}, length) where T =
+    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), length, own=false)
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
@@ -109,16 +108,14 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # Note: I prefer to resize the original UInt8 array instead of the "unsafe"
     # Array{T}.
     resize!(Po.send_buf, sizeof(T) * length_send)
-    send_buf = unsafe_as_array(T, Po.send_buf)
+    send_buf = unsafe_as_array(T, Po.send_buf, length_send)
     send_buf_ptr = pointer(send_buf)
-    @assert length(send_buf) == length_send
     send_req = Vector{MPI.Request}(undef, Nproc)
     isend = 0  # current index in send_buf
 
     resize!(Po.recv_buf, sizeof(T) * length_recv)
-    recv_buf = unsafe_as_array(T, Po.recv_buf)
+    recv_buf = unsafe_as_array(T, Po.recv_buf, length_recv)
     recv_buf_ptr = pointer(recv_buf)
-    @assert length(recv_buf) == length_recv
     recv_req = similar(send_req)
     irecv = 0  # current index in recv_buf
     recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf
