@@ -123,12 +123,14 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # Array{T}.
     resize!(Po.send_buf, sizeof(T) * length_send)
     send_buf = unsafe_as_array(T, Po.send_buf)
+    send_buf_ptr = pointer(send_buf)
     @assert length(send_buf) == length_send
     send_req = Vector{MPI.Request}(undef, Nproc)
     isend = 0  # current index in send_buf
 
     resize!(Po.recv_buf, sizeof(T) * length_recv)
     recv_buf = unsafe_as_array(T, Po.recv_buf)
+    recv_buf_ptr = pointer(recv_buf)
     @assert length(recv_buf) == length_recv
     recv_req = similar(send_req)
     irecv = 0  # current index in recv_buf
@@ -138,44 +140,47 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
 
     for (n, ind) in enumerate(remote_inds)
         # Global data range that I need to send to process n.
-        srange = intersect.(idims_local, odims[ind]) # Dimensions of data that I will receive from process n.
+        srange = intersect.(idims_local, odims[ind])
+        length_send_n = prod(length.(srange)) * prod_extra_dims
+
+        # Determine amount of data to be received.
         rrange = intersect.(odims_local, idims[ind])
-        rdims = permute_indices(length.(rrange), Pi)
-
-        length_recv_n = prod(rdims) * prod_extra_dims
+        rdims = length.(rrange)
+        length_recv_n = prod(length.(rrange)) * prod_extra_dims
         recv_offsets[n] = irecv
-        irecv_prev = irecv
-        irecv += length_recv_n
-        recv_buf_view = @view recv_buf[(irecv_prev + 1):irecv]
 
-        # Note: data is sent and received with the permutation associated to Pi.
-        to_send = @view in[colons_extra_dims..., to_local(Pi, srange)...]
+        local_send_range = to_local(Pi, srange)
 
         # Exchange data with the other process (non-blocking operations).
+        # Note: data is sent and received with the permutation associated to Pi.
         tag = 42
         rank = topology.subcomm_ranks[R][n]  # actual rank of the other process
         if rank == myrank
-            # Copy directly to_send -> recv_buf_view.
-            @assert length(recv_buf_view) == length(to_send)
-            copyto!(recv_buf_view, to_send)
+            # Copy directly from `in` to `recv_buf`.
+            _copy_to_vec!(recv_buf, irecv, in, local_send_range, extra_dims)
             send_req[n] = recv_req[n] = MPI.REQUEST_NULL
             index_local_req = n
         else
-            # Copy to_send into contiguous buffer, then send the buffer.
-            # TODO If to_send is contiguous, avoid copying data to buffer.
-            # (I need to check if it's contiguous...)
-            isend_prev = isend
-            isend += length(to_send)
-            send_buf_view = @view send_buf[(isend_prev + 1):isend]
-            @assert length(to_send) == length(send_buf_view)
-            copyto!(send_buf_view, to_send)
-            send_req[n] = MPI.Isend(send_buf_view, rank, tag, comm)
-            recv_req[n] = MPI.Irecv!(recv_buf_view, rank, tag, comm)
+            # Copy data into contiguous buffer, then send the buffer.
+            # TODO If data inside `in` is contiguous, avoid copying data to buffer,
+            # and call MPI.Isend directly. (I need to check if it's contiguous...)
+            _copy_to_vec!(send_buf, isend, in, local_send_range, extra_dims)
+
+            send_req[n] =
+                MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm)
+            send_buf_ptr += length_send_n * sizeof(T)
+            isend += length_send_n
+
+            recv_req[n] =
+                MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm)
         end
+
+        recv_buf_ptr += length_recv_n * sizeof(T)
+        irecv += length_recv_n
     end
 
-    @assert isend == length(send_buf)
-    @assert irecv == length(recv_buf)
+    @assert isend == length(send_buf) == (send_buf_ptr - pointer(send_buf)) // sizeof(T)
+    @assert irecv == length(recv_buf) == (recv_buf_ptr - pointer(recv_buf)) // sizeof(T)
 
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pi
@@ -200,7 +205,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
                 permute_indices(to_local(Po, g_range, permute=false), Pi)
 
             # Copy data to `out`, permuting dimensions if required.
-            _copy_permuted!(out, o_range_iperm, recv_buf, off, perm, extra_dims)
+            _copy_from_vec!(out, o_range_iperm, recv_buf, off, perm, extra_dims)
         end
     end
 
@@ -210,14 +215,30 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     out
 end
 
-function _copy_permuted!(dest::AbstractArray{T,N},
+function _copy_to_vec!(dest::Vector{T},
+                       dest_offset::Int,
+                       src::AbstractArray{T,N},
+                       src_range::ArrayRegion{P},
+                       extra_dims::Dims{E}) where {T,N,P,E}
+    @assert P + E == N
+
+    n = dest_offset
+    @inbounds for I in CartesianIndices(src_range)
+        for K in CartesianIndices(extra_dims)
+            dest[n += 1] = src[K, I]
+        end
+    end
+
+    dest
+end
+
+function _copy_from_vec!(dest::AbstractArray{T,N},
                          o_range_iperm::ArrayRegion{P},
                          src::Vector{T},
                          src_offset::Int,
                          perm::OptionalPermutation{P},
                          extra_dims::Dims{E}) where {T,N,P,E}
     @assert P + E == N
-    @assert axes(src) isa Tuple{Base.OneTo}  # indices of src start at 1
 
     # The idea is to visit `dest` not in its natural order (with the fastest
     # dimension first), but with a permutation corresponding to the layout of
@@ -228,8 +249,7 @@ function _copy_permuted!(dest::AbstractArray{T,N},
         # Note: this should have zero cost if perm == nothing.
         J = permute_indices(I, perm)
         for K in CartesianIndices(extra_dims)
-            n += 1
-            dest[K, J] = src[n]
+            dest[K, J] = src[n += 1]
         end
     end
 
