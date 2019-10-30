@@ -13,7 +13,8 @@
   # only:
   #   - master
   #   - development
-  tags: julia
+  tags:
+    - julia
   script:
     # Let's run the tests. Substitute `coverage = false` below, if you do not
     # want coverage results.
