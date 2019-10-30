@@ -2,12 +2,13 @@
 
 # This is based on the runtests.jl file of MPI.jl.
 
+using FFTW  # this avoids issues with precompilation of FFTW in parallel...
 import MPI: mpiexec
 
 const TEST_FILES = (
     # "test_base.jl",
-    "benchmarks.jl",
     "pencils.jl",
+    "benchmarks.jl",
 )
 
 function main()
