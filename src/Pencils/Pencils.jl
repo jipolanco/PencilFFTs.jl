@@ -235,6 +235,10 @@ struct Pencil{N,  # spatial dimensions
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
                    ) where {N, M, P<:OptionalPermutation{N}}
+        # TODO add checks:
+        # - M < N
+        # - decomp_dims and permute must be valid: non-repeated values in 1:N
+        # (use `isperm` for permute)
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
@@ -322,7 +326,10 @@ end
 """
     to_local(p::Pencil, global_inds; permute=true)
 
-Convert non-permuted global indices to local indices, which are permuted by default.
+Convert non-permuted global indices to local indices.
+
+Indices are permuted by default using the permutation associated to the pencil
+configuration `p`.
 """
 function to_local(p::Pencil{N}, global_inds::Indices{N};
                   permute=true) where N

@@ -18,7 +18,7 @@ function relative_permutation(x::Permutation{N}, y::Permutation{N}) where {N}
     perm = map(y) do v
         findfirst(u -> u == v, x) :: Int
     end
-    # @assert permute_indices(x, perm) === y
+    @assert permute_indices(x, perm) === y
     perm
 end
 
@@ -27,6 +27,7 @@ relative_permutation(::Nothing, ::Nothing) = nothing
 
 # In this case, the result is the inverse permutation of `x`, such that
 # `permute_indices(x, perm) == (1, 2, 3, ...)`.
+# TODO compare to using `invperm`
 relative_permutation(x::Permutation{N}, ::Nothing) where N =
     relative_permutation(x, identity_permutation(Val(N)))
 

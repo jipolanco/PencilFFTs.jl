@@ -181,8 +181,6 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # Here we need to know the relative index permutation to go from Pi
     # ordering to Po ordering.
     let perm = relative_permutation(Pi, Po)
-        no_perm = is_identity_permutation(perm)
-
         for m = 1:Nproc
             if m == 1
                 n = index_local_req  # copy local data first
@@ -191,27 +189,18 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             end
 
             # Non-permuted global indices of received data.
-            # TODO avoid repeated code...
             ind = remote_inds[n]
-            rrange = intersect.(odims_local, idims[ind])
-            rdims = permute_indices(length.(rrange), Pi)
+            g_range = intersect.(odims_local, idims[ind])
 
-            length_recv_n = prod(rdims) * prod_extra_dims
+            length_recv_n = prod(length.(g_range)) * prod_extra_dims
             off = recv_offsets[n]
-            recv_buf_view = @view recv_buf[(off + 1):(off + length_recv_n)]
 
-            # Permuted local indices of output data.
-            orange = to_local(Po, rrange)
-
-            src = recv_buf_view
-            dest = @view out[colons_extra_dims..., orange...]
+            # Local output data range in the **input** permutation.
+            o_range_iperm =
+                permute_indices(to_local(Po, g_range, permute=false), Pi)
 
             # Copy data to `out`, permuting dimensions if required.
-            if no_perm
-                copyto!(dest, src)
-            else
-                _copy_permuted!(dest, src, perm, rdims, extra_dims)
-            end
+            _copy_permuted!(out, o_range_iperm, recv_buf, off, perm, extra_dims)
         end
     end
 
@@ -221,26 +210,28 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     out
 end
 
-function _copy_permuted!(dest::AbstractArray{T,N}, src::AbstractVector{T},
-                         perm_base::Permutation{P}, src_dims_base::Dims{P},
+function _copy_permuted!(dest::AbstractArray{T,N},
+                         o_range_iperm::ArrayRegion{P},
+                         src::Vector{T},
+                         src_offset::Int,
+                         perm::OptionalPermutation{P},
                          extra_dims::Dims{E}) where {T,N,P,E}
-    @assert !is_identity_permutation(perm_base)
     @assert P + E == N
+    @assert axes(src) isa Tuple{Base.OneTo}  # indices of src start at 1
 
-    n = 0
-    @inbounds for I in CartesianIndices(src_dims_base)
-        J = permute_indices(I, perm_base)
+    # The idea is to visit `dest` not in its natural order (with the fastest
+    # dimension first), but with a permutation corresponding to the layout of
+    # the `src` data.
+    n = src_offset
+    @inbounds for I in CartesianIndices(o_range_iperm)
+        # Switch from input to output permutation.
+        # Note: this should have zero cost if perm == nothing.
+        J = permute_indices(I, perm)
         for K in CartesianIndices(extra_dims)
             n += 1
             dest[K, J] = src[n]
         end
     end
-
-    # The commented code below does the same, but it's very slow when
-    # `extra_dims` is not empty. If it is empty, it's about as fast as above.
-    #     src_shape = (extra_dims..., src_dims_base...)
-    #     perm = prepend_to_permutation(Val(E), perm_base)
-    #     permutedims!(dest, reshape(src, src_shape), perm)
 
     dest
 end

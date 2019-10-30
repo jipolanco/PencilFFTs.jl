@@ -56,28 +56,44 @@ macro mpi_time(times, ex)
 end
 
 # Slab decomposition
-function create_pencils(topo::Topology{1}, data_dims)
+function create_pencils(topo::Topology{1}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, ))
     pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
     pen3 = Pencil(pen2, (2, ), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
+function create_pencils(topo::Topology{1}, data_dims, permutation::Val{false})
+    pen1 = Pencil(topo, data_dims, (2, ))
+    pen2 = Pencil(pen1, (3, ))
+    pen3 = Pencil(pen2, (2, ))
+    pen1, pen2, pen3
+end
+
 # Pencil decomposition
-function create_pencils(topo::Topology{2}, data_dims)
+function create_pencils(topo::Topology{2}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, 3))
     pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
     pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
+function create_pencils(topo::Topology{2}, data_dims, permutation::Val{false})
+    pen1 = Pencil(topo, data_dims, (2, 3))
+    pen2 = Pencil(pen1, (1, 3))
+    pen3 = Pencil(pen2, (1, 2))
+    pen1, pen2, pen3
+end
+
 function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
+                          iterations=ITERATIONS,
+                          with_permutations::Val=Val(true),
                           extra_dims::Tuple=())
     topo = Topology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
 
-    pens = create_pencils(topo, data_dims)
+    pens = create_pencils(topo, data_dims, with_permutations)
 
     u = PencilArray.(pens, Float64, extra_dims...)
 
@@ -95,7 +111,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     transpose!(u[2], u[3])
     transpose!(u[1], u[2])
 
-    for it = 1:ITERATIONS
+    for it = 1:iterations
         @mpi_time times[1] transpose!(u[2], u[1])
         @mpi_time times[2] transpose!(u[3], u[2])
         @mpi_time times[3] transpose!(u[2], u[3])
@@ -105,18 +121,20 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     @test u[1] == u_orig
 
     if myrank == 0
-        println(
+        print(
             """
             Processes:          $proc_dims
             Data dimensions:    $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
-            Transpositions:""")
+            """)
+        with_permutations === Val(false) && println("Permutations disabled")
+        println("Transpositions:")
         println.(times)
         println()
     end
 
     if PROFILE
         Profile.clear()
-        @profile for it = 1:ITERATIONS
+        @profile for it = 1:iterations
             transpose!(u[2], u[1])
             transpose!(u[3], u[2])
             transpose!(u[2], u[3])
@@ -151,9 +169,15 @@ function main()
     end
 
     benchmark_decomp(comm, proc_dims, DIMS)
+    benchmark_decomp(comm, proc_dims, DIMS, with_permutations=Val(false))
 
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, ))
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4))
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, ),
+                     iterations=ITERATIONS >> 1)
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4),
+                     iterations=ITERATIONS >> 2)
+
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4),
+                     iterations=ITERATIONS >> 2, with_permutations=Val(false))
 
     MPI.Finalize()
 end
