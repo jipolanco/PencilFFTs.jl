@@ -1,3 +1,7 @@
+# Some useful links:
+# https://github.com/JuliaCI/Coverage.jl/issues/226
+# https://gitlab.com/tkpapp/GitlabJuliaDemo.jl
+
 # Below is the template to run your tests in Julia
 .test_template: &test_definition
   # Uncomment below if you would like to run the tests on specific references
@@ -11,25 +15,19 @@
   # Note: OpenMPI doesn't support running as root, unless --allow-run-as-root is
   # passed to mpirun. With MPICH there's no such problem.
   before_script:
-    - apt-get update
+    - apt-get -qq update
     - apt-get install -y --no-install-recommends mpich libmpich-dev
 
   script:
     - mpichversion
     - julia -e 'using InteractiveUtils;
                 versioninfo()'
-    - julia --code-coverage=user -e
-               'using Pkg;
-                Pkg.clone(pwd());
-                Pkg.build("PencilFFTs");
-                Pkg.test("PencilFFTs"; coverage=true)'
-    - julia -e 'using Pkg;
-                Pkg.add("Coverage");
-                import PencilFFTs;
-                cd(joinpath(dirname(pathof(PencilFFTs)), ".."));
-                using Coverage;
-                cl, tl = get_summary(process_folder());
-                println("(", cl/tl*100, "%) covered")'
+    # Coverage docs: https://github.com/JuliaCI/Coverage.jl/blob/master/README.md
+    # Stuff taken from https://gitlab.com/tkpapp/GitlabJuliaDemo.jl
+    - julia --project=@. --code-coverage=tracefile-%p.info --code-coverage=user
+          --color=yes -e 'import Pkg; Pkg.test(; coverage=true)'
+    - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()'
+    - julia --project=test/coverage test/coverage/coverage_summary.jl
 
 # Name a test and select an appropriate image.
 # images comes from Docker hub
@@ -73,7 +71,9 @@ pages:
   script:
     - apt-get update -qq && apt-get install -y git  # needed by Documenter
     - apt-get install -y --no-install-recommends mpich libmpich-dev  # needed to import PencilFFTs
-    - julia -e 'using Pkg; Pkg.clone(pwd()); Pkg.build("PencilFFTs");'  # rebuild Julia (can be put somewhere else I'm sure
+    - julia -e 'using Pkg;
+                Pkg.add(PackageSpec(url=pwd()));
+                Pkg.build("PencilFFTs");'
     - julia -e 'using Pkg; import PencilFFTs; Pkg.add("Documenter")'  # install Documenter
     - julia --color=yes docs/make.jl  # make documentation
     - mv docs/build public  # move to the directory picked up by Gitlab pages
@@ -90,3 +90,5 @@ pages:
 # description page.
 #
 # [3]: https://hub.docker.com/_/julia/
+#
+# vim: shiftwidth=2
