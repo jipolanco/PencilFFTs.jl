@@ -15,6 +15,8 @@ const PROFILE = false
 const PROFILE_OUTPUT = "profile.txt"
 const PROFILE_DEPTH = 8
 
+const MEASURE_GATHER = false
+
 const DIMS = (128, 192, 64)
 const ITERATIONS = 20
 
@@ -116,7 +118,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
         @mpi_time times[2] transpose!(u[3], u[2])
         @mpi_time times[3] transpose!(u[2], u[3])
         @mpi_time times[4] transpose!(u[1], u[2])
-        @mpi_time times[5] gather(u[2])
+        MEASURE_GATHER && @mpi_time times[5] gather(u[2])
     end
 
     @test u[1] == u_orig
@@ -130,8 +132,10 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
             """)
         println("Transpositions (1 -> 2 -> 3 -> 2 -> 1):")
         println.(times[1:4])
-        println("Gather (config 2):")
-        println(times[5])
+        if MEASURE_GATHER
+            println("Gather (config 2):")
+            println(times[5])
+        end
         println()
     end
 
@@ -174,13 +178,10 @@ function main()
     benchmark_decomp(comm, proc_dims, DIMS)
     benchmark_decomp(comm, proc_dims, DIMS, with_permutations=Val(false))
 
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, ),
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),
                      iterations=ITERATIONS >> 1)
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4),
-                     iterations=ITERATIONS >> 2)
-
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(3, 4),
-                     iterations=ITERATIONS >> 2, with_permutations=Val(false))
+    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),
+                     iterations=ITERATIONS >> 1, with_permutations=Val(false))
 
     MPI.Finalize()
 end
