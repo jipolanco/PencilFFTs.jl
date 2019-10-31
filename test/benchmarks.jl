@@ -16,7 +16,7 @@ const PROFILE_OUTPUT = "profile.txt"
 const PROFILE_DEPTH = 8
 
 const DIMS = (128, 192, 64)
-const ITERATIONS = 100
+const ITERATIONS = 20
 
 # Benchmark time accumulator.
 mutable struct BenchTimes
