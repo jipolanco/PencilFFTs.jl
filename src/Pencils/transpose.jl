@@ -131,7 +131,6 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         # Determine amount of data to be received.
         rrange = intersect.(odims_local, idims[ind])
         length_recv_n = prod(length.(rrange)) * prod_extra_dims
-        recv_offsets[n] = irecv
 
         # Exchange data with the other process (non-blocking operations).
         # Note: data is sent and received with the permutation associated to Pi.
@@ -139,7 +138,12 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         rank = topology.subcomm_ranks[R][n]  # actual rank of the other process
         if rank == myrank
             # Copy directly from `in` to `recv_buf`.
-            _copy_to_vec!(recv_buf, irecv, in, local_send_range, extra_dims)
+            # For convenience, data is put at the end of `recv_buf`. This makes
+            # it easier to implement an alternative based on MPI_Alltoallv.
+            @assert length_recv_n == length_send_local
+            off = length_recv - length_send_local
+            recv_offsets[n] = off
+            _copy_to_vec!(recv_buf, off, in, local_send_range, extra_dims)
             send_req[n] = recv_req[n] = MPI.REQUEST_NULL
             index_local_req = n
         else
@@ -155,14 +159,16 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
 
             recv_req[n] =
                 MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm)
+            recv_offsets[n] = irecv
+            recv_buf_ptr += length_recv_n * sizeof(T)
+            irecv += length_recv_n
         end
-
-        recv_buf_ptr += length_recv_n * sizeof(T)
-        irecv += length_recv_n
     end
 
-    @assert isend == length(send_buf) == (send_buf_ptr - pointer(send_buf)) // sizeof(T)
-    @assert irecv == length(recv_buf) == (recv_buf_ptr - pointer(recv_buf)) // sizeof(T)
+    @assert isend == length(send_buf) ==
+        (send_buf_ptr - pointer(send_buf)) // sizeof(T)
+    @assert irecv == length(recv_buf) - length_send_local ==
+        (recv_buf_ptr - pointer(recv_buf)) // sizeof(T)
 
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pi
