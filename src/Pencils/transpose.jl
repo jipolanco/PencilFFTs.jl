@@ -121,7 +121,11 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     else
         send_buf_ptr = pointer(send_buf)
         recv_buf_ptr = pointer(recv_buf)
-        send_req = Vector{MPI.Request}(undef, Nproc)
+
+        # Note: we keep a vector of MPI.MPI_Request (a C object) instead of the
+        # MPI.Request wrapper, to avoid allocating a vector each time Waitany
+        # and Waitall are called. See MPI_Waitany!.
+        send_req = Vector{MPI.MPI_Request}(undef, Nproc)
         recv_req = similar(send_req)
     end
 
@@ -151,7 +155,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
                 # Don't send data to myself via Alltoallv.
                 send_counts[n] = recv_counts[n] = zero(Cint)
             else
-                send_req[n] = recv_req[n] = MPI.REQUEST_NULL
+                send_req[n] = recv_req[n] = MPI.REQUEST_NULL.val
                 index_local_req = n
             end
         else
@@ -170,10 +174,13 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
                 # Exchange data with the other process (non-blocking operations).
                 # Note: data is sent and received with the permutation associated to Pi.
                 tag = 42
+
+                # We take the 'val' of the returned MPI.Request, discarding the
+                # 'buffer' field.
                 send_req[n] =
-                    MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm)
+                    MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm).val
                 recv_req[n] =
-                    MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm)
+                    MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm).val
 
                 send_buf_ptr += length_send_n * sizeof(T)
                 recv_buf_ptr += length_recv_n * sizeof(T)
@@ -204,7 +211,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             elseif m == 1
                 n = index_local_req  # copy local data first
             else
-                n, status = MPI.Waitany!(recv_req)
+                n, status = MPI_Waitany!(recv_req)
             end
 
             # Non-permuted global indices of received data.
@@ -224,7 +231,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     end
 
     # Wait for all our data to be sent before returning.
-    USE_ALLTOALLV || MPI.Waitall!(send_req)
+    USE_ALLTOALLV || MPI_Waitall!(send_req)
 
     out
 end
@@ -284,4 +291,33 @@ function _copy_from_vec!(dest::AbstractArray{T,N},
     end
 
     dest
+end
+
+# Alternative wrapper to Waitany that takes a Vector{MPI.MPI_Request} instead of
+# a Vector{MPI.Request} (the former is a C integer, while the latter is a MPI.jl
+# wrapper that contains more information). This avoids the allocation of a
+# vector every time Waitany! is called.
+function MPI_Waitany!(reqvals::Vector{MPI.MPI_Request})
+    count = length(reqvals)
+    ind = Ref{Cint}()
+    stat_ref = Ref{MPI.Status}()
+    # int MPI_Waitany(int count, MPI_Request array_of_requests[], int *index,
+    #                 MPI_Status *status)
+    MPI.@mpichk ccall((:MPI_Waitany, MPI.libmpi), Cint,
+                      (Cint, Ptr{MPI.MPI_Request}, Ptr{Cint}, Ptr{MPI.Status}),
+                      count, reqvals, ind, stat_ref)
+    index = Int(ind[]) + 1
+    (index, stat_ref[])
+end
+
+# Same for Waitall.
+function MPI_Waitall!(reqvals::Vector{MPI.MPI_Request})
+    count = length(reqvals)
+    stats = Array{MPI.Status}(undef, count)
+    # int MPI_Waitall(int count, MPI_Request array_of_requests[],
+    #                 MPI_Status array_of_statuses[])
+    MPI.@mpichk ccall((:MPI_Waitall, MPI.libmpi), Cint,
+                      (Cint, Ptr{MPI.MPI_Request}, Ptr{MPI.Status}),
+                      count, reqvals, stats)
+    stats
 end
