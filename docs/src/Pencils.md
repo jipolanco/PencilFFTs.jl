@@ -31,9 +31,3 @@ size_local
 to_local
 transpose!
 ```
-
-## Devdocs
-
-```@docs
-put_colon
-```
