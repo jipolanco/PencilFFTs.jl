@@ -122,6 +122,7 @@ This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
 function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
+    # TODO reduce allocations! see `transpose_impl!`
     comm = get_comm(x)
     rank = MPI.Comm_rank(comm)
     mpi_tag = 42
@@ -157,7 +158,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     root_index = -1
 
-    for n in eachindex(recv)
+    for n = 1:Nproc
         # Global data range that I will receive from process n.
         rrange = pencil.axes_all[n]
         rdims = length.(rrange)
