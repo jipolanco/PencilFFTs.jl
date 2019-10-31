@@ -22,12 +22,9 @@
     - mpichversion
     - julia -e 'using InteractiveUtils;
                 versioninfo()'
-    # Coverage docs: https://github.com/JuliaCI/Coverage.jl/blob/master/README.md
-    # Stuff taken from https://gitlab.com/tkpapp/GitlabJuliaDemo.jl
-    - julia --project=@. --code-coverage=tracefile-%p.info --code-coverage=user
-          --color=yes -e 'import Pkg; Pkg.test(; coverage=true)'
-    - julia --project=test/coverage -e 'import Pkg; Pkg.instantiate()'
-    - julia --project=test/coverage test/coverage/coverage_summary.jl
+    # Note: code coverage (at least using Coverage.jl) apparently doesn't work
+    # with parallel code.
+    - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(; coverage=false)'
 
 # Name a test and select an appropriate image.
 # images comes from Docker hub
