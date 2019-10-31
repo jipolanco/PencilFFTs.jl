@@ -86,8 +86,8 @@ function main()
     test_array_wrappers(pen3, Float64)
 
     @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) === (1, 42, 12, 1, 1)
-    @test index_permutation(pen1) === nothing
-    @test index_permutation(pen2) === (2, 1, 3)
+    @test get_permutation(pen1) === nothing
+    @test get_permutation(pen2) === (2, 1, 3)
 
     @test Pencils.relative_permutation(pen2, pen3) === (3, 1, 2)
 
