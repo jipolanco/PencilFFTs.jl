@@ -14,7 +14,7 @@ import LinearAlgebra: transpose!
 export Pencil, PencilArray, Topology
 export gather
 export get_comm
-export index_permutation
+export get_permutation
 export ndims_extra
 export size_local, size_global
 export transpose!
@@ -24,9 +24,6 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
 # Describes indices of an array as a tuple.
 const Indices{N} = NTuple{N,Int} where N
-
-# TODO
-# - rename Topology -> MPITopology / DistributedTopology
 
 """
     Topology{N}
@@ -277,13 +274,13 @@ include("permutations.jl")
 include("transpose.jl")
 
 """
-    index_permutation(p::Pencil)
+    get_permutation(p::Pencil)
 
 Get index permutation associated to the given pencil.
 
 Returns `nothing` if there is no associated permutation.
 """
-index_permutation(p::Pencil) = p.perm
+get_permutation(p::Pencil) = p.perm
 
 """
     size_local(p::Pencil; permute=true)

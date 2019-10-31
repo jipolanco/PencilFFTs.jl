@@ -103,7 +103,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     u[1] .+= 10 * myrank
     u_orig = copy(u[1])
 
-    times = ntuple(n -> BenchTimes(), 4)
+    times = ntuple(n -> BenchTimes(), 5)
 
     # Precompile functions
     transpose!(u[2], u[1])
@@ -116,6 +116,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
         @mpi_time times[2] transpose!(u[3], u[2])
         @mpi_time times[3] transpose!(u[2], u[3])
         @mpi_time times[4] transpose!(u[1], u[2])
+        @mpi_time times[5] gather(u[1])
     end
 
     @test u[1] == u_orig
@@ -125,10 +126,12 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
             """
             Processes:          $proc_dims
             Data dimensions:    $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
+            Permutations:       $(get_permutation.(pens))
             """)
-        with_permutations === Val(false) && println("Permutations disabled")
         println("Transpositions:")
-        println.(times)
+        println.(times[1:4])
+        println("Gather:")
+        println(times[5])
         println()
     end
 

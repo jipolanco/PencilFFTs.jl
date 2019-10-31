@@ -21,7 +21,7 @@ PencilArray
 ```@docs
 gather
 get_comm
-index_permutation
+get_permutation
 length
 ndims
 ndims_extra
