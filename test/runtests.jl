@@ -6,7 +6,6 @@ using FFTW  # this avoids issues with precompilation of FFTW in parallel...
 import MPI: mpiexec
 
 const TEST_FILES = (
-    # "test_base.jl",
     "pencils.jl",
     "benchmarks.jl",
 )
