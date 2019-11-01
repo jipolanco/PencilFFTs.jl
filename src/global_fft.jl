@@ -18,7 +18,7 @@ applied along each dimension. Each element must be a subtype of
 [`Transform types`](@ref Transforms).
 
 Note that the transforms are applied one dimension at a time, with the leftmost
-dimension first.
+dimension first for forward transforms.
 
 # Example
 

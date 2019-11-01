@@ -47,77 +47,7 @@ Specifies that no transformation should be applied.
 struct NoTransform <: AbstractTransform end
 inv(::NoTransform) = NoTransform()
 
-"""
-    FFT()
-
-Complex-to-complex FFT.
-
-See also
-[`AbstractFFTs.fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.fft).
-"""
-struct FFT <: AbstractTransform end
-inv(::FFT) = BFFT()
-
-"""
-    IFFT()
-
-Normalised inverse complex-to-complex FFT.
-
-See also
-[`AbstractFFTs.ifft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.ifft).
-"""
-struct IFFT <: AbstractTransform end
-inv(::IFFT) = FFT()
-
-"""
-    BFFT()
-
-Unnormalised inverse (backward) complex-to-complex FFT.
-
-Like `AbstractFFTs.bfft`, this transform is not normalised.
-To obtain the inverse transform, divide the output by the length of the
-transformed dimension.
-
-See also
-[`AbstractFFTs.bfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.bfft).
-"""
-struct BFFT <: AbstractTransform end
-inv(::BFFT) = FFT()
-
-"""
-    RFFT()
-
-Real-to-complex FFT.
-
-See also
-[`AbstractFFTs.rfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.rfft).
-"""
-struct RFFT <: AbstractTransform end
-inv(::RFFT) = BRFFT()
-
-"""
-    IRFFT()
-
-Normalised inverse of [`RFFT`](@ref).
-
-See also
-[`AbstractFFTs.irfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
-"""
-struct IRFFT <: AbstractTransform end
-inv(::IRFFT) = RFFT()
-
-"""
-    BRFFT()
-
-Unnormalised inverse of [`RFFT`](@ref).
-
-To obtain the inverse transform, divide the output by the length of the
-transformed dimension (of the real output array).
-
-See also
-[`AbstractFFTs.brfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.brfft).
-"""
-struct BRFFT <: AbstractTransform end
-inv(::BRFFT) = RFFT()
+include("c2c.jl")
+include("r2c.jl")
 
 end
