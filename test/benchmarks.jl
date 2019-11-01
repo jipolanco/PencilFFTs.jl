@@ -58,14 +58,14 @@ macro mpi_time(times, ex)
 end
 
 # Slab decomposition
-function create_pencils(topo::Topology{1}, data_dims, permutation::Val{true})
+function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, ))
     pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
     pen3 = Pencil(pen2, (2, ), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::Topology{1}, data_dims, permutation::Val{false})
+function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{false})
     pen1 = Pencil(topo, data_dims, (2, ))
     pen2 = Pencil(pen1, (3, ))
     pen3 = Pencil(pen2, (2, ))
@@ -73,14 +73,14 @@ function create_pencils(topo::Topology{1}, data_dims, permutation::Val{false})
 end
 
 # Pencil decomposition
-function create_pencils(topo::Topology{2}, data_dims, permutation::Val{true})
+function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, 3))
     pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
     pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::Topology{2}, data_dims, permutation::Val{false})
+function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{false})
     pen1 = Pencil(topo, data_dims, (2, 3))
     pen2 = Pencil(pen1, (1, 3))
     pen3 = Pencil(pen2, (1, 2))
@@ -91,7 +91,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
                           iterations=ITERATIONS,
                           with_permutations::Val=Val(true),
                           extra_dims::Tuple=())
-    topo = Topology(comm, proc_dims)
+    topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
 

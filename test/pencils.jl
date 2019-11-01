@@ -76,7 +76,7 @@ function main()
         pdims[1], pdims[2]
     end
 
-    topo = Topology(comm, proc_dims)
+    topo = MPITopology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
     pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
@@ -84,7 +84,7 @@ function main()
 
     # Too many decomposed directions
     @test_throws ArgumentError Pencil(
-        Topology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
+        MPITopology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
 
     # Invalid permutation
     @test_throws ArgumentError Pencil(topo, Nxyz, (1, 2), permute=(0, 3, 15))
@@ -157,7 +157,7 @@ function main()
     end
 
     # Test slab (1D) decomposition.
-    let topo = Topology(comm, (Nproc, ))
+    let topo = MPITopology(comm, (Nproc, ))
         pen1 = Pencil(topo, Nxyz, (1, ))
         pen2 = Pencil(pen1, (2, ))
         u1 = PencilArray(pen1)
@@ -169,7 +169,7 @@ function main()
 
     if Nproc == 1
         # @code_warntype Pencils.create_subcomms(Val(2), comm)
-        # @code_warntype Pencils.Topology{2}(comm)
+        # @code_warntype Pencils.MPITopology{2}(comm)
         # @code_warntype Pencils.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
         # @code_warntype Pencils.to_local(pen2, (1, 2, 3))

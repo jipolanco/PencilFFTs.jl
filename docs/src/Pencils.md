@@ -11,7 +11,7 @@ Pencils
 ## Types
 
 ```@docs
-Topology
+MPITopology
 Pencil
 PencilArray
 ```

@@ -11,7 +11,7 @@ using MPI
 import Base: ndims, size, length
 import LinearAlgebra: transpose!
 
-export Pencil, PencilArray, Topology
+export Pencil, PencilArray, MPITopology
 export gather
 export get_comm
 export get_permutation
@@ -26,13 +26,13 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 const Indices{N} = NTuple{N,Int} where N
 
 """
-    Topology{N}
+    MPITopology{N}
 
 Describes an N-dimensional Cartesian MPI decomposition topology.
 
 ---
 
-    Topology(comm::MPI.Comm, pdims::Dims{N}) where N
+    MPITopology(comm::MPI.Comm, pdims::Dims{N}) where N
 
 Create N-dimensional MPI topology information.
 
@@ -46,18 +46,18 @@ of processes in communicator `comm`.
 # Divide 2D topology into 4×2 blocks.
 comm = MPI.COMM_WORLD
 @assert MPI.Comm_size(comm) == 8
-topology = Topology(comm, (4, 2))
+topology = MPITopology(comm, (4, 2))
 ```
 
 ---
 
-    Topology{N}(comm_cart::MPI.Comm) where N
+    MPITopology{N}(comm_cart::MPI.Comm) where N
 
 Create topology information from MPI communicator with Cartesian topology.
 The topology must have dimension `N`.
 
 """
-struct Topology{N}
+struct MPITopology{N}
     # MPI communicator with Cartesian topology.
     comm :: MPI.Comm
 
@@ -78,17 +78,17 @@ struct Topology{N}
     # subcommunicators.
     subcomm_ranks :: NTuple{N,Vector{Int}}
 
-    function Topology(comm::MPI.Comm, pdims::Dims{N}) where N
+    function MPITopology(comm::MPI.Comm, pdims::Dims{N}) where N
         # Create Cartesian communicator.
         comm_cart = let dims = collect(pdims) :: Vector{Int}
             periods = zeros(Int, N)  # this is not very important...
             reorder = false
             MPI.Cart_create(comm, dims, periods, reorder)
         end
-        Topology{N}(comm_cart)
+        MPITopology{N}(comm_cart)
     end
 
-    function Topology{N}(comm_cart::MPI.Comm) where N
+    function MPITopology{N}(comm_cart::MPI.Comm) where N
         # Get dimensions of MPI topology.
         # This will fail if comm_cart doesn't have Cartesian topology!
         Ndims = MPI_Cartdim_get(comm_cart)
@@ -117,32 +117,32 @@ struct Topology{N}
 end
 
 """
-    ndims(t::Topology)
+    ndims(t::MPITopology)
 
 Get dimensionality of Cartesian topology.
 """
-ndims(t::Topology{N}) where N = N
+ndims(t::MPITopology{N}) where N = N
 
 """
-    size(t::Topology)
+    size(t::MPITopology)
 
 Get dimensions of Cartesian topology.
 """
-size(t::Topology) = t.dims
+size(t::MPITopology) = t.dims
 
 """
-    length(t::Topology)
+    length(t::MPITopology)
 
 Get total size of Cartesian topology (i.e. total number of MPI processes).
 """
-length(t::Topology) = prod(size(t))
+length(t::MPITopology) = prod(size(t))
 
 """
-    get_comm(t::Topology)
+    get_comm(t::MPITopology)
 
 Get MPI communicator associated to an MPI Cartesian topology.
 """
-get_comm(t::Topology) = t.comm
+get_comm(t::MPITopology) = t.comm
 
 const Permutation{N} = NTuple{N,Int}
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
@@ -155,7 +155,7 @@ processes along `M` directions (with `M < N`).
 
 ---
 
-    Pencil(topology::Topology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
+    Pencil(topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
            permute::P=nothing) where {N, M, P}
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
@@ -200,7 +200,7 @@ struct Pencil{N,  # spatial dimensions
               P<:OptionalPermutation{N},  # optional index permutation
              }
     # M-dimensional MPI decomposition info (with M < N).
-    topology :: Topology{M}
+    topology :: MPITopology{M}
 
     # Global array dimensions (N1, N2, ...).
     # These dimensions are *before* permutation by perm.
@@ -227,7 +227,7 @@ struct Pencil{N,  # spatial dimensions
     send_buf :: Vector{UInt8}
     recv_buf :: Vector{UInt8}
 
-    function Pencil(topology::Topology{M}, size_global::Dims{N},
+    function Pencil(topology::MPITopology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M};
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
