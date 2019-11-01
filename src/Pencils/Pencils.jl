@@ -183,17 +183,13 @@ each MPI process.
 
 ---
 
-    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M}; permute::P=nothing)
+    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M}, size_global::Dims{N}=p.size_global;
+           permute::P=nothing)
 
 Create new pencil configuration from an existent one.
 
-This constructor ensures that both pencil configurations are compatible for data
-transpositions between one and the other.
-
-Moreover, if a new pencil is created using this constructor, data buffers for
-transpositions are shared among the two pencils, meaning that global memory
-usage is reduced.
-
+This constructor allows sharing temporary data buffers between the two pencil
+configurations, leading to reduced global memory usage.
 """
 struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
@@ -245,9 +241,10 @@ struct Pencil{N,  # spatial dimensions
                    axes_local_perm, permute, send_buf, recv_buf)
     end
 
-    function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M};
+    function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M},
+                    size_global::Dims{N}=size_global(p);
                     permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
-        Pencil(p.topology, p.size_global, decomp_dims, permute=permute,
+        Pencil(p.topology, size_global, decomp_dims, permute=permute,
                send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
 end
