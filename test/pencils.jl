@@ -169,6 +169,23 @@ function main()
         randn!(rng, u1)
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
+
+        # Same decomposed dimension as pen2, but different permutation.
+        let pen = Pencil(pen2, (2, ), permute=(3, 2, 1))
+            v = PencilArray(pen)
+            transpose!(v, u2)
+            @test compare_distributed_arrays(u1, v)
+        end
+
+        # Test transposition between two identical configurations.
+        transpose!(u2, u2)
+        @test compare_distributed_arrays(u1, u2)
+
+        let v = similar(u2)
+            @test u2.pencil === v.pencil
+            transpose!(v, u2)
+            @test compare_distributed_arrays(u1, v)
+        end
     end
 
     if Nproc == 1

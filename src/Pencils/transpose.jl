@@ -21,6 +21,8 @@ The two pencil configurations must be compatible for transposition:
 
 """
 function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
+    dest === src && return dest  # same pencil & same data
+
     # Verifications
     if src.extra_dims !== dest.extra_dims
         throw(ArgumentError(
@@ -35,16 +37,22 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     R = findfirst(src.pencil.decomp_dims .!= dest.pencil.decomp_dims)
 
     if R === nothing
-        # Both pencil configurations are identical, so we just copy the data
-        # (unless the PencilArrays are the same).
-        # TODO
-        # - the arrays may still be aliased, even if dest !== src...
-        # - permutations must be the same, otherwise I need to permute!!
-        @assert get_permutation(src.pencil) === get_permutation(dest.pencil)
-        return dest === src ? dest : copy!(dest, src)
+        # Both pencil configurations are identical, so we just copy the data,
+        # permuting dimensions if needed.
+        if get_permutation(src.pencil) === get_permutation(dest.pencil)
+            copy!(dest, src)
+        else
+            perm_base = relative_permutation(src.pencil, dest.pencil)
+            perm = prepend_to_permutation(Val(length(src.extra_dims)),
+                                          perm_base)
+            permutedims!(dest, src, perm)
+        end
+    else
+        # MPI data transposition.
+        transpose_impl!(R, dest, src)
     end
 
-    transpose_impl!(R, dest, src)
+    dest
 end
 
 function assert_compatible(p::Pencil, q::Pencil)
