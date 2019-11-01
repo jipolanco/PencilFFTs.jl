@@ -14,9 +14,10 @@ The two pencil configurations must be compatible for transposition:
 - they must have the same global data size,
 
 - when written as a sorted tuple, the decomposed dimensions must be almost the
-  same, with exactly one difference. For instance, if the input of a 3D dataset
+  same, with at most one difference. For instance, if the input of a 3D dataset
   is decomposed in `(2, 3)`, then the output may be decomposed in `(1, 3)`, but
-  not in `(1, 2)`.
+  not in `(1, 2)`. If the decomposed dimensions are the same, then no
+  transposition is performed, and data is just copied if needed.
 
 """
 function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
@@ -34,9 +35,13 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     R = findfirst(src.pencil.decomp_dims .!= dest.pencil.decomp_dims)
 
     if R === nothing
-        # Both pencil configurations are identical, so we just copy the data.
-        # Actually, this case is currently forbidden by `assert_compatible`.
-        return copy!(dest, src)
+        # Both pencil configurations are identical, so we just copy the data
+        # (unless the PencilArrays are the same).
+        # TODO
+        # - the arrays may still be aliased, even if dest !== src...
+        # - permutations must be the same, otherwise I need to permute!!
+        @assert get_permutation(src.pencil) === get_permutation(dest.pencil)
+        return dest === src ? dest : copy!(dest, src)
     end
 
     transpose_impl!(R, dest, src)
@@ -51,12 +56,12 @@ function assert_compatible(p::Pencil, q::Pencil)
             "Global data sizes must be the same between different pencil " *
             " configurations. Got $(p.size_global) ≠ $(q.size_global)."))
     end
-    # Check that decomp_dims differ on exactly one value.
+    # Check that decomp_dims differ on at most one value.
     # Both are expected to be sorted.
     @assert all(issorted.((p.decomp_dims, q.decomp_dims)))
-    if sum(p.decomp_dims .!= q.decomp_dims) != 1
+    if sum(p.decomp_dims .!= q.decomp_dims) > 1
         throw(ArgumentError(
-            "Pencil decompositions must differ in exactly one dimension. " *
+            "Pencil decompositions must differ in at most one dimension. " *
             "Got decomposed dimensions $(p.decomp_dims) and $(q.decomp_dims)."))
     end
     nothing
