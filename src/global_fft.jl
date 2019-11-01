@@ -1,3 +1,5 @@
+const TransformList{N} = NTuple{N, Transforms.AbstractTransform} where N
+
 """
     GlobalFFTParams{N}
 
@@ -8,11 +10,11 @@ transform types to be performed along each dimension.
 ---
 
     GlobalFFTParams(size_global_in::Dims{N},
-                    transform_types::F) where {N, F<:Tuple}
+                    transforms::NTuple{N, AbstractTransform}) where N
 
 Define parameters for N-dimensional transform.
 
-`transform_types` must be a tuple of length `N` specifying the transforms to be
+`transforms` must be a tuple of length `N` specifying the transforms to be
 applied along each dimension. Each element must be a subtype of
 `Transforms.AbstractTransform`. For all the possible transforms, see
 [`Transform types`](@ref Transforms).
@@ -28,26 +30,26 @@ other dimensions:
 
 ```julia
 size_global_in = (64, 32, 128)  # size of real input data
-transforms = (Transform.RFFT, Transform.FFT, Transform.FFT)
+transforms = (Transform.RFFT(), Transform.FFT(), Transform.FFT())
 fft_params = GlobalFFTParams(size_global_in, transforms)
 ```
 
 """
-struct GlobalFFTParams{N, F}
-    size_global_in :: Dims{N}
+struct GlobalFFTParams{N, F <: TransformList{N}}
+    # Transforms to be applied along each dimension.
+    transforms :: F
 
-    # Transforms to be applied in each direction.
-    # F = Tuple{F_1, F_2, ..., F_N}, where F_n <: AbstractTransform.
-    transform_types :: F
+    size_global_in  :: Dims{N}
+    size_global_out :: Dims{N}
 
     function GlobalFFTParams(size_global_in::Dims{N},
-                             transform_types::F) where {N, F<:Tuple}
+                             transforms::TransformList{N}) where {N}
         # TODO
         # - verify that r2c dimensions have even size, as currently required by
         #   the definition of `length_output` (is this really necessary? try to
         #   support odd sizes)
-        @assert length(transform_types) == N
-        @assert eltype(transform_types) <: Transforms.AbstractTransform
-        new{N, F}(size_global_in, transform_types)
+        F = typeof(transforms)
+        size_global_out = Transforms.length_output.(transforms, size_global_in)
+        new{N, F}(transforms, size_global_in, size_global_out)
     end
 end
