@@ -1,5 +1,7 @@
 # PencilFFTs.jl
 
+[![docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://pages.oca.eu/jpolanco/pencilffts.jl/public)
+
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
 **This package is work in progress.**
