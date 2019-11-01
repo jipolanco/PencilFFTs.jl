@@ -191,7 +191,6 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     if USE_ALLTOALLV
         # This @view is needed because the Alltoallv wrapper checks that the
         # length of the buffer is consistent with recv_counts.
-        # TODO try to use MPI_Ialltoallv? (curently not wrapped by MPI.jl).
         recv_buf_view = @view recv_buf[1:length_recv]
         MPI.Alltoallv!(send_buf, recv_buf_view, send_counts, recv_counts, comm)
     else
