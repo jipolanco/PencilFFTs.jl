@@ -163,7 +163,7 @@ Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 The dimensions of the geometry are given by `size_global = (N1, N2, ...)`.
 
 Data is distributed over the given `M`-dimensional MPI topology (with `M < N`).
-The decomposed dimensions are given by `decomp_dims`. **SORTED?**
+The decomposed dimensions are given by `decomp_dims`.
 
 The optional parameter `perm` should be a tuple defining a permutation of the
 data indices. This may be useful for performance reasons, since it may be
@@ -206,12 +206,12 @@ struct Pencil{N,  # spatial dimensions
     # These dimensions are *before* permutation by perm.
     size_global :: Dims{N}
 
-    # Decomposition directions.
+    # Decomposition directions (sorted in increasing order).
     # Example: for x-pencils, this is (2, 3, ..., N).
     decomp_dims :: Dims{M}
 
     # Part of the array held by every process.
-    # These dimensions are *before* permutation by perm.
+    # These dimensions are *before* permutation by `perm`.
     axes_all :: Array{ArrayRegion{N}, M}
 
     # Part of the array held by the local process (before permutation).
@@ -232,15 +232,12 @@ struct Pencil{N,  # spatial dimensions
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
                    ) where {N, M, P<:OptionalPermutation{N}}
-        if M >= N
-            throw(ArgumentError(
-                "Number of decomposed dimensions `M` must be less than the " *
-                "total number of dimensions N = $N (got M = $M)"))
-        end
         if !is_valid_permuation(permute)
             # This is almost the same error thrown by `permutedims`.
             throw(ArgumentError("Invalid permutation of dimensions: $permute"))
         end
+        _check_selected_dimensions(N, decomp_dims)
+        decomp_dims = _sort_dimensions(decomp_dims)
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
@@ -253,6 +250,27 @@ struct Pencil{N,  # spatial dimensions
         Pencil(p.topology, p.size_global, decomp_dims, permute=permute,
                send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
+end
+
+# Verify that `dims` is a subselection of dimensions in 1:N.
+function _check_selected_dimensions(N, dims::Dims{M}) where M
+    if M >= N
+        throw(ArgumentError(
+            "Number of decomposed dimensions `M` must be less than the " *
+            "total number of dimensions N = $N (got M = $M)"))
+    end
+    if length(unique(dims)) != M
+        throw(ArgumentError("Dimensions may not be repeated. Got $dims."))
+    end
+    if !all(1 .<= dims .<= N)
+        throw(ArgumentError("Dimensions must be in 1:$N. Got $dims."))
+    end
+    nothing
+end
+
+function _sort_dimensions(dims::Dims{N}) where N
+    s = sort(collect(dims))
+    ntuple(n -> s[n], Val(N))  # convert array to tuple
 end
 
 """

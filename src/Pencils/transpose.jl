@@ -52,6 +52,8 @@ function assert_compatible(p::Pencil, q::Pencil)
             " configurations. Got $(p.size_global) ≠ $(q.size_global)."))
     end
     # Check that decomp_dims differ on exactly one value.
+    # Both are expected to be sorted.
+    @assert all(issorted.((p.decomp_dims, q.decomp_dims)))
     if sum(p.decomp_dims .!= q.decomp_dims) != 1
         throw(ArgumentError(
             "Pencil decompositions must differ in exactly one dimension. " *

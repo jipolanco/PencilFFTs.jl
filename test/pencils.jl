@@ -86,6 +86,13 @@ function main()
     # Invalid permutation
     @test_throws ArgumentError Pencil(topo, Nxyz, (1, 2), permute=(0, 3, 15))
 
+    # Decomposed dimensions may not be repeated.
+    @test_throws ArgumentError Pencil(topo, Nxyz, (2, 2))
+
+    # Decomposed dimensions must be in 1:N = 1:3.
+    @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
+    @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
+
     test_array_wrappers(pen2, Float32)
     test_array_wrappers(pen3, Float64)
 
