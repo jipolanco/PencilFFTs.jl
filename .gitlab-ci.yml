@@ -20,7 +20,7 @@
 
   variables:
     # Disable using MPI_Alltoallv for transpositions (this is the default).
-    - PENCILS_USE_ALLTOALLV: "0"
+    PENCILS_USE_ALLTOALLV: "0"
 
   script:
     - mpichversion
