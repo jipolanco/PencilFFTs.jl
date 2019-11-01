@@ -9,9 +9,6 @@ using LinearAlgebra
 using Random
 using Test
 
-# TODO
-# - test slab decomposition
-
 function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
     u = PencilArray(p, T)
 

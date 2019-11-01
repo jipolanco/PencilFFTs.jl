@@ -275,6 +275,7 @@ get_comm(p::Pencil) = get_comm(p.topology)
 include("arrays.jl")
 include("data_ranges.jl")
 include("mpi_topology.jl")
+include("mpi_wrappers.jl")
 include("permutations.jl")
 include("transpose.jl")
 
