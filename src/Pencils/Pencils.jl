@@ -183,8 +183,9 @@ each MPI process.
 
 ---
 
-    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M}, size_global::Dims{N}=p.size_global;
-           permute::P=nothing)
+    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M},
+           size_global::Dims{N}=size_global(p);
+           permute::P=get_permutation(p))
 
 Create new pencil configuration from an existent one.
 
@@ -243,7 +244,8 @@ struct Pencil{N,  # spatial dimensions
 
     function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M},
                     size_global::Dims{N}=size_global(p);
-                    permute::P=nothing) where {N, M, P<:OptionalPermutation{N}}
+                    permute::P=get_permutation(p),
+                   ) where {N, M, P<:OptionalPermutation{N}}
         Pencil(p.topology, size_global, decomp_dims, permute=permute,
                send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
