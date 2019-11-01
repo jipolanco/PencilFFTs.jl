@@ -76,11 +76,18 @@ function main()
         pdims[1], pdims[2]
     end
 
-    topo = Pencils.Topology(comm, proc_dims)
+    topo = Topology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
     pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
     pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+
+    # Too many decomposed directions
+    @test_throws ArgumentError Pencil(
+        Topology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
+
+    # Invalid permutation
+    @test_throws ArgumentError Pencil(topo, Nxyz, (1, 2), permute=(0, 3, 15))
 
     test_array_wrappers(pen2, Float32)
     test_array_wrappers(pen3, Float64)

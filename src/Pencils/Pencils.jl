@@ -232,10 +232,15 @@ struct Pencil{N,  # spatial dimensions
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
                    ) where {N, M, P<:OptionalPermutation{N}}
-        # TODO add checks:
-        # - M < N
-        # - decomp_dims and permute must be valid: non-repeated values in 1:N
-        # (use `isperm` for permute)
+        if M >= N
+            throw(ArgumentError(
+                "Number of decomposed dimensions `M` must be less than the " *
+                "total number of dimensions N = $N (got M = $M)"))
+        end
+        if !is_valid_permuation(permute)
+            # This is almost the same error thrown by `permutedims`.
+            throw(ArgumentError("Invalid permutation of dimensions: $permute"))
+        end
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
