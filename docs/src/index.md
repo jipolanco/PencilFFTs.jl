@@ -2,28 +2,25 @@
 
 Documentation for PencilFFTs.jl
 
+```@meta
+CurrentModule = PencilFFTs
+```
+
 ```@contents
 ```
 
 ## Types
 
 ```@docs
-PencilPlan
-
 ```
 
 ## Functions
 
 ```@docs
-allocate_input
-allocate_output
-
-input_range
-output_range
-size_global
 ```
 
-## Index
+## Devdocs
 
-```@index
+```@docs
+GlobalFFTParams
 ```
