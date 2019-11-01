@@ -7,6 +7,7 @@ import MPI: mpiexec
 
 const TEST_FILES = (
     "pencils.jl",
+    "transforms.jl",
     "benchmarks.jl",
 )
 
