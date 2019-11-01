@@ -1,4 +1,6 @@
-const USE_ALLTOALLV = false
+const USE_ALLTOALLV = let key = "PENCILS_USE_ALLTOALLV"
+    key in keys(ENV) && ENV[key] == "1"
+end
 
 """
     transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N})
