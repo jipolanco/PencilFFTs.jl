@@ -1,5 +1,5 @@
 # Functions implemented for PencilArray.
-import Base: size, getindex, setindex!, similar, IndexStyle
+import Base: size, getindex, setindex!, similar, IndexStyle, parent
 
 """
     PencilArray(pencil::P, data::AbstractArray{T,N})
@@ -82,9 +82,19 @@ similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
     PencilArray(x.pencil, similar(x.data, S, dims))
 
 """
+    parent(x::PencilArray)
+
+Returns the actual array containing the `PencilArray` data.
+
+If the `PencilArray` is wrapping a `SubArray`, then this returns its "parent
+array".
+"""
+parent(x::PencilArray) = parent(x.data)
+
+"""
     ndims_extra(x::PencilArray)
 
-Number of "extra" dimensions associated to PencilArray.
+Number of "extra" dimensions associated to `PencilArray`.
 
 These are the dimensions that are not associated to the domain geometry.
 For instance, they may correspond to vector or tensor components.
