@@ -9,7 +9,6 @@ See also
 [`AbstractFFTs.rfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.rfft).
 """
 struct RFFT <: AbstractTransform end
-inv(::RFFT) = BRFFT()
 
 """
     IRFFT()
@@ -20,7 +19,6 @@ See also
 [`AbstractFFTs.irfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
 """
 struct IRFFT <: AbstractTransform end
-inv(::IRFFT) = RFFT()
 
 """
     BRFFT()
@@ -34,4 +32,12 @@ See also
 [`AbstractFFTs.brfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.brfft).
 """
 struct BRFFT <: AbstractTransform end
-inv(::BRFFT) = RFFT()
+
+const TransformR2C = RFFT
+const TransformC2R = Union{IRFFT, BRFFT}
+
+length_output(::TransformR2C, length_in::Integer) = div(length_in, 2) + 1
+length_output(::TransformC2R, length_in::Integer) = 2 * length_in - 2
+
+inv(::TransformR2C) = BRFFT()
+inv(::TransformC2R) = RFFT()

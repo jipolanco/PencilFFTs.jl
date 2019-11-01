@@ -42,6 +42,10 @@ struct GlobalFFTParams{N, F}
 
     function GlobalFFTParams(size_global_in::Dims{N},
                              transform_types::F) where {N, F<:Tuple}
+        # TODO
+        # - verify that r2c dimensions have even size, as currently required by
+        #   the definition of `length_output` (is this really necessary? try to
+        #   support odd sizes)
         @assert length(transform_types) == N
         @assert eltype(transform_types) <: Transforms.AbstractTransform
         new{N, F}(size_global_in, transform_types)

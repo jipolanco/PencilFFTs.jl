@@ -28,4 +28,5 @@ BRFFT
 
 ```@docs
 inv
+length_output
 ```

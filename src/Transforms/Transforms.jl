@@ -38,6 +38,23 @@ transforms. For instance, inverse of [`FFT`](@ref) is [`BFFT`](@ref), while
 function inv end
 
 """
+    length_output(transform::AbstractTransform, length_in::Integer)
+
+Returns the length of the transform output, given the length of its input.
+
+The input and output lengths are specified in terms of the respective input
+and output datatypes.
+For instance, for real-to-complex transforms, these are respectively the
+length of input *real* data and of output *complex* data.
+
+Also note that for inverse real-to-complex transforms ([`IRFFT`](@ref) and
+[`BRFFT`](@ref)), it is assumed that the real data length is even. See also
+the [`AbstractFFTs.irfft`
+docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
+"""
+function length_output end
+
+"""
     NoTransform()
 
 Identity transform.
@@ -46,6 +63,7 @@ Specifies that no transformation should be applied.
 """
 struct NoTransform <: AbstractTransform end
 inv(::NoTransform) = NoTransform()
+length_output(::NoTransform, length_in::Integer) = length_in
 
 include("c2c.jl")
 include("r2c.jl")
