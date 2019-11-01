@@ -11,9 +11,7 @@ export Transforms
 import FFTW
 import MPI
 
-# Type definitions
-const FFTReal = FFTW.fftwReal  # Union{Float64,Float32}
-
 include("global_fft.jl")
+include("pencil_plans.jl")
 
 end # module

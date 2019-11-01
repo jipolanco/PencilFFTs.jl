@@ -12,6 +12,7 @@ CurrentModule = PencilFFTs
 ## Types
 
 ```@docs
+PencilFFTPlan
 ```
 
 ## Functions
