@@ -23,3 +23,9 @@ RFFT
 IRFFT
 BRFFT
 ```
+
+## Functions
+
+```@docs
+inv
+```

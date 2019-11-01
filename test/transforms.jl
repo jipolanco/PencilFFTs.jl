@@ -14,6 +14,8 @@ function main()
     fft_params = PencilFFTs.GlobalFFTParams(Nxyz, transforms)
 
     @test fft_params isa PencilFFTs.GlobalFFTParams{3, typeof(transforms)}
+    @test inv(Transforms.RFFT()) === Transforms.BRFFT()
+    @test inv(Transforms.IRFFT()) === Transforms.RFFT()
 
     MPI.Finalize()
 end
