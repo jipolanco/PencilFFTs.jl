@@ -1,4 +1,4 @@
-const TransformList{N} = NTuple{N, Transforms.AbstractTransform} where N
+const AbstractTransformList{N} = NTuple{N, Transforms.AbstractTransform} where N
 
 """
     GlobalFFTParams{N}
@@ -10,7 +10,7 @@ transform types to be performed along each dimension.
 ---
 
     GlobalFFTParams(size_global_in::Dims{N},
-                    transforms::NTuple{N, AbstractTransform}) where N
+                    transforms::AbstractTransformList{N}) where N
 
 Define parameters for N-dimensional transform.
 
@@ -35,7 +35,7 @@ fft_params = GlobalFFTParams(size_global_in, transforms)
 ```
 
 """
-struct GlobalFFTParams{N, F <: TransformList{N}}
+struct GlobalFFTParams{N, F <: AbstractTransformList{N}}
     # Transforms to be applied along each dimension.
     transforms :: F
 
@@ -43,7 +43,7 @@ struct GlobalFFTParams{N, F <: TransformList{N}}
     size_global_out :: Dims{N}
 
     function GlobalFFTParams(size_global_in::Dims{N},
-                             transforms::TransformList{N}) where {N}
+                             transforms::AbstractTransformList{N}) where {N}
         # TODO
         # - verify that r2c dimensions have even size, as currently required by
         #   the definition of `length_output` (is this really necessary? try to
