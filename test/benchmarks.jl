@@ -161,6 +161,16 @@ function main()
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
+    myrank = MPI.Comm_rank(comm)
+
+    if myrank == 0
+        if Pencils.USE_ALLTOALLV
+            @info "Using MPI_Alltoallv for transpositions"
+        else
+            @info "Using MPI_Isend / MPI_Irecv for transpositions"
+        end
+        println()
+    end
 
     # Slab decompositions
     benchmark_decomp(comm, (Nproc, ), DIMS)
