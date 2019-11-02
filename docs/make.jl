@@ -2,6 +2,8 @@ using Documenter
 using PencilFFTs
 
 # This is to make sure that doctests in docstrings are executed correctly.
+DocMeta.setdocmeta!(PencilFFTs, :DocTestSetup,
+                    :(using PencilFFTs); recursive=false)
 DocMeta.setdocmeta!(PencilFFTs.Pencils, :DocTestSetup,
                     :(using PencilFFTs.Pencils); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,

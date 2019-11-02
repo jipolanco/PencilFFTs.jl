@@ -39,8 +39,11 @@ const TransformC2R = Union{IRFFT, BRFFT}
 length_output(::TransformR2C, length_in::Integer) = div(length_in, 2) + 1
 length_output(::TransformC2R, length_in::Integer) = 2 * length_in - 2
 
-eltype_output(::TransformR2C, ::Type{T}) where T <: FFTReal = Complex{T}
-eltype_output(::TransformC2R, ::Type{Complex{T}}) where T <: FFTReal = T
+eltype_output(::TransformR2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
+eltype_output(::TransformC2R, ::Type{Complex{T}}) where {T <: FFTReal} = T
+
+eltype_input(::TransformR2C, ::Type{T}) where {T <: FFTReal} = T
+eltype_input(::TransformC2R, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 inv(::TransformR2C) = BRFFT()
 inv(::TransformC2R) = RFFT()

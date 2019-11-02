@@ -27,6 +27,7 @@ BRFFT
 ## Functions
 
 ```@docs
+eltype_input
 eltype_output
 inv
 length_output

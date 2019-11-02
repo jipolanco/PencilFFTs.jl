@@ -13,9 +13,9 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft.html).
 module Transforms
 
 import Base: inv
-export eltype_output, length_output
+export eltype_input, eltype_output, length_output
 
-const FFTReal = Union{Float32, Float64}  # same as FFTW.fftwReal
+const FFTReal = AbstractFloat
 
 # TODO
 # - add FFTW.jl specific transforms, including r2r
@@ -58,9 +58,36 @@ docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft
 function length_output end
 
 """
+    eltype_input(transform::AbstractTransform, base_type)
+
+Determine input data type for a given transform given the base floating point
+type.
+
+`base_type` must be an `AbstractFloat` subtype.
+
+For some transforms such as `NoTransform`, the input type cannot be identified
+only from the `base_type`. In this case, `Nothing` is returned.
+
+# Example
+
+```jldoctest
+julia> eltype_input(Transforms.FFT(), Float32)
+Complex{Float32}
+
+julia> eltype_input(Transforms.RFFT(), Float64)
+Float64
+
+julia> eltype_input(Transforms.NoTransform(), Float64)
+Nothing
+
+```
+"""
+function eltype_input end
+
+"""
     eltype_output(transform::AbstractTransform, eltype_input)
 
-Returns the output data type of a given transform given the input type.
+Returns the output data type for a given transform given the input type.
 
 Throws `ArgumentError` if the input data type is incompatible with the transform
 type.
@@ -97,6 +124,7 @@ struct NoTransform <: AbstractTransform end
 inv(::NoTransform) = NoTransform()
 length_output(::NoTransform, length_in::Integer) = length_in
 eltype_output(::NoTransform, ::Type{T}) where T = T
+eltype_input(::NoTransform, ::Type) = Nothing
 
 include("c2c.jl")
 include("r2c.jl")

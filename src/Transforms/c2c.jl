@@ -38,7 +38,8 @@ const TransformC2C = Union{FFT, IFFT, BFFT}
 
 length_output(::TransformC2C, length_in::Integer) = length_in
 eltype_output(::TransformC2C,
-              ::Type{Complex{T}}) where T <: FFTReal = Complex{T}
+              ::Type{Complex{T}}) where {T <: FFTReal} = Complex{T}
+eltype_input(::TransformC2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 inv(::FFT) = BFFT()
 inv(::IFFT) = FFT()
