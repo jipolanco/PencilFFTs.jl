@@ -6,6 +6,7 @@ include("Transforms/Transforms.jl")
 using .Pencils
 using .Transforms
 
+export PencilFFTPlan
 export Transforms
 
 import FFTW

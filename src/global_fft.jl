@@ -29,7 +29,7 @@ other dimensions:
 
 ```julia
 size_global = (64, 32, 128)  # size of real input data
-transforms = (Transform.RFFT(), Transform.FFT(), Transform.FFT())
+transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
 fft_params = GlobalFFTParams(size_global, transforms)
 ```
 
