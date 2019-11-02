@@ -13,6 +13,9 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft.html).
 module Transforms
 
 import Base: inv
+export eltype_output, length_output
+
+const FFTReal = Union{Float32, Float64}  # same as FFTW.fftwReal
 
 # TODO
 # - add FFTW.jl specific transforms, including r2r
@@ -55,6 +58,35 @@ docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft
 function length_output end
 
 """
+    eltype_output(transform::AbstractTransform, eltype_input)
+
+Returns the output data type of a given transform given the input type.
+
+Throws `ArgumentError` if the input data type is incompatible with the transform
+type.
+
+# Example
+
+```jldoctest
+julia> eltype_output(Transforms.NoTransform(), Float32)
+Float32
+
+julia> eltype_output(Transforms.RFFT(), Float64)
+Complex{Float64}
+
+julia> eltype_output(Transforms.BRFFT(), ComplexF32)
+Float32
+
+julia> eltype_output(Transforms.FFT(), Float64)
+ERROR: ArgumentError: invalid input data type for PencilFFTs.Transforms.FFT: Float64
+```
+"""
+function eltype_output end
+
+eltype_output(::F, ::Type{T}) where {F <: AbstractTransform, T} =
+    throw(ArgumentError("invalid input data type for $F: $T"))
+
+"""
     NoTransform()
 
 Identity transform.
@@ -64,6 +96,7 @@ Specifies that no transformation should be applied.
 struct NoTransform <: AbstractTransform end
 inv(::NoTransform) = NoTransform()
 length_output(::NoTransform, length_in::Integer) = length_in
+eltype_output(::NoTransform, ::Type{T}) where T = T
 
 include("c2c.jl")
 include("r2c.jl")

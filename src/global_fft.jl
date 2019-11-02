@@ -48,7 +48,7 @@ struct GlobalFFTParams{N, F <: AbstractTransformList{N}}
         #   the definition of `length_output` (is this really necessary? try to
         #   support odd sizes)
         F = typeof(transforms)
-        size_global_out = Transforms.length_output.(transforms, size_global)
+        size_global_out = length_output.(transforms, size_global)
         new{N, F}(transforms, size_global, size_global_out)
     end
 end

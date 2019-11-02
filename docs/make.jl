@@ -2,13 +2,10 @@ using Documenter
 using PencilFFTs
 
 # This is to make sure that doctests in docstrings are executed correctly.
-doctest_meta = quote
-    using PencilFFTs
-    using PencilFFTs.Pencils
-end
-
 DocMeta.setdocmeta!(PencilFFTs.Pencils, :DocTestSetup,
                     :(using PencilFFTs.Pencils); recursive=true)
+DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
+                    :(using PencilFFTs.Transforms); recursive=true)
 
 makedocs(
     sitename = "PencilFFTs",
