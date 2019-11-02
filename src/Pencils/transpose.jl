@@ -41,11 +41,14 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
         # permuting dimensions if needed.
         if get_permutation(src.pencil) === get_permutation(dest.pencil)
             copy!(dest, src)
-        else
+        elseif parent(src) !== parent(dest)
             perm_base = relative_permutation(src.pencil, dest.pencil)
             perm = prepend_to_permutation(Val(length(src.extra_dims)),
                                           perm_base)
             permutedims!(dest, src, perm)
+        else
+            # TODO...
+            error("in-place dimension permutations not yet supported!")
         end
     else
         # MPI data transposition.
