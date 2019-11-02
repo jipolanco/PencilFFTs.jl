@@ -4,13 +4,15 @@ using PencilFFTs
 
 using MPI
 
+using InteractiveUtils
 using Test
 
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
 
-    @test fft_params isa PencilFFTs.GlobalFFTParams{3, typeof(transforms)}
+    @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
+                                                    typeof(transforms)}
     @test inv(Transforms.RFFT()) === Transforms.BRFFT()
     @test inv(Transforms.IRFFT()) === Transforms.RFFT()
 
@@ -21,6 +23,8 @@ function test_transform_types(size_in)
         (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
     @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
     @test Transforms.length_output.(transforms_inv, size_out) === size_in
+
+    @test PencilFFTs.input_data_type(fft_params) === Float64
 
     nothing
 end
@@ -39,7 +43,24 @@ function test_pencil_plans(size_in::Tuple)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm)
 
-    # @show plan.pencils
+    if Nproc == 1
+        # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
+        # @code_warntype PencilFFTs._create_pencils(plan.global_params,
+        #                                           plan.topology)
+        # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
+
+        let transforms = (Transforms.NoTransform(), Transforms.FFT())
+            @test PencilFFTs.input_data_type(Float32, transforms...) ===
+                ComplexF32
+            # @code_warntype PencilFFTs.input_data_type(Float32, transforms...)
+        end
+
+        let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
+            @test PencilFFTs.input_data_type(Float32, transforms...) ===
+                Nothing
+            # @code_warntype PencilFFTs.input_data_type(Float32, transforms...)
+        end
+    end
 
     nothing
 end
