@@ -58,7 +58,7 @@ struct PencilArray{T, N, A<:AbstractArray{T,N},
 
         if geom_dims !== size_local(pencil)
             throw(DimensionMismatch(
-                "Array has incorrect dimensions: $(size_data). " *
+                "array has incorrect dimensions: $(size_data). " *
                 "Local dimensions of pencil: $(size_local(pencil))."))
         end
 

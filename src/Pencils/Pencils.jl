@@ -231,7 +231,7 @@ struct Pencil{N,  # spatial dimensions
                    ) where {N, M, P<:OptionalPermutation{N}}
         if !is_valid_permuation(permute)
             # This is almost the same error thrown by `permutedims`.
-            throw(ArgumentError("Invalid permutation of dimensions: $permute"))
+            throw(ArgumentError("invalid permutation of dimensions: $permute"))
         end
         _check_selected_dimensions(N, decomp_dims)
         decomp_dims = _sort_dimensions(decomp_dims)
@@ -255,14 +255,14 @@ end
 function _check_selected_dimensions(N, dims::Dims{M}) where M
     if M >= N
         throw(ArgumentError(
-            "Number of decomposed dimensions `M` must be less than the " *
+            "number of decomposed dimensions `M` must be less than the " *
             "total number of dimensions N = $N (got M = $M)"))
     end
     if length(unique(dims)) != M
-        throw(ArgumentError("Dimensions may not be repeated. Got $dims."))
+        throw(ArgumentError("dimensions may not be repeated. Got $dims."))
     end
     if !all(1 .<= dims .<= N)
-        throw(ArgumentError("Dimensions must be in 1:$N. Got $dims."))
+        throw(ArgumentError("dimensions must be in 1:$N. Got $dims."))
     end
     nothing
 end

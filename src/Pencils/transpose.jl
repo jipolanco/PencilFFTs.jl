@@ -26,7 +26,7 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     # Verifications
     if src.extra_dims !== dest.extra_dims
         throw(ArgumentError(
-            "Incompatible number of extra dimensions of PencilArrays: " *
+            "incompatible number of extra dimensions of PencilArrays: " *
             "$(src.extra_dims) != $(dest.extra_dims)"))
     end
     assert_compatible(src.pencil, dest.pencil)
@@ -57,11 +57,11 @@ end
 
 function assert_compatible(p::Pencil, q::Pencil)
     if p.topology !== q.topology
-        throw(ArgumentError("Pencil topologies must be the same."))
+        throw(ArgumentError("pencil topologies must be the same."))
     end
     if p.size_global !== q.size_global
         throw(ArgumentError(
-            "Global data sizes must be the same between different pencil " *
+            "global data sizes must be the same between different pencil " *
             " configurations. Got $(p.size_global) ≠ $(q.size_global)."))
     end
     # Check that decomp_dims differ on at most one value.
@@ -69,7 +69,7 @@ function assert_compatible(p::Pencil, q::Pencil)
     @assert all(issorted.((p.decomp_dims, q.decomp_dims)))
     if sum(p.decomp_dims .!= q.decomp_dims) > 1
         throw(ArgumentError(
-            "Pencil decompositions must differ in at most one dimension. " *
+            "pencil decompositions must differ in at most one dimension. " *
             "Got decomposed dimensions $(p.decomp_dims) and $(q.decomp_dims)."))
     end
     nothing
