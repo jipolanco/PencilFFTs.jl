@@ -60,30 +60,30 @@ end
 # Slab decomposition
 function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, ))
-    pen2 = Pencil(pen1, (3, ), permute=(2, 1, 3))
-    pen3 = Pencil(pen2, (2, ), permute=(3, 2, 1))
+    pen2 = Pencil(pen1, decomp_dims=(3, ), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, decomp_dims=(2, ), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
 function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{false})
     pen1 = Pencil(topo, data_dims, (2, ))
-    pen2 = Pencil(pen1, (3, ))
-    pen3 = Pencil(pen2, (2, ))
+    pen2 = Pencil(pen1, decomp_dims=(3, ))
+    pen3 = Pencil(pen2, decomp_dims=(2, ))
     pen1, pen2, pen3
 end
 
 # Pencil decomposition
 function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{true})
     pen1 = Pencil(topo, data_dims, (2, 3))
-    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
-    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=(3, 2, 1))
     pen1, pen2, pen3
 end
 
 function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{false})
     pen1 = Pencil(topo, data_dims, (2, 3))
-    pen2 = Pencil(pen1, (1, 3))
-    pen3 = Pencil(pen2, (1, 2))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3))
+    pen3 = Pencil(pen2, decomp_dims=(1, 2))
     pen1, pen2, pen3
 end
 

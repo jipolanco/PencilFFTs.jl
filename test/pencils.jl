@@ -77,8 +77,8 @@ function main()
     topo = MPITopology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
-    pen2 = Pencil(pen1, (1, 3), permute=(2, 1, 3))
-    pen3 = Pencil(pen2, (1, 2), permute=(3, 2, 1))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 1, 3))
+    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=(3, 2, 1))
 
     # Too many decomposed directions
     @test_throws ArgumentError Pencil(
@@ -94,8 +94,8 @@ function main()
     @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
     @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
 
-    test_array_wrappers(Pencil(Float32, pen2))
-    test_array_wrappers(Pencil(Float64, pen3))
+    test_array_wrappers(Pencil(pen2, Float32))
+    test_array_wrappers(Pencil(pen3, Float64))
 
     @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) === (1, 42, 12, 1, 1)
     @test get_permutation(pen1) === nothing
@@ -144,7 +144,7 @@ function main()
     @test u1_orig == u1
 
     # Test transpositions without permutations.
-    let pen2 = Pencil(pen1, (1, 3))
+    let pen2 = Pencil(pen1, decomp_dims=(1, 3))
         u2 = PencilArray(pen2)
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
@@ -164,7 +164,7 @@ function main()
     # Test slab (1D) decomposition.
     let topo = MPITopology(comm, (Nproc, ))
         pen1 = Pencil(topo, Nxyz, (1, ))
-        pen2 = Pencil(pen1, (2, ))
+        pen2 = Pencil(pen1, decomp_dims=(2, ))
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
         randn!(rng, u1)
@@ -172,7 +172,7 @@ function main()
         @test compare_distributed_arrays(u1, u2)
 
         # Same decomposed dimension as pen2, but different permutation.
-        let pen = Pencil(pen2, (2, ), permute=(3, 2, 1))
+        let pen = Pencil(pen2, decomp_dims=(2, ), permute=(3, 2, 1))
             v = PencilArray(pen)
             transpose!(v, u2)
             @test compare_distributed_arrays(u1, v)

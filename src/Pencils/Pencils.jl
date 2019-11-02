@@ -156,8 +156,9 @@ The `Pencil` describes the decomposition of arrays of element type `T`.
 
 ---
 
-    Pencil([T=Float64], topology::MPITopology{M}, size_global::Dims{N},
-           decomp_dims::Dims{M}; permute::P=nothing) where {N, M, T, P}
+    Pencil(topology::MPITopology{M}, size_global::Dims{N},
+           decomp_dims::Dims{M}, [element_type=Float64];
+           permute=nothing)
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
@@ -186,10 +187,9 @@ each MPI process.
 
 ---
 
-    Pencil([T=eltype(p)],
-           p::Pencil{N,M},
+    Pencil(p::Pencil{N,M}, [element_type=eltype(p)];
            decomp_dims::Dims{M}=get_decomposition(p),
-           size_global::Dims{N}=size_global(p);
+           size_global::Dims{N}=size_global(p),
            permute::P=get_permutation(p))
 
 Create new pencil configuration from an existent one.
@@ -230,8 +230,8 @@ struct Pencil{N,  # spatial dimensions
     send_buf :: Vector{UInt8}
     recv_buf :: Vector{UInt8}
 
-    function Pencil(::Type{T}, topology::MPITopology{M}, size_global::Dims{N},
-                    decomp_dims::Dims{M};
+    function Pencil(topology::MPITopology{M}, size_global::Dims{N},
+                    decomp_dims::Dims{M}, ::Type{T}=Float64;
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
                    ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
@@ -248,21 +248,14 @@ struct Pencil{N,  # spatial dimensions
                      axes_local_perm, permute, send_buf, recv_buf)
     end
 
-    Pencil(topology::MPITopology, args...; kwargs...) =
-        Pencil(Float64, topology, args...; kwargs...)
-
-    function Pencil(::Type{T},
-                    p::Pencil{N,M},
+    function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
                     decomp_dims::Dims{M}=get_decomposition(p),
-                    size_global::Dims{N}=size_global(p);
+                    size_global::Dims{N}=size_global(p),
                     permute::P=get_permutation(p),
                    ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
-        Pencil(T, p.topology, size_global, decomp_dims, permute=permute,
-               send_buf=p.send_buf, recv_buf=p.recv_buf)
+        Pencil(p.topology, size_global, decomp_dims, T;
+               permute=permute, send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
-
-    Pencil(p::Pencil, args...; kwargs...) =
-        Pencil(eltype(p), p, args...; kwargs...)
 end
 
 # Verify that `dims` is a subselection of dimensions in 1:N.
