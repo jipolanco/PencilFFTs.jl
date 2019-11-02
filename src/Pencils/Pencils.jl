@@ -8,7 +8,7 @@ module Pencils
 
 using MPI
 
-import Base: ndims, size, length
+import Base: ndims, size, length, eltype
 import LinearAlgebra: transpose!
 
 export Pencil, PencilArray, MPITopology
@@ -147,19 +147,23 @@ const Permutation{N} = NTuple{N,Int}
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
 """
-    Pencil{N,M}
+    Pencil{N,M,T}
 
 Describes the decomposition of an `N`-dimensional Cartesian geometry among MPI
 processes along `M` directions (with `M < N`).
 
+The `Pencil` describes the decomposition of arrays of element type `T`.
+
 ---
 
-    Pencil(topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
-           permute::P=nothing) where {N, M, P}
+    Pencil([T=Float64], topology::MPITopology{M}, size_global::Dims{N},
+           decomp_dims::Dims{M}; permute::P=nothing) where {N, M, T, P}
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
-The dimensions of the geometry are given by `size_global = (N1, N2, ...)`.
+The dimensions of the geometry are given by `size_global = (N1, N2, ...)`. The
+`Pencil` describes the decomposition of an array of dimensions `size_global` and
+type `T` across a group of MPI processes.
 
 Data is distributed over the given `M`-dimensional MPI topology (with `M < N`).
 The decomposed dimensions are given by `decomp_dims`.
@@ -182,18 +186,21 @@ each MPI process.
 
 ---
 
-    Pencil(p::Pencil{N,M}, decomp_dims::Dims{M},
+    Pencil([T=eltype(p)],
+           p::Pencil{N,M},
+           decomp_dims::Dims{M}=get_decomposition(p),
            size_global::Dims{N}=size_global(p);
            permute::P=get_permutation(p))
 
 Create new pencil configuration from an existent one.
 
-This constructor allows sharing temporary data buffers between the two pencil
+This constructor enables sharing temporary data buffers between the two pencil
 configurations, leading to reduced global memory usage.
 """
 struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
-              P<:OptionalPermutation{N},  # optional index permutation
+              T <: Number,  # element type (e.g. Float64, Complex{Float64})
+              P <: OptionalPermutation{N},  # optional index permutation
              }
     # M-dimensional MPI decomposition info (with M < N).
     topology :: MPITopology{M}
@@ -223,11 +230,11 @@ struct Pencil{N,  # spatial dimensions
     send_buf :: Vector{UInt8}
     recv_buf :: Vector{UInt8}
 
-    function Pencil(topology::MPITopology{M}, size_global::Dims{N},
+    function Pencil(::Type{T}, topology::MPITopology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M};
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
-                   ) where {N, M, P<:OptionalPermutation{N}}
+                   ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
         if !is_valid_permuation(permute)
             # This is almost the same error thrown by `permutedims`.
             throw(ArgumentError("invalid permutation of dimensions: $permute"))
@@ -237,17 +244,25 @@ struct Pencil{N,  # spatial dimensions
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
-        new{N,M,P}(topology, size_global, decomp_dims, axes_all, axes_local,
-                   axes_local_perm, permute, send_buf, recv_buf)
+        new{N,M,T,P}(topology, size_global, decomp_dims, axes_all, axes_local,
+                     axes_local_perm, permute, send_buf, recv_buf)
     end
 
-    function Pencil(p::Pencil{N,M}, decomp_dims::Dims{M},
+    Pencil(topology::MPITopology, args...; kwargs...) =
+        Pencil(Float64, topology, args...; kwargs...)
+
+    function Pencil(::Type{T},
+                    p::Pencil{N,M},
+                    decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p);
                     permute::P=get_permutation(p),
-                   ) where {N, M, P<:OptionalPermutation{N}}
-        Pencil(p.topology, size_global, decomp_dims, permute=permute,
+                   ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
+        Pencil(T, p.topology, size_global, decomp_dims, permute=permute,
                send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
+
+    Pencil(p::Pencil, args...; kwargs...) =
+        Pencil(eltype(p), p, args...; kwargs...)
 end
 
 # Verify that `dims` is a subselection of dimensions in 1:N.
@@ -270,6 +285,13 @@ function _sort_dimensions(dims::Dims{N}) where N
     s = sort(collect(dims))
     ntuple(n -> s[n], Val(N))  # convert array to tuple
 end
+
+"""
+    eltype(p::Pencil)
+
+Element type associated to the given pencil.
+"""
+eltype(::Pencil{N, M, T} where {N, M}) where T = T
 
 """
     ndims(p::Pencil)

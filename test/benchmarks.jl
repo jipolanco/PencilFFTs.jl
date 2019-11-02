@@ -97,7 +97,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
 
     pens = create_pencils(topo, data_dims, with_permutations)
 
-    u = PencilArray.(pens, Float64, extra_dims...)
+    u = PencilArray.(pens, extra_dims...)
 
     myrank = MPI.Comm_rank(comm)
     rng = MersenneTwister(42 + myrank)

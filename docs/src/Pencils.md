@@ -19,6 +19,7 @@ PencilArray
 ## Functions
 
 ```@docs
+eltype
 gather
 get_comm
 get_decomposition

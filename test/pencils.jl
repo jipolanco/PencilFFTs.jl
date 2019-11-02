@@ -9,8 +9,9 @@ using LinearAlgebra
 using Random
 using Test
 
-function test_array_wrappers(p::Pencil, ::Type{T}=Float32) where T
-    u = PencilArray(p, T)
+function test_array_wrappers(p::Pencil)
+    T = eltype(p)
+    u = PencilArray(p)
 
     @test eltype(u) === eltype(u.data) === T
 
@@ -93,8 +94,8 @@ function main()
     @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
     @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
 
-    test_array_wrappers(pen2, Float32)
-    test_array_wrappers(pen3, Float64)
+    test_array_wrappers(Pencil(Float32, pen2))
+    test_array_wrappers(Pencil(Float64, pen3))
 
     @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) === (1, 42, 12, 1, 1)
     @test get_permutation(pen1) === nothing
@@ -200,7 +201,6 @@ function main()
 
         # @code_warntype PencilArray(pen2)
         # @code_warntype PencilArray(pen2, 3, 4)
-        # @code_warntype PencilArray(pen2, Float32, 3, 4)
 
         # @code_warntype Pencils.size_remote(pen1, 1, 1)
         # @code_warntype Pencils.size_remote(pen1, 1, :)

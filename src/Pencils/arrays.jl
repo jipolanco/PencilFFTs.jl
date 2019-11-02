@@ -6,7 +6,8 @@ import Base: size, getindex, setindex!, similar, IndexStyle, parent
 
 Create array wrapper with pencil decomposition information.
 
-The array dimensions must be consistent with the dimensions of the local pencil.
+The array dimensions and element type must be consistent with those of the given
+pencil.
 
 The data array can have one or more extra dimensions to the left (fast indices).
 For instance, these may correspond to vector or tensor components.
@@ -23,9 +24,9 @@ PencilArray(pencil, zeros(10, 20, 30, 3))     # fails
 
 ---
 
-    PencilArray(pencil::Pencil, [T=Float64], [extra_dims...])
+    PencilArray(pencil::Pencil, [extra_dims...])
 
-Allocate uninitialised PencilArray that can hold data in the local pencil.
+Allocate uninitialised `PencilArray` that can hold data in the local pencil.
 
 Extra dimensions, for instance representing vector components, can be specified.
 These dimensions are added to the leftmost (fastest) indices of the resulting
@@ -38,16 +39,18 @@ PencilArray(pencil)        # array dimensions are (10, 20, 30)
 PencilArray(pencil, 4, 3)  # array dimensions are (4, 3, 10, 20, 30)
 ```
 """
-struct PencilArray{T, N, A<:AbstractArray{T,N},
-                   P<:Pencil,
+struct PencilArray{T, N,
+                   A <: AbstractArray{T,N},
+                   P <: Pencil,
                    E,  # number of "extra" dimensions (>= 0)
                   } <: AbstractArray{T,N}
     pencil :: P
     data   :: A
     extra_dims :: Dims{E}
 
-    function PencilArray(pencil::P,
-                         data::AbstractArray{T,N}) where {T, N, P <: Pencil}
+    function PencilArray(pencil::Pencil{Np, Mp, T} where {Np, Mp},
+                         data::AbstractArray{T, N}) where {T, N}
+        P = typeof(pencil)
         A = typeof(data)
         ndims_space = ndims(pencil)
         E = N - ndims_space
@@ -66,11 +69,9 @@ struct PencilArray{T, N, A<:AbstractArray{T,N},
     end
 end
 
-PencilArray(pencil::Pencil, ::Type{T}, extra_dims::Vararg{Int}) where T =
-    PencilArray(pencil, Array{T}(undef, extra_dims..., size_local(pencil)...))
-
 PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
-    PencilArray(pencil, Float64, extra_dims...)
+    PencilArray(pencil, Array{eltype(pencil)}(undef, extra_dims...,
+                                              size_local(pencil)...))
 
 size(x::PencilArray) = size(x.data)
 
