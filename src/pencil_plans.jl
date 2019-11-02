@@ -144,7 +144,8 @@ function _create_pencils(global_params::GlobalFFTParams{N},
             Pencil(pencil_in, decomp, dims_i, permute=perm)
         end
 
-        @debug "PencilFFTPlan: create_pencils" n size_global(Pi) get_decomposition(Pi) get_permutation(Pi)
+        @debug("PencilFFTPlan: create_pencils", n, size_global(Pi),
+               get_decomposition(Pi), get_permutation(Pi))
 
         # Output pencil.
         # If the input and output dimensions are not the same, generate a
