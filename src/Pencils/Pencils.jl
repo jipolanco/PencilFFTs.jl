@@ -257,7 +257,7 @@ function _check_selected_dimensions(N, dims::Dims{M}) where M
             "number of decomposed dimensions `M` must be less than the " *
             "total number of dimensions N = $N (got M = $M)"))
     end
-    if length(unique(dims)) != M
+    if !allunique(dims)
         throw(ArgumentError("dimensions may not be repeated. Got $dims."))
     end
     if !all(1 .<= dims .<= N)
