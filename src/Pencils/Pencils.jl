@@ -13,8 +13,7 @@ import LinearAlgebra: transpose!
 
 export Pencil, PencilArray, MPITopology
 export gather
-export get_comm
-export get_permutation
+export get_comm, get_decomposition, get_permutation
 export ndims_extra
 export size_local, size_global
 export transpose!
@@ -299,11 +298,18 @@ include("transpose.jl")
 """
     get_permutation(p::Pencil)
 
-Get index permutation associated to the given pencil.
+Get index permutation associated to the given pencil configuration.
 
 Returns `nothing` if there is no associated permutation.
 """
 get_permutation(p::Pencil) = p.perm
+
+"""
+    get_decomposition(p::Pencil)
+
+Get tuple with decomposed dimensions of the given pencil configuration.
+"""
+get_decomposition(p::Pencil) = p.decomp_dims
 
 """
     size_local(p::Pencil; permute=true)

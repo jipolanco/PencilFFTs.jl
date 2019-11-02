@@ -21,6 +21,7 @@ PencilArray
 ```@docs
 gather
 get_comm
+get_decomposition
 get_permutation
 length
 ndims
