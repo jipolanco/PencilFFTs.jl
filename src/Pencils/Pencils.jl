@@ -8,7 +8,7 @@ module Pencils
 
 using MPI
 
-import Base: ndims, size, length, eltype
+import Base: ndims, size, length, eltype, show
 import LinearAlgebra: transpose!
 
 export Pencil, PencilArray, MPITopology
@@ -277,6 +277,15 @@ end
 function _sort_dimensions(dims::Dims{N}) where N
     s = sort(collect(dims))
     ntuple(n -> s[n], Val(N))  # convert array to tuple
+end
+
+function show(io::IO, p::Pencil)
+    print(io,
+          """
+          Decomposition of $(ndims(p))D data
+              Data dimensions: $(size_global(p)) [$(eltype(p))]
+              Decomposed dimensions: $(get_decomposition(p))
+              Data permutation: $(get_permutation(p))""")
 end
 
 """
