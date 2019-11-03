@@ -8,14 +8,14 @@ struct PencilPlan1D{Pi <: Pencil,
     # data. The two pencils will be different for transforms that do not
     # preserve the size and element type of the data (e.g. real-to-complex
     # transforms). Otherwise, they will be typically identical.
-    pencil_in  :: Pi  # pencil before transform
-    pencil_out :: Po  # pencil after transform
-    transform :: Tr   # transform type
-    plan :: FFTPlan   # FFTW plan
+    pencil_in  :: Pi       # pencil before transform
+    pencil_out :: Po       # pencil after transform
+    transform  :: Tr       # transform type
+    fft_plan   :: FFTPlan  # FFTW plan
 end
 
 """
-    PencilFFTPlan{N,M}
+    PencilFFTPlan{T,N,M}
 
 Plan for N-dimensional FFT-based transform on MPI-distributed data.
 
@@ -69,7 +69,8 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 ```
 
 """
-struct PencilFFTPlan{N,
+struct PencilFFTPlan{T,
+                     N,
                      M,
                      G <: GlobalFFTParams,
                      P <: NTuple{N, PencilPlan1D},
@@ -82,8 +83,6 @@ struct PencilFFTPlan{N,
     # This is the minimal number of configurations required.
     # In the case of slab decomposition in 3D, this would avoid a
     # data transposition!
-    # Alternative: identical pencils, with no effective transposition (and no
-    # permutation either?).
     plans :: P
 
     # TODO
@@ -101,7 +100,7 @@ struct PencilFFTPlan{N,
         t = MPITopology(comm, proc_dims)
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
         plans = _create_plans(g, t, fftw_kw)
-        new{N, M, typeof(g), typeof(plans)}(g, t, plans)
+        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans)
     end
 end
 
@@ -187,6 +186,8 @@ function _create_plans(::Type{Ti},
 
     # TODO
     # - use different array?
+    # - this may be a multidimensional transform, for example when doing slab
+    #   decomposition
     fftplan = let A = PencilArray(Pi)
         plan(transform_n, data(A), n; fftw_kw...)
     end
