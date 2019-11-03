@@ -8,7 +8,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 ---
 
     PencilFFTPlan(size_global::Dims{N}, transforms::AbstractTransformList{N},
-                  proc_dims::Dims{M}, comm::MPI.Comm) where {N, M}
+                  proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64])
 
 Create plan for N-dimensional transform.
 
@@ -77,8 +77,10 @@ struct PencilFFTPlan{N,
     # - allow more control on the decomposition directions
     function PencilFFTPlan(size_global::Dims{N},
                            transforms::AbstractTransformList{N},
-                           proc_dims::Dims{M}, comm::MPI.Comm) where {N, M}
-        global_params = GlobalFFTParams(size_global, transforms)
+                           proc_dims::Dims{M}, comm::MPI.Comm,
+                           ::Type{T}=Float64,
+                          ) where {N, M, T <: FFTReal}
+        global_params = GlobalFFTParams(size_global, transforms, T)
         topology = MPITopology(comm, proc_dims)
         pencils = _create_pencils(global_params, topology)
         new{N, M, typeof(global_params), typeof(pencils)}(

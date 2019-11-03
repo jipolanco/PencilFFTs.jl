@@ -41,7 +41,7 @@ function test_pencil_plans(size_in::Tuple)
     end
 
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm)
+    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
 
     if Nproc == 1
         # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
