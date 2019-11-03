@@ -7,7 +7,7 @@ using .Pencils
 using .Transforms
 
 # For convenience...
-import .Transforms: AbstractTransform
+import .Transforms: AbstractTransform, FFTReal
 
 export PencilFFTPlan
 export Transforms
@@ -15,9 +15,12 @@ export Transforms
 import FFTW
 import MPI
 
-const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
+# Operators for applying direct and inverse plans (same as in AbstractFFTs).
+import Base: *, \
+import LinearAlgebra: mul!, ldiv!
 
 include("global_fft.jl")
 include("pencil_plans.jl")
+include("operations.jl")
 
 end # module

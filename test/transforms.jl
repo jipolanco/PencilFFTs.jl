@@ -1,10 +1,13 @@
 #!/usr/bin/env julia
 
 using PencilFFTs
+import PencilFFTs: PencilArray
 
 using MPI
 
 using InteractiveUtils
+using LinearAlgebra
+using Random
 using Test
 
 function test_transform_types(size_in)
@@ -43,11 +46,23 @@ function test_pencil_plans(size_in::Tuple)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
 
+    # This interface will change...
+    let u = PencilArray(first(plan.plans).pencil_in)
+        randn!(u)
+        v = PencilArray(last(plan.plans).pencil_out)
+        mul!(v, plan, u)
+        @time mul!(v, plan, u)
+    end
+
     if Nproc == 1
         # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
         # @code_warntype PencilFFTs._create_pencils(plan.global_params,
         #                                           plan.topology)
         # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
+
+        let u = PencilArray(first(plan.plans).pencil_in)
+            @code_warntype PencilFFTs._apply_plans(u, plan.plans...)
+        end
 
         let transforms = (Transforms.NoTransform(), Transforms.FFT())
             @test PencilFFTs.input_data_type(Float32, transforms...) ===
@@ -68,7 +83,7 @@ end
 function main()
     MPI.Init()
 
-    size_in = (16, 21, 41)
+    size_in = (16, 24, 32)
     test_transform_types(size_in)
     test_pencil_plans(size_in)
 
