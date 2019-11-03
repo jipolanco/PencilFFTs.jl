@@ -41,6 +41,10 @@ eltype_output(::TransformC2C,
               ::Type{Complex{T}}) where {T <: FFTReal} = Complex{T}
 eltype_input(::TransformC2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
+plan(::FFT, args...; kwargs...) = FFTW.plan_fft(args...; kwargs...)
+plan(::IFFT, args...; kwargs...) = FFTW.plan_ifft(args...; kwargs...)
+plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
+
 inv(::FFT) = BFFT()
 inv(::IFFT) = FFT()
 inv(::BFFT) = FFT()

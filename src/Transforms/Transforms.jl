@@ -12,8 +12,10 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft.html).
 """
 module Transforms
 
+using FFTW
+
 import Base: inv
-export eltype_input, eltype_output, length_output
+export eltype_input, eltype_output, length_output, plan
 
 const FFTReal = AbstractFloat
 
@@ -28,6 +30,22 @@ const FFTReal = AbstractFloat
 Specifies a one-dimensional FFT-based transform.
 """
 abstract type AbstractTransform end
+
+"""
+    plan(transform::AbstractTransform, A, [dims];
+         flags=FFTW.ESTIMATE, timelimit=Inf)
+
+Create plan to transform array `A` along dimensions `dims`.
+
+If `dims` is not specified, all dimensions of `A` are transformed.
+
+This function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan creation functions.
+For more details on the function arguments, see
+[`AbstractFFTs.plan_fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft).
+"""
+function plan end
+
+plan(t::AbstractTransform, A; kwargs...) = plan(t, A, 1:ndims(A); kwargs...)
 
 """
     inv(transform::AbstractTransform)
@@ -123,6 +141,7 @@ inv(::NoTransform) = NoTransform()
 length_output(::NoTransform, length_in::Integer) = length_in
 eltype_output(::NoTransform, ::Type{T}) where T = T
 eltype_input(::NoTransform, ::Type) = Nothing
+plan(::NoTransform, A, dims; kwargs...) = I  # identity matrix (UniformScaling)
 
 include("c2c.jl")
 include("r2c.jl")
