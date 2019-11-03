@@ -1,6 +1,6 @@
 # Functions implemented for PencilArray.
 import Base: size, getindex, setindex!, similar, IndexStyle, parent
-export data
+export data, pencil
 
 """
     PencilArray(pencil::P, data::AbstractArray{T,N})
@@ -41,8 +41,8 @@ PencilArray(pencil, 4, 3)  # array dimensions are (4, 3, 10, 20, 30)
 ```
 """
 struct PencilArray{T, N,
-                   A <: AbstractArray{T,N},
                    P <: Pencil,
+                   A <: AbstractArray{T,N},
                    E,  # number of "extra" dimensions (>= 0)
                   } <: AbstractArray{T,N}
     pencil :: P
@@ -66,7 +66,7 @@ struct PencilArray{T, N,
                 "Local dimensions of pencil: $(size_local(pencil))."))
         end
 
-        new{T, N, A, P, E}(pencil, data, extra_dims)
+        new{T, N, P, A, E}(pencil, data, extra_dims)
     end
 end
 
@@ -76,7 +76,7 @@ PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
 
 size(x::PencilArray) = size(x.data)
 
-IndexStyle(::PencilArray{T,N,A} where {T,N}) where A = IndexStyle(A)
+IndexStyle(::PencilArray{T,N,P,A} where {T,N,P}) where A = IndexStyle(A)
 getindex(x::PencilArray, inds...) = getindex(x.data, inds...)
 setindex!(x::PencilArray, v, inds...) = setindex!(x.data, v, inds...)
 
@@ -89,6 +89,13 @@ similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
 Returns array wrapped by the `PencilArray`.
 """
 data(x::PencilArray) = x.data
+
+"""
+    pencil(x::PencilArray)
+
+Returns decomposition configuration associated to the `PencilArray`.
+"""
+pencil(x::PencilArray) = x.pencil
 
 """
     parent(x::PencilArray)
