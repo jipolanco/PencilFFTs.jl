@@ -1,5 +1,6 @@
 # Functions implemented for PencilArray.
 import Base: size, getindex, setindex!, similar, IndexStyle, parent
+export data
 
 """
     PencilArray(pencil::P, data::AbstractArray{T,N})
@@ -81,6 +82,13 @@ setindex!(x::PencilArray, v, inds...) = setindex!(x.data, v, inds...)
 
 similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
     PencilArray(x.pencil, similar(x.data, S, dims))
+
+"""
+    data(x::PencilArray)
+
+Returns array wrapped by the `PencilArray`.
+"""
+data(x::PencilArray) = x.data
 
 """
     parent(x::PencilArray)
