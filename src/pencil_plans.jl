@@ -22,7 +22,9 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 ---
 
     PencilFFTPlan(size_global::Dims{N}, transforms::AbstractTransformList{N},
-                  proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64])
+                  proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
+                  fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
+                  )
 
 Create plan for N-dimensional transform.
 
@@ -43,6 +45,10 @@ The data is distributed over the MPI processes in the `comm` communicator.
 The distribution is performed over `M` dimensions (with `M < N`) according to
 the values in `proc_dims`, which specifies the number of MPI processes to put
 along each dimension.
+
+The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the `FFTW`
+plan creation functions
+(see [`AbstractFFTs` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
 
 # Example
 
@@ -87,30 +93,35 @@ struct PencilFFTPlan{N,
     function PencilFFTPlan(size_global::Dims{N},
                            transforms::AbstractTransformList{N},
                            proc_dims::Dims{M}, comm::MPI.Comm,
-                           ::Type{T}=Float64,
+                           ::Type{T}=Float64;
+                           fftw_flags=FFTW.ESTIMATE,
+                           fftw_timelimit=FFTW.NO_TIMELIMIT,
                           ) where {N, M, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
-        plans = _create_plans(g, t)
+        fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
+        plans = _create_plans(g, t, fftw_kw)
         new{N, M, typeof(g), typeof(plans)}(g, t, plans)
     end
 end
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
-                       topology::MPITopology{M}) where {N, M}
+                       topology::MPITopology{M},
+                       fftw_kw) where {N, M}
     Tin = input_data_type(g)
     transforms = g.transforms
-    _create_plans(Tin, g, topology, nothing, transforms...)
+    _create_plans(Tin, g, topology, fftw_kw, nothing, transforms...)
 end
 
 # Create 1D plans recursively.
-function _create_plans(::Type{Tin},
+function _create_plans(::Type{Ti},
                        g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
+                       fftw_kw,
                        plan_prev,
                        transform_n::AbstractTransform,
                        transforms_next::Vararg{AbstractTransform, Ntr}
-                      ) where {Tin, N, M, Ntr}
+                      ) where {Ti, N, M, Ntr}
     n = N - Ntr  # current dimension index
     si = g.size_global_in
     so = g.size_global_out
@@ -125,7 +136,7 @@ function _create_plans(::Type{Tin},
         # - No permutation is applied for input data: arrays are accessed in the
         #   natural order (i1, i2, ..., iN).
         decomp_dims = ntuple(m -> N - M + m, Val(M))
-        Pencil(topology, si, decomp_dims, Tin, permute=nothing)
+        Pencil(topology, si, decomp_dims, Ti, permute=nothing)
 
     else
         Po_prev = plan_prev.pencil_out
@@ -173,11 +184,17 @@ function _create_plans(::Type{Tin},
     end
 
     @debug "PencilFFTPlan: create_plans" n Pi Po
-    fftplan = FFTW.plan_fft(rand(Tin, 3))  # TODO!
-    plan = PencilPlan1D(Pi, Po, transform_n, fftplan)
 
-    (plan, _create_plans(To, g, topology, plan, transforms_next...)...)
+    # TODO
+    # - use different array?
+    fftplan = let A = PencilArray(Pi)
+        plan(transform_n, data(A), n; fftw_kw...)
+    end
+    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan)
+
+    (plan_n,
+     _create_plans(To, g, topology, fftw_kw, plan_n, transforms_next...)...)
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, plan_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw, plan_prev) = ()
