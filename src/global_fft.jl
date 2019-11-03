@@ -9,7 +9,7 @@ data, as well as the transform types to be performed along each dimension.
 
 ---
 
-    GlobalFFTParams(size_global, transforms, [element_type=Float64])
+    GlobalFFTParams(size_global, transforms, [real_type=Float64])
 
 Define parameters for N-dimensional transform.
 

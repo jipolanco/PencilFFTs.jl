@@ -58,15 +58,13 @@ docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft
 function length_output end
 
 """
-    eltype_input(transform::AbstractTransform, base_type)
+    eltype_input(transform::AbstractTransform, real_type<:AbstractFloat)
 
-Determine input data type for a given transform given the base floating point
-type.
-
-`base_type` must be an `AbstractFloat` subtype.
+Determine input data type for a given transform given the floating point
+precision of the input data.
 
 For some transforms such as `NoTransform`, the input type cannot be identified
-only from the `base_type`. In this case, `Nothing` is returned.
+only from `real_type`. In this case, `Nothing` is returned.
 
 # Example
 
