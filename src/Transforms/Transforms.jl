@@ -13,11 +13,12 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft.html).
 module Transforms
 
 using FFTW
+import LinearAlgebra: I
 
 import Base: inv
 export eltype_input, eltype_output, length_output, plan
 
-const FFTReal = AbstractFloat
+const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
 
 # TODO
 # - add FFTW.jl specific transforms, including r2r
