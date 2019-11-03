@@ -1,4 +1,18 @@
-const PencilPair = Tuple{Pencil, Pencil}
+# One-dimensional distributed FFT plan.
+struct PencilPlan1D{Pi <: Pencil,
+                    Po <: Pencil,
+                    Tr <: AbstractTransform,
+                    FFTPlan <: FFTW.FFTWPlan,
+                   }
+    # Each pencil pair describes the decomposition of input and output FFT
+    # data. The two pencils will be different for transforms that do not
+    # preserve the size and element type of the data (e.g. real-to-complex
+    # transforms). Otherwise, they will be typically identical.
+    pencil_in  :: Pi  # pencil before transform
+    pencil_out :: Po  # pencil after transform
+    transform :: Tr   # transform type
+    plan :: FFTPlan   # FFTW plan
+end
 
 """
     PencilFFTPlan{N,M}
@@ -52,24 +66,19 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 struct PencilFFTPlan{N,
                      M,
                      G <: GlobalFFTParams,
-                     PencilPairList <: Tuple{Vararg{PencilPair, N}},
+                     P <: NTuple{N, PencilPlan1D},
                     }
     global_params :: G
     topology      :: MPITopology{M}
 
-    # Data decomposition configurations.
-    # Each pencil pair describes the decomposition of input and output FFT
-    # data along the same M dimensions. The two pencils in a pair will
-    # be different for transforms that do not preserve the size and element type
-    # of the data (e.g. real-to-complex transforms). Otherwise, they will be
-    # typically identical.
+    # One-dimensional plans, including data decomposition configurations.
     # TODO Maybe this should be a tuple of M + 1 pairs.
-    # This seems to be the minimal number of configurations required.
+    # This is the minimal number of configurations required.
     # In the case of slab decomposition in 3D, this would avoid a
     # data transposition!
     # Alternative: identical pencils, with no effective transposition (and no
     # permutation either?).
-    pencils :: PencilPairList
+    plans :: P
 
     # TODO
     # - add constructor with Cartesian MPI communicator, in case the user
@@ -80,34 +89,33 @@ struct PencilFFTPlan{N,
                            proc_dims::Dims{M}, comm::MPI.Comm,
                            ::Type{T}=Float64,
                           ) where {N, M, T <: FFTReal}
-        global_params = GlobalFFTParams(size_global, transforms, T)
-        topology = MPITopology(comm, proc_dims)
-        pencils = _create_pencils(global_params, topology)
-        new{N, M, typeof(global_params), typeof(pencils)}(
-            global_params, topology, pencils)
+        g = GlobalFFTParams(size_global, transforms, T)
+        t = MPITopology(comm, proc_dims)
+        plans = _create_plans(g, t)
+        new{N, M, typeof(g), typeof(plans)}(g, t, plans)
     end
 end
 
-function _create_pencils(global_params::GlobalFFTParams{T, N} where T,
-                         topology::MPITopology{M}) where {N, M}
-    Tin = input_data_type(global_params)
-    transforms = global_params.transforms
-    _create_pencil_pairs(Tin, global_params, topology, nothing, transforms...)
+function _create_plans(g::GlobalFFTParams{T, N} where T,
+                       topology::MPITopology{M}) where {N, M}
+    Tin = input_data_type(g)
+    transforms = g.transforms
+    _create_plans(Tin, g, topology, nothing, transforms...)
 end
 
-# Create pencil pairs recursively.
-function _create_pencil_pairs(::Type{Tin},
-                              g::GlobalFFTParams{T, N} where T,
-                              topology::MPITopology{M},
-                              pencil_pair_prev,
-                              transform_n::AbstractTransform,
-                              transforms_next::Vararg{AbstractTransform, Ntr}
-                             ) where {Tin, N, M, Ntr}
+# Create 1D plans recursively.
+function _create_plans(::Type{Tin},
+                       g::GlobalFFTParams{T, N} where T,
+                       topology::MPITopology{M},
+                       plan_prev,
+                       transform_n::AbstractTransform,
+                       transforms_next::Vararg{AbstractTransform, Ntr}
+                      ) where {Tin, N, M, Ntr}
     n = N - Ntr  # current dimension index
     si = g.size_global_in
     so = g.size_global_out
 
-    Pi = if pencil_pair_prev === nothing
+    Pi = if plan_prev === nothing
         # This is the case of the first pencil pair.
         @assert n == 1
 
@@ -120,7 +128,7 @@ function _create_pencil_pairs(::Type{Tin},
         Pencil(topology, si, decomp_dims, Tin, permute=nothing)
 
     else
-        Po_prev = last(pencil_pair_prev)
+        Po_prev = plan_prev.pencil_out
 
         # (i) Determine permutation of pencil data.
         # The data is permuted so that the n-th logical dimension is the first
@@ -164,12 +172,12 @@ function _create_pencil_pairs(::Type{Tin},
         end
     end
 
-    @debug "PencilFFTPlan: create_pencils" n Pi Po
-    pair = (Pi, Po)
+    @debug "PencilFFTPlan: create_plans" n Pi Po
+    fftplan = FFTW.plan_fft(rand(Tin, 3))  # TODO!
+    plan = PencilPlan1D(Pi, Po, transform_n, fftplan)
 
-    (pair, _create_pencil_pairs(To, g, topology, pair, transforms_next...)...)
+    (plan, _create_plans(To, g, topology, plan, transforms_next...)...)
 end
 
 # No transforms left!
-_create_pencil_pairs(
-    ::Type, ::GlobalFFTParams, ::MPITopology, pencil_pair_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, plan_prev) = ()
