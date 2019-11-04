@@ -189,7 +189,15 @@ function _create_plans(::Type{Ti},
     # - this may be a multidimensional transform, for example when doing slab
     #   decomposition
     fftplan = let A = PencilArray(Pi)
-        plan(transform_n, data(A), n; fftw_kw...)
+        # Data was permuted so that we always transform the 1st dimension.
+        @assert let p = get_permutation(Pi)
+            # Either there's no permutation and we're transforming the first
+            # dimension, or there's a permutation that puts the transformed
+            # dimension in the first index.
+            p === nothing ? n == 1 : first(p) == n
+        end
+        dims = 1
+        plan(transform_n, data(A), dims; fftw_kw...)
     end
     plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan)
 

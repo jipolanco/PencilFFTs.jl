@@ -1,5 +1,7 @@
 const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 
+using LinearAlgebra
+
 function mul!(out::PencilArray{To,N}, p::PencilFFTPlan{T,N},
               in::PencilArray{Ti,N}) where {T, N,
                                             Ti <: RealOrComplex{T},
@@ -14,8 +16,6 @@ end
 
 function _apply_plans(u::PencilArray, plan::PencilPlan1D,
                       next_plans::Vararg{PencilPlan1D})
-    # We assume that the array already comes transposed for this transform.
-    # @assert pencil(u) === plan.pencil_in
     Pi = plan.pencil_in
     Po = plan.pencil_out
 
@@ -29,6 +29,7 @@ function _apply_plans(u::PencilArray, plan::PencilPlan1D,
 
     w = PencilArray(Po)
     mul!(data(w), plan.fft_plan, data(v))
+
     _apply_plans(w, next_plans...)
 end
 

@@ -49,13 +49,13 @@ function test_transform(plan::PencilFFTPlan, fftw_func::Function)
     same = Ref(false)
     ug = gather(u, root)
     vg = gather(v, root)
+
     if ug !== nothing && vg !== nothing
         @assert myrank == root
         vg_serial = fftw_func(ug)
         same[] = vg ≈ vg_serial
-        @show norm(vg)
-        @show norm(vg_serial)
     end
+
     MPI.Bcast!(same, length(same), root, comm)
 
     same[]
@@ -75,7 +75,7 @@ function test_pencil_plans(size_in::Tuple)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
 
-    # @test test_transform(plan, FFTW.rfft)
+    @test test_transform(plan, FFTW.rfft)
 
     if Nproc == 1
         # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
@@ -83,9 +83,9 @@ function test_pencil_plans(size_in::Tuple)
         #                                           plan.topology)
         # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
 
-        let u = PencilArray(first(plan.plans).pencil_in)
-            @code_warntype PencilFFTs._apply_plans(u, plan.plans...)
-        end
+        # let u = PencilArray(first(plan.plans).pencil_in)
+        #     @code_warntype PencilFFTs._apply_plans(u, plan.plans...)
+        # end
 
         let transforms = (Transforms.NoTransform(), Transforms.FFT())
             @test PencilFFTs.input_data_type(Float32, transforms...) ===
