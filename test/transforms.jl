@@ -2,6 +2,7 @@
 
 using PencilFFTs
 
+import FFTW
 using MPI
 
 using InteractiveUtils
@@ -31,6 +32,35 @@ function test_transform_types(size_in)
     nothing
 end
 
+function test_transform(plan::PencilFFTPlan, fftw_func::Function)
+    comm = get_comm(plan)
+    root = 0
+    myrank = MPI.Comm_rank(comm)
+
+    # This interface will change...
+    u = PencilArray(first(plan.plans).pencil_in)
+    randn!(u)
+
+    v = PencilArray(last(plan.plans).pencil_out)
+    mul!(v, plan, u)
+    # @time mul!(v, plan, u)
+
+    # Compare result with serial FFT.
+    same = Ref(false)
+    ug = gather(u, root)
+    vg = gather(v, root)
+    if ug !== nothing && vg !== nothing
+        @assert myrank == root
+        vg_serial = fftw_func(ug)
+        same[] = vg ≈ vg_serial
+        @show norm(vg)
+        @show norm(vg_serial)
+    end
+    MPI.Bcast!(same, length(same), root, comm)
+
+    same[]
+end
+
 function test_pencil_plans(size_in::Tuple)
     @assert length(size_in) >= 3
     comm = MPI.COMM_WORLD
@@ -45,13 +75,7 @@ function test_pencil_plans(size_in::Tuple)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
 
-    # This interface will change...
-    let u = PencilArray(first(plan.plans).pencil_in)
-        randn!(u)
-        v = PencilArray(last(plan.plans).pencil_out)
-        mul!(v, plan, u)
-        @time mul!(v, plan, u)
-    end
+    # @test test_transform(plan, FFTW.rfft)
 
     if Nproc == 1
         # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
