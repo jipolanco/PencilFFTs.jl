@@ -199,3 +199,10 @@ end
 
 # No transforms left!
 _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw, plan_prev) = ()
+
+"""
+    get_comm(p::PencilFFTPlan)
+
+Get MPI communicator associated to a `PencilFFTPlan`.
+"""
+get_comm(p::PencilFFTPlan) = get_comm(p.topology)

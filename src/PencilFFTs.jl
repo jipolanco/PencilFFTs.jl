@@ -16,8 +16,8 @@ import .Transforms: AbstractTransform, FFTReal
 export PencilFFTPlan
 export Transforms
 
-import FFTW
-import MPI
+# Functions to be extended for PencilFFTs types.
+import .Pencils: get_comm
 
 # Operators for applying direct and inverse plans (same as in AbstractFFTs).
 import Base: *, \
