@@ -1,10 +1,14 @@
 module PencilFFTs
 
+import FFTW
+import MPI
+using Reexport
+
 include("Pencils/Pencils.jl")
 include("Transforms/Transforms.jl")
 
-using .Pencils
-using .Transforms
+@reexport using .Pencils
+@reexport using .Transforms
 
 # For convenience...
 import .Transforms: AbstractTransform, FFTReal

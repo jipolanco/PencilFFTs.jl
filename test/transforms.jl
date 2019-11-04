@@ -1,7 +1,6 @@
 #!/usr/bin/env julia
 
 using PencilFFTs
-import PencilFFTs: PencilArray
 
 using MPI
 
