@@ -18,6 +18,8 @@ PencilFFTPlan
 ## Functions
 
 ```@docs
+allocate_input
+allocate_output
 ```
 
 ## Devdocs

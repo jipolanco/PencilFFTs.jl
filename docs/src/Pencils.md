@@ -29,6 +29,7 @@ length
 ndims
 ndims_extra
 parent
+pencil
 size
 size_global
 size_local
