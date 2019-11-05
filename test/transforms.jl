@@ -51,6 +51,8 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     if ug !== nothing && vg !== nothing
         @assert myrank == root
         p = fftw_planner(ug)
+        vg_serial = p * ug
+
         mul!(vg_serial, p, ug)
         @time mul!(vg_serial, p, ug)
         same[] = vg ≈ vg_serial
