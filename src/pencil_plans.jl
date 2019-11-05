@@ -214,3 +214,19 @@ _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw, plan_prev) = ()
 Get MPI communicator associated to a `PencilFFTPlan`.
 """
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
+
+"""
+    allocate_input(p::PencilFFTPlan)
+
+Allocate uninitialised distributed array that can hold input data for the given
+plan.
+"""
+allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in)
+
+"""
+    allocate_output(p::PencilFFTPlan)
+
+Allocate uninitialised distributed array that can hold output data for the
+given plan.
+"""
+allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out)

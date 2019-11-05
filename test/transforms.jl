@@ -37,11 +37,10 @@ function test_transform(plan::PencilFFTPlan, fftw_func::Function)
     root = 0
     myrank = MPI.Comm_rank(comm)
 
-    # This interface will change...
-    u = PencilArray(first(plan.plans).pencil_in)
-    randn!(u)
+    u = allocate_input(plan)
+    v = allocate_output(plan)
 
-    v = PencilArray(last(plan.plans).pencil_out)
+    randn!(u)
     mul!(v, plan, u)
     # @time mul!(v, plan, u)
 

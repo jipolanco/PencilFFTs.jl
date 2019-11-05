@@ -14,7 +14,7 @@ include("Transforms/Transforms.jl")
 import .Transforms: AbstractTransform, FFTReal
 
 export PencilFFTPlan
-export Transforms
+export allocate_input, allocate_output
 
 # Functions to be extended for PencilFFTs types.
 import .Pencils: get_comm
