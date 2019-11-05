@@ -32,17 +32,17 @@ function test_transform_types(size_in)
     nothing
 end
 
-function test_transform(plan::PencilFFTPlan, fftw_func::Function)
+function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     comm = get_comm(plan)
     root = 0
     myrank = MPI.Comm_rank(comm)
 
     u = allocate_input(plan)
-    v = allocate_output(plan)
-
     randn!(u)
-    mul!(v, plan, u)
-    # @time mul!(v, plan, u)
+
+    v = plan * u
+    # @time v = plan * u
+    @time mul!(v, plan, u)
 
     # Compare result with serial FFT.
     same = Ref(false)
@@ -51,7 +51,9 @@ function test_transform(plan::PencilFFTPlan, fftw_func::Function)
 
     if ug !== nothing && vg !== nothing
         @assert myrank == root
-        vg_serial = fftw_func(ug)
+        p = fftw_planner(ug)
+        vg_serial = p * ug
+        @time vg_serial = p * ug
         same[] = vg ≈ vg_serial
     end
 
@@ -74,7 +76,7 @@ function test_pencil_plans(size_in::Tuple)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
 
-    @test test_transform(plan, FFTW.rfft)
+    @test test_transform(plan, FFTW.plan_rfft)
 
     if Nproc == 1
         # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)

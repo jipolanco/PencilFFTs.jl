@@ -7,34 +7,44 @@ function mul!(out::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                                             Ti <: RealOrComplex{T},
                                             To <: RealOrComplex{T}}
     # TODO remove lots of allocations everywhere!!
+    _check_arrays(p, in, out)
     plans = p.plans
-    @assert first(plans).pencil_in === pencil(in)
-    @assert last(plans).pencil_out === pencil(out)
-    u = _apply_plans(in, plans...)
-    copy!(out, u)
+    _apply_plans!(out, in, plans...)
 end
 
-function _apply_plans(u::PencilArray, plan::PencilPlan1D,
-                      next_plans::Vararg{PencilPlan1D})
+function *(p::PencilFFTPlan, in::PencilArray)
+    _check_arrays(p, in)
+    out = allocate_output(p)
+    mul!(out, p, in)
+end
+
+function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
+                       next_plans::Vararg{PencilPlan1D})
     Pi = plan.pencil_in
     Po = plan.pencil_out
 
     # Transpose pencil if required.
-    v = if pencil(u) === Pi
-        u
+    u = if pencil(x) === Pi
+        x
     else
-        v = PencilArray(Pi)
-        transpose!(v, u)
+        u = PencilArray(Pi)
+        transpose!(u, x)
     end
 
-    w = PencilArray(Po)
-    mul!(data(w), plan.fft_plan, data(v))
+    v = pencil(y) === Po ? y : PencilArray(Po)
+    mul!(data(v), plan.fft_plan, data(u))
 
-    _apply_plans(w, next_plans...)
+    _apply_plans!(y, v, next_plans...)
 end
 
-_apply_plans(u::PencilArray) = u
+_apply_plans!(y::PencilArray, x::PencilArray) = y
 
-# TODO
-# function *(p::PencilFFTPlan, in::PencilArray)
-# end
+function _check_arrays(p::PencilFFTPlan, in::PencilArray, out=nothing)
+    if first(p.plans).pencil_in !== pencil(in)
+        throw(ArgumentError("unexpected dimensions of input data"))
+    end
+    if out !== nothing && last(p.plans).pencil_out !== pencil(out)
+        throw(ArgumentError("unexpected dimensions of output data"))
+    end
+    nothing
+end
