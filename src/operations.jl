@@ -8,8 +8,7 @@ function mul!(out::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                                             To <: RealOrComplex{T}}
     # TODO remove lots of allocations everywhere!!
     _check_arrays(p, in, out)
-    plans = p.plans
-    _apply_plans!(out, in, plans...)
+    _apply_plans!(out, in, p.plans...)
 end
 
 function *(p::PencilFFTPlan, in::PencilArray)
@@ -27,11 +26,11 @@ function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
     u = if pencil(x) === Pi
         x
     else
-        u = PencilArray(Pi)
+        u = _temporary_pencil_array(Pi, plan.ibuf)
         transpose!(u, x)
     end
 
-    v = pencil(y) === Po ? y : PencilArray(Po)
+    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
     mul!(data(v), plan.fft_plan, data(u))
 
     _apply_plans!(y, v, next_plans...)
@@ -47,4 +46,14 @@ function _check_arrays(p::PencilFFTPlan, in::PencilArray, out=nothing)
         throw(ArgumentError("unexpected dimensions of output data"))
     end
     nothing
+end
+
+function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8})
+    # Create "unsafe" pencil array wrapping buffer data.
+    T = eltype(p)
+    dims = size_local(p)
+    nb = prod(dims) * sizeof(T)
+    resize!(buf, nb)
+    x = Pencils.unsafe_as_array(T, buf, dims)
+    PencilArray(p, x)
 end

@@ -39,21 +39,20 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
 
     u = allocate_input(plan)
     randn!(u)
+    ug = gather(u, root)
 
     v = plan * u
-    # @time v = plan * u
     @time mul!(v, plan, u)
 
     # Compare result with serial FFT.
     same = Ref(false)
-    ug = gather(u, root)
     vg = gather(v, root)
 
     if ug !== nothing && vg !== nothing
         @assert myrank == root
         p = fftw_planner(ug)
-        vg_serial = p * ug
-        @time vg_serial = p * ug
+        mul!(vg_serial, p, ug)
+        @time mul!(vg_serial, p, ug)
         same[] = vg ≈ vg_serial
     end
 
@@ -84,8 +83,10 @@ function test_pencil_plans(size_in::Tuple)
         #                                           plan.topology)
         # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
 
-        # let u = PencilArray(first(plan.plans).pencil_in)
-        #     @code_warntype PencilFFTs._apply_plans(u, plan.plans...)
+        # @code_warntype allocate_input(plan)
+
+        # let u = allocate_input(plan)
+        #     @code_warntype plan * u
         # end
 
         let transforms = (Transforms.NoTransform(), Transforms.FFT())

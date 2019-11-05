@@ -12,6 +12,10 @@ struct PencilPlan1D{Pi <: Pencil,
     pencil_out :: Po       # pencil after transform
     transform  :: Tr       # transform type
     fft_plan   :: FFTPlan  # FFTW plan
+
+    # Temporary data buffers (shared among all 1D plans)
+    ibuf       :: Vector{UInt8}
+    obuf       :: Vector{UInt8}
 end
 
 """
@@ -95,28 +99,29 @@ struct PencilFFTPlan{T,
                            ::Type{T}=Float64;
                            fftw_flags=FFTW.ESTIMATE,
                            fftw_timelimit=FFTW.NO_TIMELIMIT,
+                           ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
                           ) where {N, M, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
-        plans = _create_plans(g, t, fftw_kw)
+        plans = _create_plans(g, t, fftw_kw, (ibuf, obuf))
         new{T, N, M, typeof(g), typeof(plans)}(g, t, plans)
     end
 end
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
-                       fftw_kw) where {N, M}
+                       fftw_kw, bufs) where {N, M}
     Tin = input_data_type(g)
     transforms = g.transforms
-    _create_plans(Tin, g, topology, fftw_kw, nothing, transforms...)
+    _create_plans(Tin, g, topology, fftw_kw, bufs, nothing, transforms...)
 end
 
 # Create 1D plans recursively.
 function _create_plans(::Type{Ti},
                        g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
-                       fftw_kw,
+                       fftw_kw, bufs,
                        plan_prev,
                        transform_n::AbstractTransform,
                        transforms_next::Vararg{AbstractTransform, Ntr}
@@ -182,13 +187,10 @@ function _create_plans(::Type{Ti},
         end
     end
 
-    @debug "PencilFFTPlan: create_plans" n Pi Po
-
     # TODO
-    # - use different array?
     # - this may be a multidimensional transform, for example when doing slab
     #   decomposition
-    fftplan = let A = PencilArray(Pi)
+    fftplan = let A = _temporary_pencil_array(Pi, first(bufs))
         # Data was permuted so that we always transform the 1st dimension.
         @assert let p = get_permutation(Pi)
             # Either there's no permutation and we're transforming the first
@@ -199,14 +201,15 @@ function _create_plans(::Type{Ti},
         dims = 1
         plan(transform_n, data(A), dims; fftw_kw...)
     end
-    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan)
+    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan, bufs...)
 
-    (plan_n,
-     _create_plans(To, g, topology, fftw_kw, plan_n, transforms_next...)...)
+    (plan_n, _create_plans(To, g, topology, fftw_kw, bufs, plan_n,
+                           transforms_next...)...)
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw, plan_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw,
+              bufs, plan_prev) = ()
 
 """
     get_comm(p::PencilFFTPlan)
@@ -215,6 +218,7 @@ Get MPI communicator associated to a `PencilFFTPlan`.
 """
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
 
+# TODO add `destroyable` option? -> create PencilArray from temporary buffer
 """
     allocate_input(p::PencilFFTPlan)
 
