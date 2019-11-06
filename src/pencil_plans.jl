@@ -104,23 +104,27 @@ struct PencilFFTPlan{T,
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
-        plans = _create_plans(g, t, fftw_kw, (ibuf, obuf))
+        permute_dimensions = true
+        plans = _create_plans(g, t, permute_dimensions, fftw_kw, (ibuf, obuf))
         new{T, N, M, typeof(g), typeof(plans)}(g, t, plans)
     end
 end
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
+                       permute_dimensions::Bool,
                        fftw_kw, bufs) where {N, M}
     Tin = input_data_type(g)
     transforms = g.transforms
-    _create_plans(Tin, g, topology, fftw_kw, bufs, nothing, transforms...)
+    _create_plans(Tin, g, topology, permute_dimensions, fftw_kw, bufs, nothing,
+                  transforms...)
 end
 
 # Create 1D plans recursively.
 function _create_plans(::Type{Ti},
                        g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
+                       permute_dimensions::Bool,
                        fftw_kw, bufs,
                        plan_prev,
                        transform_n::AbstractTransform,
@@ -149,9 +153,16 @@ function _create_plans(::Type{Ti},
         # The data is permuted so that the n-th logical dimension is the first
         # (fastest) dimension in the arrays.
         # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...)
-        perm = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
-        @assert isperm(perm)
-        @assert perm == (n, (1:n-1)..., (n+1:N)...)
+        perm = if permute_dimensions
+            perm = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
+            @assert isperm(perm)
+            @assert perm == (n, (1:n-1)..., (n+1:N)...)
+            perm
+        else
+            # Note: I don't want to return `nothing` because that would make
+            # things type-unstable.
+            Pencils.identity_permutation(Val(N))
+        end :: Pencils.Permutation{N}
 
         # (ii) Determine decomposed dimensions from the previous
         # decomposition `n - 1`.
@@ -191,24 +202,32 @@ function _create_plans(::Type{Ti},
     # - this may be a multidimensional transform, for example when doing slab
     #   decomposition
     fftplan = let A = _temporary_pencil_array(Pi, first(bufs))
-        # Data was permuted so that we always transform the 1st dimension.
-        @assert let p = get_permutation(Pi)
-            # Either there's no permutation and we're transforming the first
-            # dimension, or there's a permutation that puts the transformed
-            # dimension in the first index.
-            p === nothing ? n == 1 : first(p) == n
+        p = get_permutation(Pi)
+
+        dims = if p === nothing
+            n  # no index permutation
+        else
+            # Find index of n-th dimension in the permuted array.
+            # If we permuted data to have the n-th dimension as the fastest
+            # (leftmost) index, then the result should be 1.
+            findfirst(p .== n) :: Int
         end
-        dims = 1
+
+        # Either there's no permutation and we're transforming the first
+        # dimension, or there's a permutation that puts the transformed
+        # dimension in the first index.
+        @assert !permute_dimensions || (p === nothing ? n == 1 : first(p) == n)
+
         plan(transform_n, data(A), dims; fftw_kw...)
     end
     plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan, bufs...)
 
-    (plan_n, _create_plans(To, g, topology, fftw_kw, bufs, plan_n,
-                           transforms_next...)...)
+    (plan_n, _create_plans(To, g, topology, permute_dimensions, fftw_kw, bufs,
+                           plan_n, transforms_next...)...)
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, fftw_kw,
+_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::Bool, fftw_kw,
               bufs, plan_prev) = ()
 
 """
