@@ -39,7 +39,8 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     if R === nothing
         # Both pencil configurations are identical, so we just copy the data,
         # permuting dimensions if needed.
-        if get_permutation(src.pencil) === get_permutation(dest.pencil)
+        if same_permutation(get_permutation(src.pencil),
+                            get_permutation(dest.pencil))
             copy!(dest, src)
         elseif parent(src) !== parent(dest)
             perm_base = relative_permutation(src.pencil, dest.pencil)

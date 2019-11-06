@@ -44,6 +44,11 @@ is_identity_permutation(perm::Permutation{N}) where N =
 is_valid_permuation(::Nothing) = true
 is_valid_permuation(perm::Permutation) = isperm(perm)
 
+same_permutation(a::P, b::P) where P = a === b
+same_permutation(a::Permutation{N}, ::Nothing) where N =
+    a === identity_permutation(Val(N))
+same_permutation(::Nothing, a::Permutation) = same_permutation(a, nothing)
+
 # Prepend `M` non-permuted dimensions to the given permutation.
 # Example: prepend_to_permutation(Val(2), (2, 3, 1)) = (1, 2, 4, 5, 3).
 prepend_to_permutation(::Val{M}, perm::Permutation) where M =
