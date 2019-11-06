@@ -154,10 +154,10 @@ function _create_plans(::Type{Ti},
         # (fastest) dimension in the arrays.
         # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...)
         perm = if permute_dimensions
-            perm = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
-            @assert isperm(perm)
-            @assert perm == (n, (1:n-1)..., (n+1:N)...)
-            perm
+            t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
+            @assert isperm(t)
+            @assert t == (n, (1:n-1)..., (n+1:N)...)
+            t
         else
             # Note: I don't want to return `nothing` because that would make
             # things type-unstable.
