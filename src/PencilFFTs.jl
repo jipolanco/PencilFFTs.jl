@@ -2,7 +2,9 @@ module PencilFFTs
 
 import FFTW
 import MPI
+
 using Reexport
+using TimerOutputs
 
 include("Pencils/Pencils.jl")
 include("Transforms/Transforms.jl")
@@ -14,7 +16,7 @@ include("Transforms/Transforms.jl")
 import .Transforms: AbstractTransform, FFTReal
 
 export PencilFFTPlan
-export allocate_input, allocate_output
+export allocate_input, allocate_output, get_timer
 
 # Functions to be extended for PencilFFTs types.
 import .Pencils: get_comm

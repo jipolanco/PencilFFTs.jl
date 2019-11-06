@@ -16,6 +16,8 @@ struct PencilPlan1D{Pi <: Pencil,
     # Temporary data buffers (shared among all 1D plans)
     ibuf       :: Vector{UInt8}
     obuf       :: Vector{UInt8}
+
+    timer      :: TimerOutput
 end
 
 """
@@ -28,6 +30,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
     PencilFFTPlan(size_global::Dims{N}, transforms::AbstractTransformList{N},
                   proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
                   fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
+                  timer=TimerOutput(),
                   )
 
 Create plan for N-dimensional transform.
@@ -53,6 +56,9 @@ along each dimension.
 The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the `FFTW`
 plan creation functions
 (see [`AbstractFFTs` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
+
+It is also possible to pass a `TimerOutput` to the constructor. See
+[Measuring performance](@ref) for details.
 
 # Example
 
@@ -89,6 +95,11 @@ struct PencilFFTPlan{T,
     # data transposition!
     plans :: P
 
+    # Runtime timing.
+    # Should be used along with the @timeit_debug macro, to be able to turn it
+    # off if desired.
+    timer :: TimerOutput
+
     # TODO
     # - add constructor with Cartesian MPI communicator, in case the user
     #   already created one
@@ -99,33 +110,41 @@ struct PencilFFTPlan{T,
                            ::Type{T}=Float64;
                            fftw_flags=FFTW.ESTIMATE,
                            fftw_timelimit=FFTW.NO_TIMELIMIT,
+                           timer::TimerOutput=TimerOutput(),
                            ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
                           ) where {N, M, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
+
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
-        permute_dimensions = true
-        plans = _create_plans(g, t, permute_dimensions, fftw_kw, (ibuf, obuf))
-        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans)
+
+        # Options for creation of 1D plans.
+        plan1d_opt = (permute_dimensions=true,
+                      ibuf=ibuf,
+                      obuf=obuf,
+                      timer=timer,
+                      fftw_kw=fftw_kw,
+                     )
+
+        plans = _create_plans(g, t, plan1d_opt)
+
+        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans, timer)
     end
 end
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
-                       permute_dimensions::Bool,
-                       fftw_kw, bufs) where {N, M}
+                       plan1d_opt::NamedTuple) where {N, M}
     Tin = input_data_type(g)
     transforms = g.transforms
-    _create_plans(Tin, g, topology, permute_dimensions, fftw_kw, bufs, nothing,
-                  transforms...)
+    _create_plans(Tin, g, topology, plan1d_opt, nothing, transforms...)
 end
 
 # Create 1D plans recursively.
 function _create_plans(::Type{Ti},
                        g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
-                       permute_dimensions::Bool,
-                       fftw_kw, bufs,
+                       plan1d_opt::NamedTuple,
                        plan_prev,
                        transform_n::AbstractTransform,
                        transforms_next::Vararg{AbstractTransform, Ntr}
@@ -133,6 +152,8 @@ function _create_plans(::Type{Ti},
     n = N - Ntr  # current dimension index
     si = g.size_global_in
     so = g.size_global_out
+
+    permute_dimensions = plan1d_opt.permute_dimensions
 
     Pi = if plan_prev === nothing
         # This is the case of the first pencil pair.
@@ -201,7 +222,7 @@ function _create_plans(::Type{Ti},
     # TODO
     # - this may be a multidimensional transform, for example when doing slab
     #   decomposition
-    fftplan = let A = _temporary_pencil_array(Pi, first(bufs))
+    fftplan = let A = _temporary_pencil_array(Pi, plan1d_opt.ibuf)
         p = get_permutation(Pi)
 
         dims = if p === nothing
@@ -218,17 +239,18 @@ function _create_plans(::Type{Ti},
         # dimension in the first index.
         @assert !permute_dimensions || (p === nothing ? n == 1 : first(p) == n)
 
-        plan(transform_n, data(A), dims; fftw_kw...)
+        plan(transform_n, data(A), dims; plan1d_opt.fftw_kw...)
     end
-    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan, bufs...)
+    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan, plan1d_opt.ibuf,
+                          plan1d_opt.obuf, plan1d_opt.timer)
 
-    (plan_n, _create_plans(To, g, topology, permute_dimensions, fftw_kw, bufs,
-                           plan_n, transforms_next...)...)
+    (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
+                           transforms_next...)...)
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::Bool, fftw_kw,
-              bufs, plan_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
+              plan_prev) = ()
 
 """
     get_comm(p::PencilFFTPlan)
@@ -236,6 +258,15 @@ _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::Bool, fftw_kw,
 Get MPI communicator associated to a `PencilFFTPlan`.
 """
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
+
+"""
+    get_timer(p::PencilFFTPlan)
+
+Get `TimerOutput` attached to a `PencilFFTPlan`.
+
+See [Measuring performance](@ref) for details.
+"""
+get_timer(p::PencilFFTPlan) = p.timer
 
 # TODO add `destroyable` option? -> create PencilArray from temporary buffer
 """

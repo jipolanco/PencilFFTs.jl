@@ -6,15 +6,18 @@ function mul!(out::PencilArray{To,N}, p::PencilFFTPlan{T,N},
               in::PencilArray{Ti,N}) where {T, N,
                                             Ti <: RealOrComplex{T},
                                             To <: RealOrComplex{T}}
-    # TODO remove lots of allocations everywhere!!
-    _check_arrays(p, in, out)
-    _apply_plans!(out, in, p.plans...)
+    @timeit_debug p.timer "PencilFFTs mul!" begin
+        _check_arrays(p, in, out)
+        _apply_plans!(out, in, p.plans...)
+    end
 end
 
 function *(p::PencilFFTPlan, in::PencilArray)
-    _check_arrays(p, in)
-    out = allocate_output(p)
-    mul!(out, p, in)
+    @timeit_debug p.timer "PencilFFTs *" begin
+        _check_arrays(p, in)
+        out = allocate_output(p)
+        mul!(out, p, in)
+    end
 end
 
 function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
@@ -26,12 +29,16 @@ function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
     u = if pencil(x) === Pi
         x
     else
-        u = _temporary_pencil_array(Pi, plan.ibuf)
-        transpose!(u, x)
+        @timeit_debug plan.timer "transpose" begin
+            u = _temporary_pencil_array(Pi, plan.ibuf)
+            transpose!(u, x)
+        end
     end
 
-    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
-    mul!(data(v), plan.fft_plan, data(u))
+    @timeit_debug plan.timer "FFT" begin
+        v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
+        mul!(data(v), plan.fft_plan, data(u))
+    end
 
     _apply_plans!(y, v, next_plans...)
 end

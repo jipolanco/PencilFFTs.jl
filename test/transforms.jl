@@ -9,6 +9,9 @@ using InteractiveUtils
 using LinearAlgebra
 using Random
 using Test
+using TimerOutputs
+
+TimerOutputs.enable_debug_timings(PencilFFTs)
 
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
@@ -36,19 +39,26 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     comm = get_comm(plan)
     root = 0
     myrank = MPI.Comm_rank(comm)
+    to = get_timer(plan)
 
     u = allocate_input(plan)
     randn!(u)
     ug = gather(u, root)
 
     v = plan * u
-    @time mul!(v, plan, u)
+    mul!(v, plan, u)
 
     # Compare result with serial FFT.
     same = Ref(false)
     vg = gather(v, root)
 
+    reset_timer!(to)
+    v = plan * u
+    mul!(v, plan, u)
+
     if ug !== nothing && vg !== nothing
+        println(to)
+
         @assert myrank == root
         p = fftw_planner(ug)
         vg_serial = p * ug
