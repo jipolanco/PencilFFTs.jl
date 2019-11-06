@@ -10,10 +10,20 @@ DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
                     :(using PencilFFTs.Transforms); recursive=true)
 
 makedocs(
-    sitename = "PencilFFTs",
-    format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"),
+    sitename = "PencilFFTs.jl",
+    format = Documenter.HTML(
+        prettyurls = get(ENV, "CI", nothing) == "true"
+    ),
     modules = [PencilFFTs],
+    pages = [
+        "Home" => "index.md",
+        "Transforms.md",
+        "Pencils.md",
+    ],
     doctest = true,
+    repo = "https://gitlab.oca.eu/jpolanco/pencilffts.jl/blob/{commit}{path}#{line}",
+    # checkdocs = :exports,
+    linkcheck = true,
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
