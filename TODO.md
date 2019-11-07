@@ -1,19 +1,18 @@
 # TODO
 
-## FFTs
-
-- Include FFTW plans in PencilPlan
-
 - Reduce array allocations (buffers)
+
+- Add inverse transforms
+
+- Allow passing "effective" transform instead of list of 1D transforms.
+  For instance, `RFFT -> (RFFT, FFT, FFT)`.
 
 - Vector (or tensor) transforms
   * use fastest or slowest indices for components?
 
-- Define `*` and `mul!` (and also `assert_applicable`) like in `FFTW.jl`
+- Add FFTW r2r transforms
 
 ## For later
-
-- Generalise transform types: add `c2c`, `r2r`, ...
 
 - Compatibility with [MKL FFTW3 wrappers](https://software.intel.com/en-us/mkl-developer-reference-c-using-fftw3-wrappers)?
   See also [here](https://github.com/JuliaMath/FFTW.jl#mkl).
