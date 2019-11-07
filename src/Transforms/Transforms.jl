@@ -16,7 +16,7 @@ using FFTW
 import LinearAlgebra: I
 
 import Base: inv, show
-export eltype_input, eltype_output, length_output, plan
+export eltype_input, eltype_output, length_output, plan, split_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
 
@@ -130,9 +130,36 @@ function eltype_output end
 eltype_output(::F, ::Type{T}) where {F <: AbstractTransform, T} =
     throw(ArgumentError("invalid input data type for $F: $T"))
 
+"""
+    split_dims(transform::AbstractTransform, Val(N))
+
+Split a multidimensional transform into one transform per dimension.
+
+# Example
+
+```jldoctest
+# Split a real-to-complex transform in 3 dimensions.
+julia> split_dims(Transforms.RFFT(), Val(3))
+(RFFT(), FFT(), FFT())
+
+julia> split_dims(Transforms.BRFFT(), Val(3))
+(BRFFT(), BFFT(), BFFT())
+
+julia> split_dims(Transforms.IFFT(), Val(3))
+(IFFT(), IFFT(), IFFT())
+
+julia> split_dims(Transforms.NoTransform(), Val(2))
+(NoTransform(), NoTransform())
+```
+"""
+function split_dims end
+
+split_dims(::F, ::Val) where {F <: AbstractTransform} =
+    throw(ArgumentError("I don't know how to split transform $F"))
+
 show(io::IO, ::F) where F <: AbstractTransform =
-    # PencilFFTs.Transforms.Name -> Name
-    print(io, last(rsplit(string(F), '.', limit=2)))
+    # PencilFFTs.Transforms.Name -> Name()
+    print(io, last(rsplit(string(F), '.', limit=2)), "()")
 
 """
     NoTransform()
@@ -147,6 +174,8 @@ length_output(::NoTransform, length_in::Integer) = length_in
 eltype_output(::NoTransform, ::Type{T}) where T = T
 eltype_input(::NoTransform, ::Type) = Nothing
 plan(::NoTransform, A, dims; kwargs...) = I  # identity matrix (UniformScaling)
+split_dims(::NoTransform, ::Val{N}) where N =
+    N == 0 ? () : (NoTransform(), split_dims(NoTransform(), Val(N - 1))...)
 
 include("c2c.jl")
 include("r2c.jl")

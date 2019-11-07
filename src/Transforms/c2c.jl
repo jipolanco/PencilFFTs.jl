@@ -48,3 +48,6 @@ plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
 inv(::FFT) = BFFT()
 inv(::IFFT) = FFT()
 inv(::BFFT) = FFT()
+
+split_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
+    N === 0 ? () : (F(), split_dims(F(), Val(N - 1))...)
