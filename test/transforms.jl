@@ -46,11 +46,17 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     to = get_timer(plan)
 
     u = allocate_input(plan)
+    uprime = similar(u)
     randn!(u)
     ug = gather(u, root)
 
     v = plan * u
     mul!(v, plan, u)
+    @show norm(v)
+    ldiv!(uprime, plan, v)
+    @show norm(v)
+
+    @test u ≈ uprime
 
     # Compare result with serial FFT.
     same = Ref(false)
@@ -59,24 +65,28 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     reset_timer!(to)
     for n = 1:ITERATIONS
         mul!(v, plan, u)
+        ldiv!(uprime, plan, v)
     end
 
     if ug !== nothing && vg !== nothing
         println(plan)
         println(to)
 
-        @assert myrank == root
         p = fftw_planner(ug)
-        vg_serial = p * ug
 
+        vg_serial = p * ug
         mul!(vg_serial, p, ug)
-        @time mul!(vg_serial, p, ug)
-        same[] = vg ≈ vg_serial
+        @test vg ≈ vg_serial
+
+        uprime_serial = similar(ug)
+        # For some reason, this also modifies vg_serial...
+        ldiv!(uprime_serial, p, vg_serial)
+        @test ug ≈ uprime_serial
     end
 
-    MPI.Bcast!(same, length(same), root, comm)
+    MPI.Barrier(comm)
 
-    same[]
+    nothing
 end
 
 function test_pencil_plans(size_in::Tuple)
@@ -92,7 +102,7 @@ function test_pencil_plans(size_in::Tuple)
 
     plan = PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
 
-    @test test_transform(plan, FFTW.plan_rfft)
+    test_transform(plan, FFTW.plan_rfft)
 
     if Nproc == 1
         transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
