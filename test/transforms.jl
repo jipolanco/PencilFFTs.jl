@@ -14,6 +14,9 @@ using TimerOutputs
 TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)
 
+const DATA_DIMS = (64, 40, 32)
+const ITERATIONS = 20
+
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
@@ -54,8 +57,9 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     vg = gather(v, root)
 
     reset_timer!(to)
-    v = plan * u
-    mul!(v, plan, u)
+    for n = 1:ITERATIONS
+        mul!(v, plan, u)
+    end
 
     if ug !== nothing && vg !== nothing
         println(to)
@@ -121,7 +125,7 @@ end
 function main()
     MPI.Init()
 
-    size_in = (16, 24, 32)
+    size_in = DATA_DIMS
     test_transform_types(size_in)
     test_pencil_plans(size_in)
 
