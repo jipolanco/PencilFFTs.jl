@@ -52,9 +52,7 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
 
     v = plan * u
     mul!(v, plan, u)
-    @show norm(v)
     ldiv!(uprime, plan, v)
-    @show norm(v)
 
     @test u ≈ uprime
 
