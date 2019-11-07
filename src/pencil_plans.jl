@@ -2,7 +2,8 @@
 struct PencilPlan1D{Pi <: Pencil,
                     Po <: Pencil,
                     Tr <: AbstractTransform,
-                    FFTPlan <: FFTW.FFTWPlan,
+                    FFTPlanF <: FFTW.FFTWPlan,
+                    FFTPlanB <: FFTW.FFTWPlan,
                    }
     # Each pencil pair describes the decomposition of input and output FFT
     # data. The two pencils will be different for transforms that do not
@@ -11,7 +12,9 @@ struct PencilPlan1D{Pi <: Pencil,
     pencil_in  :: Pi       # pencil before transform
     pencil_out :: Po       # pencil after transform
     transform  :: Tr       # transform type
-    fft_plan   :: FFTPlan  # FFTW plan
+
+    fft_plan   :: FFTPlanF  # forward FFTW plan
+    bfft_plan  :: FFTPlanB  # backward FFTW plan
 
     # Temporary data buffers (shared among all 1D plans)
     ibuf       :: Vector{UInt8}
@@ -234,9 +237,7 @@ function _create_plans(::Type{Ti},
     # TODO
     # - this may be a multidimensional transform, for example when doing slab
     #   decomposition
-    fftplan = let A = _temporary_pencil_array(Pi, plan1d_opt.ibuf)
-        p = get_permutation(Pi)
-
+    fftplans = let p = get_permutation(Pi)
         dims = if p === nothing
             n  # no index permutation
         else
@@ -251,9 +252,16 @@ function _create_plans(::Type{Ti},
         # dimension in the first index.
         @assert !permute_dimensions || (p === nothing ? n == 1 : first(p) == n)
 
-        plan(transform_n, data(A), dims; plan1d_opt.fftw_kw...)
+        # Create temporary arrays with the dimensions required for forward and
+        # backward transforms.
+        pairs = (transform_n => _temporary_pencil_array(Pi, plan1d_opt.ibuf),
+                 inv(transform_n) => _temporary_pencil_array(Po, plan1d_opt.obuf))
+
+        # Generate forward and backward FFTW transforms.
+        fftw_kw = plan1d_opt.fftw_kw
+        map(p -> plan(p.first, data(p.second), dims; fftw_kw...), pairs)
     end
-    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplan, plan1d_opt.ibuf,
+    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplans..., plan1d_opt.ibuf,
                           plan1d_opt.obuf, plan1d_opt.timer)
 
     (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
