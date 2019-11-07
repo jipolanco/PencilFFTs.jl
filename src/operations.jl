@@ -9,7 +9,7 @@ function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                                              To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs mul!" begin
         _check_arrays(p, src, dst)
-        _apply_plans!(dst, src, p.plans...)
+        _apply_plans!(Val(FFTW.FORWARD), dst, src, p.plans...)
     end
 end
 
@@ -21,8 +21,28 @@ function *(p::PencilFFTPlan, src::PencilArray)
     end
 end
 
-function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
-                       next_plans::Vararg{PencilPlan1D})
+## Backward transforms
+function ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
+               src::PencilArray{Ti,N}) where {T, N,
+                                             Ti <: RealOrComplex{T},
+                                             To <: RealOrComplex{T}}
+    @timeit_debug p.timer "PencilFFTs ldiv!" begin
+        _check_arrays(p, dst, src)
+        plans = reverse(p.plans)  # plans are applied from right to left
+        _apply_plans!(Val(FFTW.BACKWARD), dst, src, plans...)
+    end
+end
+
+function \(p::PencilFFTPlan, src::PencilArray)
+    @timeit_debug p.timer "PencilFFTs \\" begin
+        _check_arrays(p, nothing, src)
+        dst = allocate_input(p)
+        ldiv!(dst, p, src)
+    end
+end
+
+function _apply_plans!(dir::Val{FFTW.FORWARD}, y::PencilArray, x::PencilArray,
+                       plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
     Pi = plan.pencil_in
     Po = plan.pencil_out
 
@@ -37,10 +57,29 @@ function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
     @timeit_debug plan.timer "FFT" mul!(data(v), plan.fft_plan, data(u))
 
-    _apply_plans!(y, v, next_plans...)
+    _apply_plans!(dir, y, v, next_plans...)
 end
 
-_apply_plans!(y::PencilArray, x::PencilArray) = y
+function _apply_plans!(dir::Val{FFTW.BACKWARD}, y::PencilArray, x::PencilArray,
+                       plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
+    Pi = plan.pencil_out
+    Po = plan.pencil_in
+
+    # Transpose pencil if required.
+    u = if pencil(x) === Pi
+        x
+    else
+        u = _temporary_pencil_array(Pi, plan.ibuf)
+        transpose!(u, x)
+    end
+
+    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
+    @timeit_debug plan.timer "FFT" ldiv!(data(v), plan.fft_plan, data(u))
+
+    _apply_plans!(dir, y, v, next_plans...)
+end
+
+_apply_plans!(::Val, y::PencilArray, x::PencilArray) = y
 
 function _check_arrays(p::PencilFFTPlan, xin, xout)
     if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
