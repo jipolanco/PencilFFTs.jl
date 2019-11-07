@@ -58,7 +58,7 @@ plan creation functions
 (see [`AbstractFFTs` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
 
 It is also possible to pass a `TimerOutput` to the constructor. See
-[Measuring performance](@ref) for details.
+[Measuring performance](@ref Pencils.measuring_performance) for details.
 
 # Example
 
@@ -154,6 +154,7 @@ function _create_plans(::Type{Ti},
     so = g.size_global_out
 
     permute_dimensions = plan1d_opt.permute_dimensions
+    timer = plan1d_opt.timer
 
     Pi = if plan_prev === nothing
         # This is the case of the first pencil pair.
@@ -165,7 +166,8 @@ function _create_plans(::Type{Ti},
         # - No permutation is applied for input data: arrays are accessed in the
         #   natural order (i1, i2, ..., iN).
         decomp_dims = ntuple(m -> N - M + m, Val(M))
-        Pencil(topology, si, decomp_dims, Ti, permute=nothing)
+        Pencil(topology, si, decomp_dims, Ti, permute=nothing,
+               timer=timer)
 
     else
         Po_prev = plan_prev.pencil_out
@@ -206,7 +208,7 @@ function _create_plans(::Type{Ti},
 
         # Create new pencil sharing some information with Po_prev.
         # (Including data type and dimensions, MPI topology and data buffers.)
-        Pencil(Po_prev, decomp_dims=decomp, permute=perm)
+        Pencil(Po_prev, decomp_dims=decomp, permute=perm, timer=timer)
     end
 
     # Output transform along dimension `n`.
@@ -215,7 +217,7 @@ function _create_plans(::Type{Ti},
         if dims === size_global(Pi) && To === eltype(Pi)
             Pi  # in this case Pi and Po are the same
         else
-            Pencil(Pi, To, size_global=dims)
+            Pencil(Pi, To, size_global=dims, timer=timer)
         end
     end
 
@@ -264,7 +266,7 @@ get_comm(p::PencilFFTPlan) = get_comm(p.topology)
 
 Get `TimerOutput` attached to a `PencilFFTPlan`.
 
-See [Measuring performance](@ref) for details.
+See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
 get_timer(p::PencilFFTPlan) = p.timer
 

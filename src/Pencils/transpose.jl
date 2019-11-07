@@ -20,8 +20,13 @@ The two pencil configurations must be compatible for transposition:
   transposition is performed, and data is just copied if needed.
 
 """
-function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
+@timeit_debug pencil(src).timer function transpose!(
+        dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     dest === src && return dest  # same pencil & same data
+
+    Pi = pencil(src)
+    Po = pencil(dest)
+    timer = Pi.timer
 
     # Verifications
     if src.extra_dims !== dest.extra_dims
@@ -29,24 +34,23 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
             "incompatible number of extra dimensions of PencilArrays: " *
             "$(src.extra_dims) != $(dest.extra_dims)"))
     end
-    assert_compatible(src.pencil, dest.pencil)
+    assert_compatible(Pi, Po)
 
     # Note: the `decomp_dims` tuples of both pencils must differ by at most one
     # value (as just checked by `assert_compatible`). The transposition is
     # performed along the dimension R where that difference happens.
-    R = findfirst(src.pencil.decomp_dims .!= dest.pencil.decomp_dims)
+    R = findfirst(Pi.decomp_dims .!= Po.decomp_dims)
 
     if R === nothing
         # Both pencil configurations are identical, so we just copy the data,
         # permuting dimensions if needed.
-        if same_permutation(get_permutation(src.pencil),
-                            get_permutation(dest.pencil))
-            copy!(dest, src)
+        if same_permutation(get_permutation(Pi), get_permutation(Po))
+            @timeit_debug timer "copy!" copy!(dest, src)
         elseif parent(src) !== parent(dest)
-            perm_base = relative_permutation(src.pencil, dest.pencil)
+            perm_base = relative_permutation(Pi, Po)
             perm = prepend_to_permutation(Val(length(src.extra_dims)),
                                           perm_base)
-            permutedims!(dest, src, perm)
+            @timeit_debug timer "permutedims!" permutedims!(dest, src, perm)
         else
             # TODO...
             error("in-place dimension permutations not yet supported!")
@@ -93,6 +97,8 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
                          in::PencilArray{T,N}) where {T, N}
     Pi = in.pencil
     Po = out.pencil
+    timer = Pi.timer
+
     @assert Pi.topology === Po.topology
     topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
@@ -150,7 +156,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         recv_req = similar(send_req)
     end
 
-    for (n, ind) in enumerate(remote_inds)
+    @timeit_debug timer "pack data" for (n, ind) in enumerate(remote_inds)
         # Global data range that I need to send to process n.
         srange = intersect.(idims_local, odims[ind])
         length_send_n = prod(length.(srange)) * prod_extra_dims
@@ -170,7 +176,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             @assert length_recv_n == length_send_local
             recv_offsets[n] = length_recv
             _copy_to_vec!(recv_buf, length_recv, in, local_send_range,
-                          extra_dims)
+                          extra_dims, timer)
 
             if USE_ALLTOALLV
                 # Don't send data to myself via Alltoallv.
@@ -183,7 +189,8 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             # Copy data into contiguous buffer, then send the buffer.
             # TODO If data inside `in` is contiguous, avoid copying data to buffer,
             # and call MPI.Isend directly. (I need to check if it's contiguous...)
-            _copy_to_vec!(send_buf, isend, in, local_send_range, extra_dims)
+            _copy_to_vec!(send_buf, isend, in, local_send_range, extra_dims,
+                          timer)
 
             irecv += length_recv_n
             isend += length_send_n
@@ -213,7 +220,8 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         # This @view is needed because the Alltoallv wrapper checks that the
         # length of the buffer is consistent with recv_counts.
         recv_buf_view = @view recv_buf[1:length_recv]
-        MPI.Alltoallv!(send_buf, recv_buf_view, send_counts, recv_counts, comm)
+        @timeit_debug timer "MPI.Alltoallv!" MPI.Alltoallv!(
+            send_buf, recv_buf_view, send_counts, recv_counts, comm)
     else
         @assert isend == length(send_buf) ==
             (send_buf_ptr - pointer(send_buf)) // sizeof(T)
@@ -224,14 +232,15 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # 2. Unpack data and perform local transposition.
     # Here we need to know the relative index permutation to go from Pi
     # ordering to Po ordering.
-    let perm = relative_permutation(Pi, Po)
+    @timeit_debug timer "unpack data" let perm = relative_permutation(Pi, Po)
         for m = 1:Nproc
             if USE_ALLTOALLV
                 n = m
             elseif m == 1
                 n = index_local_req  # copy local data first
             else
-                n, status = MPI_Waitany!(recv_req)
+                @timeit_debug timer "wait recv" n, status =
+                    MPI_Waitany!(recv_req)
             end
 
             # Non-permuted global indices of received data.
@@ -246,12 +255,15 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
                 permute_indices(to_local(Po, g_range, permute=false), Pi)
 
             # Copy data to `out`, permuting dimensions if required.
-            _copy_from_vec!(out, o_range_iperm, recv_buf, off, perm, extra_dims)
+            _copy_from_vec!(out, o_range_iperm, recv_buf, off, perm, extra_dims,
+                            timer)
         end
     end
 
     # Wait for all our data to be sent before returning.
-    USE_ALLTOALLV || MPI_Waitall!(send_req)
+    if !USE_ALLTOALLV
+        @timeit_debug timer "wait send" MPI_Waitall!(send_req)
+    end
 
     out
 end
@@ -272,11 +284,13 @@ function _get_remote_indices(R::Int, coords_local::Dims{M}, Nproc::Int) where M
     CartesianIndices(t)
 end
 
-function _copy_to_vec!(dest::Vector{T},
-                       dest_offset::Int,
-                       src::AbstractArray{T,N},
-                       src_range::ArrayRegion{P},
-                       extra_dims::Dims{E}) where {T,N,P,E}
+@timeit_debug timer function _copy_to_vec!(dest::Vector{T},
+                                           dest_offset::Int,
+                                           src::AbstractArray{T,N},
+                                           src_range::ArrayRegion{P},
+                                           extra_dims::Dims{E},
+                                           timer,
+                                          ) where {T,N,P,E}
     @assert P + E == N
 
     n = dest_offset
@@ -289,12 +303,14 @@ function _copy_to_vec!(dest::Vector{T},
     dest
 end
 
-function _copy_from_vec!(dest::AbstractArray{T,N},
-                         o_range_iperm::ArrayRegion{P},
-                         src::Vector{T},
-                         src_offset::Int,
-                         perm::OptionalPermutation{P},
-                         extra_dims::Dims{E}) where {T,N,P,E}
+@timeit_debug timer function _copy_from_vec!(dest::AbstractArray{T,N},
+                                             o_range_iperm::ArrayRegion{P},
+                                             src::Vector{T},
+                                             src_offset::Int,
+                                             perm::OptionalPermutation{P},
+                                             extra_dims::Dims{E},
+                                             timer,
+                                            ) where {T,N,P,E}
     @assert P + E == N
 
     # The idea is to visit `dest` not in its natural order (with the fastest

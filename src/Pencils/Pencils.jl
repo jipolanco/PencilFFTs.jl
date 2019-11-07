@@ -7,13 +7,14 @@ between them.
 module Pencils
 
 using MPI
+using TimerOutputs
 
 import Base: ndims, size, length, eltype, show
 import LinearAlgebra: transpose!
 
 export Pencil, PencilArray, MPITopology
 export gather
-export get_comm, get_decomposition, get_permutation
+export get_comm, get_decomposition, get_permutation, get_timer
 export ndims_extra
 export size_local, size_global
 export transpose!
@@ -158,7 +159,7 @@ The `Pencil` describes the decomposition of arrays of element type `T`.
 
     Pencil(topology::MPITopology{M}, size_global::Dims{N},
            decomp_dims::Dims{M}, [element_type=Float64];
-           permute=nothing)
+           permute=nothing, timer=TimerOutput())
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
@@ -173,6 +174,9 @@ The optional parameter `perm` should be a tuple defining a permutation of the
 data indices. This may be useful for performance reasons, since it may be
 preferable (e.g. for FFTs) that the data is contiguous along the pencil
 direction.
+
+It is also possible to pass a `TimerOutput` to the constructor. See
+[Measuring performance](@ref Pencils.measuring_performance) for details.
 
 # Examples
 
@@ -190,7 +194,8 @@ each MPI process.
     Pencil(p::Pencil{N,M}, [element_type=eltype(p)];
            decomp_dims::Dims{M}=get_decomposition(p),
            size_global::Dims{N}=size_global(p),
-           permute::P=get_permutation(p))
+           permute::P=get_permutation(p),
+           timer::TimerOutput=get_timer(p))
 
 Create new pencil configuration from an existent one.
 
@@ -230,10 +235,14 @@ struct Pencil{N,  # spatial dimensions
     send_buf :: Vector{UInt8}
     recv_buf :: Vector{UInt8}
 
+    # Timing information.
+    timer :: TimerOutput
+
     function Pencil(topology::MPITopology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M}, ::Type{T}=Float64;
                     permute::P=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
+                    timer=TimerOutput(),
                    ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
         if !is_valid_permuation(permute)
             # This is almost the same error thrown by `permutedims`.
@@ -245,16 +254,18 @@ struct Pencil{N,  # spatial dimensions
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
         new{N,M,T,P}(topology, size_global, decomp_dims, axes_all, axes_local,
-                     axes_local_perm, permute, send_buf, recv_buf)
+                     axes_local_perm, permute, send_buf, recv_buf, timer)
     end
 
     function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
                     decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p),
                     permute::P=get_permutation(p),
+                    timer::TimerOutput=get_timer(p),
                    ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
         Pencil(p.topology, size_global, decomp_dims, T;
-               permute=permute, send_buf=p.send_buf, recv_buf=p.recv_buf)
+               permute=permute, timer=timer,
+               send_buf=p.send_buf, recv_buf=p.recv_buf)
     end
 end
 
@@ -294,6 +305,15 @@ end
 Element type associated to the given pencil.
 """
 eltype(::Pencil{N, M, T} where {N, M}) where T = T
+
+"""
+    get_timer(p::Pencil)
+
+Get `TimerOutput` attached to a `Pencil`.
+
+See [Measuring performance](@ref Pencils.measuring_performance) for details.
+"""
+get_timer(p::Pencil) = p.timer
 
 """
     ndims(p::Pencil)

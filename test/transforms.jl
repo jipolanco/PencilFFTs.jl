@@ -12,6 +12,7 @@ using Test
 using TimerOutputs
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
+TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)
 
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())

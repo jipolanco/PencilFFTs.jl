@@ -29,16 +29,12 @@ function _apply_plans!(y::PencilArray, x::PencilArray, plan::PencilPlan1D,
     u = if pencil(x) === Pi
         x
     else
-        @timeit_debug plan.timer "transpose" begin
-            u = _temporary_pencil_array(Pi, plan.ibuf)
-            transpose!(u, x)
-        end
+        u = _temporary_pencil_array(Pi, plan.ibuf)
+        transpose!(u, x)
     end
 
-    @timeit_debug plan.timer "FFT" begin
-        v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
-        mul!(data(v), plan.fft_plan, data(u))
-    end
+    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
+    @timeit_debug plan.timer "FFT" mul!(data(v), plan.fft_plan, data(u))
 
     _apply_plans!(y, v, next_plans...)
 end
@@ -55,7 +51,8 @@ function _check_arrays(p::PencilFFTPlan, in::PencilArray, out=nothing)
     nothing
 end
 
-function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8})
+@timeit_debug p.timer function _temporary_pencil_array(
+        p::Pencil, buf::Vector{UInt8})
     # Create "unsafe" pencil array wrapping buffer data.
     T = eltype(p)
     dims = size_local(p)
