@@ -4,11 +4,6 @@
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
-**This package is work in progress.**
-At this moment, domain decomposition works, as well as transposition between
-different decomposition configurations.
-FFTs are coming soon!
-
 This package provides functionality to distribute multidimensional arrays among
 MPI processes, and to perform multidimensional FFTs (and related transforms) on
 them.
