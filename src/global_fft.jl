@@ -60,6 +60,13 @@ struct GlobalFFTParams{T, N, F <: AbstractTransformList{N}}
     end
 end
 
+function show(io::IO, g::GlobalFFTParams)
+    println(io, "Transforms: ", g.transforms)
+    println(io, "Global dimensions: ",
+            g.size_global_in, "  ->  ", g.size_global_out)
+    nothing
+end
+
 # Determine input data type for multidimensional transform.
 # It will return Nothing if the data type can't be resolved from the transform
 # list. This will be the case if `g.transforms` is only made of `NoTransform`s.

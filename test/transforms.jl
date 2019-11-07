@@ -62,6 +62,7 @@ function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
     end
 
     if ug !== nothing && vg !== nothing
+        println(plan)
         println(to)
 
         @assert myrank == root

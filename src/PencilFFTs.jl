@@ -21,8 +21,7 @@ export allocate_input, allocate_output
 # Functions to be extended for PencilFFTs types.
 import .Pencils: get_comm, get_timer
 
-# Operators for applying direct and inverse plans (same as in AbstractFFTs).
-import Base: *, \
+import Base: *, \, show
 import LinearAlgebra: mul!, ldiv!
 
 include("global_fft.jl")

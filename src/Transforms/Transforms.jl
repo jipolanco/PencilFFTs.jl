@@ -15,7 +15,7 @@ module Transforms
 using FFTW
 import LinearAlgebra: I
 
-import Base: inv
+import Base: inv, show
 export eltype_input, eltype_output, length_output, plan
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
@@ -129,6 +129,10 @@ function eltype_output end
 
 eltype_output(::F, ::Type{T}) where {F <: AbstractTransform, T} =
     throw(ArgumentError("invalid input data type for $F: $T"))
+
+show(io::IO, ::F) where F <: AbstractTransform =
+    # PencilFFTs.Transforms.Name -> Name
+    print(io, last(rsplit(string(F), '.', limit=2)))
 
 """
     NoTransform()
