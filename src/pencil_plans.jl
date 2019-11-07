@@ -14,6 +14,8 @@ struct PencilPlan1D{Pi <: Pencil,
     transform  :: Tr       # transform type
 
     fft_plan   :: FFTPlanF  # forward FFTW plan
+
+    # TODO do I need this??
     bfft_plan  :: FFTPlanB  # backward FFTW plan
 
     # Temporary data buffers (shared among all 1D plans)

@@ -48,10 +48,6 @@ struct GlobalFFTParams{T, N, F <: AbstractTransformList{N}}
                              transforms::AbstractTransformList{N},
                              ::Type{T}=Float64,
                             ) where {N, T <: FFTReal}
-        # TODO
-        # - verify that r2c dimensions have even size, as currently required by
-        #   the definition of `length_output` (is this really necessary? try to
-        #   support odd sizes)
         F = typeof(transforms)
         size_global_out = length_output.(transforms, size_global)
         new{T, N, F}(transforms, size_global, size_global_out)
