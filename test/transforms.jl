@@ -90,8 +90,7 @@ function test_pencil_plans(size_in::Tuple)
         pdims[1], pdims[2]
     end
 
-    transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, Float64)
+    plan = PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
 
     @test test_transform(plan, FFTW.plan_rfft)
 

@@ -1,5 +1,3 @@
-const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
-
 """
     GlobalFFTParams{T, N}
 

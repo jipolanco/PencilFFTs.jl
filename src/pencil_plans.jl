@@ -27,7 +27,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 
 ---
 
-    PencilFFTPlan(size_global::Dims{N}, transforms::AbstractTransformList{N},
+    PencilFFTPlan(size_global::Dims{N}, transforms,
                   proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
                   fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
                   timer=TimerOutput(),
@@ -37,10 +37,12 @@ Create plan for N-dimensional transform.
 
 `size_global` specifies the global dimensions of the input data.
 
-`transforms` must be a tuple of length `N` specifying the transforms to be
+`transforms` should be a tuple of length `N` specifying the transforms to be
 applied along each dimension. Each element must be a subtype of
 [`Transforms.AbstractTransform`](@ref). For all the possible transforms, see
-[`Transform types`](@ref Transforms).
+[`Transform types`](@ref Transforms). Alternatively, `transforms` may be a
+single transform that will be automatically expanded into `N` equivalent
+transforms. This is illustrated in the example below.
 
 The transforms are applied one dimension at a time, with the leftmost
 dimension first for forward transforms. For multidimensional transforms of
@@ -71,6 +73,7 @@ size_global = (64, 32, 128)  # size of real input data
 # Perform real-to-complex transform along the first dimension, then
 # complex-to-complex transforms along the other dimensions.
 transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+# transforms = Transforms.RFFT()  # this is equivalent to the above line
 
 proc_dims = (4, 2)  # 2D decomposition
 comm = MPI.COMM_WORLD
@@ -129,6 +132,13 @@ struct PencilFFTPlan{T,
         plans = _create_plans(g, t, plan1d_opt)
 
         new{T, N, M, typeof(g), typeof(plans)}(g, t, plans, timer)
+    end
+
+    function PencilFFTPlan(size_global::Dims{N},
+                           transform::AbstractTransform,
+                           args...; kwargs...) where N
+        PencilFFTPlan(size_global, split_dims(transform, Val(N)),
+                      args...; kwargs...)
     end
 end
 

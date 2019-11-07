@@ -24,6 +24,8 @@ import .Pencils: get_comm, get_timer
 import Base: *, \, show
 import LinearAlgebra: mul!, ldiv!
 
+const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
+
 include("global_fft.jl")
 include("pencil_plans.jl")
 include("operations.jl")
