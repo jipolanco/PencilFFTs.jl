@@ -27,6 +27,10 @@
     - julia -e 'using InteractiveUtils;
                 versioninfo()'
     - echo $PENCILS_USE_ALLTOALLV
+    # Force precompilation of packages in serial mode.
+    # Otherwise, if precompilation runs in parallel, there may be race
+    # conditions...
+    - julia -e 'using PencilFFTs'
     # Note: code coverage (at least using Coverage.jl) apparently doesn't work
     # with parallel code.
     - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(; coverage=false)'
