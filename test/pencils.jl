@@ -33,8 +33,8 @@ function test_array_wrappers(p::Pencil)
         w = PencilArray(p, zeros(T, 3, psize...))
         @test size_global(w) === (3, size_global(p)...)
 
-        # @code_warntype PencilArray(p, zeros(T, 3, psize...))
-        # @code_warntype size_global(w)
+        @inferred PencilArray(p, zeros(T, 3, psize...))
+        @inferred size_global(w)
     end
 
     nothing
@@ -189,33 +189,35 @@ function main()
         end
     end
 
-    if Nproc == 1
-        # @code_warntype Pencils.create_subcomms(Val(2), comm)
-        # @code_warntype Pencils.MPITopology{2}(comm)
-        # @code_warntype Pencils.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
+    begin
+        periods = zeros(Int, length(proc_dims))
+        comm_cart = MPI.Cart_create(comm, collect(proc_dims), periods, false)
+        @inferred Pencils.create_subcomms(Val(2), comm_cart)
+        @inferred Pencils.MPITopology{2}(comm_cart)
+        @inferred Pencils.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
-        # @code_warntype Pencils.to_local(pen2, (1, 2, 3))
-        # @code_warntype Pencils.to_local(pen2, (1:2, 1:2, 1:2))
+        @inferred Pencils.to_local(pen2, (1, 2, 3))
+        @inferred Pencils.to_local(pen2, (1:2, 1:2, 1:2))
 
-        # @code_warntype Pencils.size_local(pen2)
+        @inferred Pencils.size_local(pen2)
 
-        # @code_warntype PencilArray(pen2)
-        # @code_warntype PencilArray(pen2, 3, 4)
+        @inferred PencilArray(pen2)
+        @inferred PencilArray(pen2, 3, 4)
 
-        # @code_warntype Pencils.size_remote(pen1, 1, 1)
-        # @code_warntype Pencils.size_remote(pen1, 1, :)
-        # @code_warntype Pencils.size_remote(pen1, :, 1)
-        # @code_warntype Pencils.size_remote(pen1, :, :)
+        # @inferred Pencils.size_remote(pen1, 1, 1)
+        # @inferred Pencils.size_remote(pen1, 1, :)
+        # @inferred Pencils.size_remote(pen1, :, 1)
+        # @inferred Pencils.size_remote(pen1, :, :)
 
-        # @code_warntype Pencils.permute_indices(Nxyz, (2, 3, 1))
-        # @code_warntype Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
-        # @code_warntype Pencils.relative_permutation((1, 2, 3), nothing)
+        @inferred Pencils.permute_indices(Nxyz, (2, 3, 1))
+        @inferred Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
+        @inferred Pencils.relative_permutation((1, 2, 3), nothing)
 
-        # @code_warntype gather(u2)
+        @inferred Nothing gather(u2)
 
-        # @code_warntype transpose!(u2, u1)
-        # @code_warntype Pencils.transpose_impl!(1, u2, u1)
-        # @code_warntype Pencils._get_remote_indices(1, (2, 3), 8)
+        @inferred transpose!(u2, u1)
+        @inferred Pencils.transpose_impl!(1, u2, u1)
+        @inferred Pencils._get_remote_indices(1, (2, 3), 8)
     end
 
     MPI.Finalize()

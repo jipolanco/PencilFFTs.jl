@@ -100,33 +100,26 @@ function test_pencil_plans(size_in::Tuple)
         pdims[1], pdims[2]
     end
 
+    @inferred PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
     plan = PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
 
     test_transform(plan, FFTW.plan_rfft)
 
-    if Nproc == 1
-        transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-        @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
-        # @code_warntype PencilFFTs._create_pencils(plan.global_params,
-        #                                           plan.topology)
-        # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
-
-        # @code_warntype allocate_input(plan)
-
-        # let u = allocate_input(plan)
-        #     @code_warntype plan * u
-        # end
+    let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+        @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
+        @inferred PencilFFTs.input_data_type(Float64, transforms...)
+        @inferred allocate_input(plan)
 
         let transforms = (Transforms.NoTransform(), Transforms.FFT())
             @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 ComplexF32
-            # @code_warntype PencilFFTs.input_data_type(Float32, transforms...)
+            @inferred PencilFFTs.input_data_type(Float32, transforms...)
         end
 
         let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
             @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 Nothing
-            # @code_warntype PencilFFTs.input_data_type(Float32, transforms...)
+            @inferred PencilFFTs.input_data_type(Float32, transforms...)
         end
     end
 
