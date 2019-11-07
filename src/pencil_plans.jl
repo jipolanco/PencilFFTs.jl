@@ -137,7 +137,7 @@ struct PencilFFTPlan{T,
     function PencilFFTPlan(size_global::Dims{N},
                            transform::AbstractTransform,
                            args...; kwargs...) where N
-        PencilFFTPlan(size_global, split_dims(transform, Val(N)),
+        PencilFFTPlan(size_global, expand_dims(transform, Val(N)),
                       args...; kwargs...)
     end
 end

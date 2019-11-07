@@ -34,5 +34,5 @@ eltype_output
 inv
 length_output
 plan
-split_dims
+expand_dims
 ```

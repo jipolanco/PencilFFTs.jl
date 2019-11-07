@@ -49,5 +49,5 @@ inv(::FFT) = BFFT()
 inv(::IFFT) = FFT()
 inv(::BFFT) = FFT()
 
-split_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
-    N === 0 ? () : (F(), split_dims(F(), Val(N - 1))...)
+expand_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
+    N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)

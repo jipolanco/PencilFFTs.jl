@@ -53,9 +53,9 @@ inv(::TransformR2C) = BRFFT()
 inv(::TransformC2R) = RFFT()
 
 # r2c along the first dimension, then c2c for the other dimensions.
-split_dims(::RFFT, ::Val{N}) where N =
-    N === 0 ? () : (RFFT(), split_dims(FFT(), Val(N - 1))...)
-split_dims(::IRFFT, ::Val{N}) where N =
-    N === 0 ? () : (IRFFT(), split_dims(IFFT(), Val(N - 1))...)
-split_dims(::BRFFT, ::Val{N}) where N =
-    N === 0 ? () : (BRFFT(), split_dims(BFFT(), Val(N - 1))...)
+expand_dims(::RFFT, ::Val{N}) where N =
+    N === 0 ? () : (RFFT(), expand_dims(FFT(), Val(N - 1))...)
+expand_dims(::IRFFT, ::Val{N}) where N =
+    N === 0 ? () : (IRFFT(), expand_dims(IFFT(), Val(N - 1))...)
+expand_dims(::BRFFT, ::Val{N}) where N =
+    N === 0 ? () : (BRFFT(), expand_dims(BFFT(), Val(N - 1))...)
