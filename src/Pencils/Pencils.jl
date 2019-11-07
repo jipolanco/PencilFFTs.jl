@@ -119,7 +119,7 @@ end
 function show(io::IO, t::MPITopology)
     M = ndims(t)
     s = join(size(t), '×')
-    println(io, "MPI topology: $(M)D decomposition ($s processes)")
+    print(io, "MPI topology: $(M)D decomposition ($s processes)")
     nothing
 end
 
