@@ -2,21 +2,22 @@ const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 
 using LinearAlgebra
 
-function mul!(out::PencilArray{To,N}, p::PencilFFTPlan{T,N},
-              in::PencilArray{Ti,N}) where {T, N,
-                                            Ti <: RealOrComplex{T},
-                                            To <: RealOrComplex{T}}
+## Forward transforms
+function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
+              src::PencilArray{Ti,N}) where {T, N,
+                                             Ti <: RealOrComplex{T},
+                                             To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs mul!" begin
-        _check_arrays(p, in, out)
-        _apply_plans!(out, in, p.plans...)
+        _check_arrays(p, src, dst)
+        _apply_plans!(dst, src, p.plans...)
     end
 end
 
-function *(p::PencilFFTPlan, in::PencilArray)
+function *(p::PencilFFTPlan, src::PencilArray)
     @timeit_debug p.timer "PencilFFTs *" begin
-        _check_arrays(p, in)
-        out = allocate_output(p)
-        mul!(out, p, in)
+        _check_arrays(p, src, nothing)
+        dst = allocate_output(p)
+        mul!(dst, p, src)
     end
 end
 
@@ -41,11 +42,11 @@ end
 
 _apply_plans!(y::PencilArray, x::PencilArray) = y
 
-function _check_arrays(p::PencilFFTPlan, in::PencilArray, out=nothing)
-    if first(p.plans).pencil_in !== pencil(in)
+function _check_arrays(p::PencilFFTPlan, xin, xout)
+    if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
         throw(ArgumentError("unexpected dimensions of input data"))
     end
-    if out !== nothing && last(p.plans).pencil_out !== pencil(out)
+    if xout !== nothing && last(p.plans).pencil_out !== pencil(xout)
         throw(ArgumentError("unexpected dimensions of output data"))
     end
     nothing
