@@ -95,7 +95,8 @@ function test_pencil_plans(size_in::Tuple)
     @test test_transform(plan, FFTW.plan_rfft)
 
     if Nproc == 1
-        # @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
+        transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+        @code_warntype PencilFFTPlan(size_in, transforms, proc_dims, comm)
         # @code_warntype PencilFFTs._create_pencils(plan.global_params,
         #                                           plan.topology)
         # @code_warntype PencilFFTs.input_data_type(Float64, transforms...)
