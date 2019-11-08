@@ -2,12 +2,6 @@
 
 - Reduce array allocations (buffers)
 
-- Transforms: define `backwards` and redefine `inv`
-
-- Inverse transforms: use separate plans, and normalise at the end
-
-- Pencils: split code
-
 - Vector (or tensor) transforms
   * use fastest or slowest indices for components?
 

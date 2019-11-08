@@ -59,9 +59,17 @@ inv(::IRFFT) = RFFT()
 
 binv(::RFFT) = BRFFT()
 binv(::BRFFT) = RFFT()
+normalised(::BRFFT) = Normalised{false}()
 
-# This is the same as BFFT...
-scale_factor(::BRFFT, A, dims) = scale_factor(BFFT(), A, dims)
+scale_factor(::BRFFT, A, dims) = _scale_factor(BRFFT(), A, dims...)
+
+function _scale_factor(::BRFFT, A, dim1, dims...)
+    # I need to normalise by the *logical* size of the real output.
+    # We assume that the dimension `dim1` is the dimension with Hermitian
+    # symmetry.
+    s = size(A)
+    2 * (s[dim1] - 1) * _intprod((s[i] for i in dims)...)
+end
 
 # r2c along the first dimension, then c2c for the other dimensions.
 expand_dims(::RFFT, ::Val{N}) where N =

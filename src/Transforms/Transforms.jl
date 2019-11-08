@@ -16,7 +16,7 @@ using FFTW
 import LinearAlgebra: I
 
 import Base: inv, show
-export binv, scale_factor
+export binv, scale_factor, normalised
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
@@ -111,34 +111,42 @@ dimensions `dims` (all dimensions by default).
 
 The array `A` must have the dimensions of the `transform` output.
 
-See also [`plan`](@ref) for a description of the arguments.
+**Important**: the dimensions `dims` must be the same that were passed to
+[`plan`](@ref).
 
 # Examples
 
 ```jldoctest
-julia> A = zeros(ComplexF32, 3, 4, 5);
+julia> C = zeros(ComplexF32, 3, 4, 5);
 
-julia> scale_factor(Transforms.FFT(), A)
-LinearAlgebra.UniformScaling{Bool}
-true*I
+julia> scale_factor(Transforms.FFT(), C)
+1
 
-julia> scale_factor(Transforms.IFFT(), A)
-LinearAlgebra.UniformScaling{Bool}
-true*I
+julia> scale_factor(Transforms.IFFT(), C)
+1
 
-julia> scale_factor(Transforms.BFFT(), A)
+julia> scale_factor(Transforms.BFFT(), C)
 60
 
-julia> scale_factor(Transforms.BFFT(), A, 2:3)
+julia> scale_factor(Transforms.BFFT(), C, 2:3)
 20
+
+julia> R = zeros(Float64, 3, 4, 5);
+
+julia> scale_factor(Transforms.BRFFT(), R, 2)
+6
+
+julia> scale_factor(Transforms.BRFFT(), R, 2:3)
+30
+
 ```
 """
 function scale_factor end
 
 scale_factor(t::AbstractTransform, A) = scale_factor(t, A, 1:ndims(A))
 
-# By default, the scale factor is 1 (identity).
-scale_factor(::AbstractTransform, A, dims) = I
+# By default, the scale factor is 1.
+scale_factor(::AbstractTransform, A, dims) = 1
 
 """
     length_output(transform::AbstractTransform, length_in::Integer)
@@ -241,6 +249,27 @@ expand_dims(::F, ::Val) where {F <: AbstractTransform} =
 show(io::IO, ::F) where F <: AbstractTransform =
     # PencilFFTs.Transforms.Name -> Name()
     print(io, last(rsplit(string(F), '.', limit=2)), "()")
+
+"""
+    Normalised{B}
+
+Trait determining whether a transform is normalised or not.
+
+The parameter `B` is a `Bool`.
+
+See also [`normalised`](@ref).
+"""
+struct Normalised{B} end
+
+"""
+    normalised(transform::Transform)
+
+Returns [`Normalised`](@ref) trait of the given transform.
+"""
+function normalised end
+
+# By default transforms are normalised.
+normalised(::AbstractTransform) = Normalised{true}()
 
 """
     NoTransform()

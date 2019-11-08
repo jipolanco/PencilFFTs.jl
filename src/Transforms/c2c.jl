@@ -55,8 +55,12 @@ inv(::IFFT) = FFT()
 # (as per the default binv() definition)
 binv(::FFT) = BFFT()
 binv(::BFFT) = FFT()
+normalised(::BFFT) = Normalised{false}()
 
-scale_factor(::BFFT, A, dims) = prod(size(A, i)::Int for i in dims)
+_intprod(x::Int, y::Int...) = x * _intprod(y...)
+_intprod() = one(Int)
+
+scale_factor(::BFFT, A, dims) = _intprod((size(A, i) for i in dims)...)
 
 expand_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
     N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)
