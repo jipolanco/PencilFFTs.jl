@@ -39,50 +39,63 @@ function test_transform_types(size_in)
     nothing
 end
 
-function test_transform(plan::PencilFFTPlan, fftw_planner::Function)
-    comm = get_comm(plan)
+function test_transforms(comm, proc_dims, size_in)
     root = 0
     myrank = MPI.Comm_rank(comm)
-    to = get_timer(plan)
 
-    u = allocate_input(plan)
-    uprime = similar(u)
-    randn!(u)
-    ug = gather(u, root)
+    pairs = (Transforms.RFFT() => FFTW.plan_rfft,
+             Transforms.FFT() => FFTW.plan_fft,
+             Transforms.BFFT() => FFTW.plan_bfft,
+            )
 
-    v = plan * u
-    mul!(v, plan, u)
-    ldiv!(uprime, plan, v)
+    @testset "$p" for p in pairs
+        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, Float64) 
+        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, Float64) 
+        fftw_planner = p.second
 
-    @test u ≈ uprime
+        to = get_timer(plan)
 
-    # Compare result with serial FFT.
-    same = Ref(false)
-    vg = gather(v, root)
+        @inferred allocate_input(plan)
+        u = allocate_input(plan)
 
-    reset_timer!(to)
-    for n = 1:ITERATIONS
+        uprime = similar(u)
+        randn!(u)
+        ug = gather(u, root)
+
+        v = plan * u
         mul!(v, plan, u)
         ldiv!(uprime, plan, v)
+
+        @test u ≈ uprime
+
+        # Compare result with serial FFT.
+        same = Ref(false)
+        vg = gather(v, root)
+
+        reset_timer!(to)
+        for n = 1:ITERATIONS
+            mul!(v, plan, u)
+            ldiv!(uprime, plan, v)
+        end
+
+        if ug !== nothing && vg !== nothing
+            println(plan)
+            println(to)
+
+            p = fftw_planner(ug)
+
+            vg_serial = p * ug
+            mul!(vg_serial, p, ug)
+            @test vg ≈ vg_serial
+
+            uprime_serial = similar(ug)
+            # For some reason, this also modifies vg_serial...
+            ldiv!(uprime_serial, p, vg_serial)
+            @test ug ≈ uprime_serial
+        end
+
+        MPI.Barrier(comm)
     end
-
-    if ug !== nothing && vg !== nothing
-        println(plan)
-        println(to)
-
-        p = fftw_planner(ug)
-
-        vg_serial = p * ug
-        mul!(vg_serial, p, ug)
-        @test vg ≈ vg_serial
-
-        uprime_serial = similar(ug)
-        # For some reason, this also modifies vg_serial...
-        ldiv!(uprime_serial, p, vg_serial)
-        @test ug ≈ uprime_serial
-    end
-
-    MPI.Barrier(comm)
 
     nothing
 end
@@ -99,25 +112,25 @@ function test_pencil_plans(size_in::Tuple)
     end
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
-    plan = PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
 
-    test_transform(plan, FFTW.plan_rfft)
+    test_transforms(comm, proc_dims, size_in)
 
-    let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-        @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
-        @inferred PencilFFTs.input_data_type(Float64, transforms...)
-        @inferred allocate_input(plan)
+    @testset "Transform types" begin
+        let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+            @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
+            @inferred PencilFFTs.input_data_type(Float64, transforms...)
 
-        let transforms = (Transforms.NoTransform(), Transforms.FFT())
-            @test PencilFFTs.input_data_type(Float32, transforms...) ===
+            let transforms = (Transforms.NoTransform(), Transforms.FFT())
+                @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 ComplexF32
-            @inferred PencilFFTs.input_data_type(Float32, transforms...)
-        end
+                @inferred PencilFFTs.input_data_type(Float32, transforms...)
+            end
 
-        let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
-            @test PencilFFTs.input_data_type(Float32, transforms...) ===
+            let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
+                @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 Nothing
-            @inferred PencilFFTs.input_data_type(Float32, transforms...)
+                @inferred PencilFFTs.input_data_type(Float32, transforms...)
+            end
         end
     end
 
