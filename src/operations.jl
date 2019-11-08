@@ -91,14 +91,13 @@ function _check_arrays(p::PencilFFTPlan, xin, xout)
     nothing
 end
 
-function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8})
-    @timeit_debug p.timer "temporary_pencil_array" begin
-        # Create "unsafe" pencil array wrapping buffer data.
-        T = eltype(p)
-        dims = size_local(p)
-        nb = prod(dims) * sizeof(T)
-        resize!(buf, nb)
-        x = Pencils.unsafe_as_array(T, buf, dims)
-        PencilArray(p, x)
-    end
+@timeit_debug p.timer function _temporary_pencil_array(
+        p::Pencil, buf::Vector{UInt8})
+    # Create "unsafe" pencil array wrapping buffer data.
+    T = eltype(p)
+    dims = size_local(p)
+    nb = prod(dims) * sizeof(T)
+    resize!(buf, nb)
+    x = Pencils.unsafe_as_array(T, buf, dims)
+    PencilArray(p, x)
 end

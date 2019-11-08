@@ -20,14 +20,13 @@ The two pencil configurations must be compatible for transposition:
   transposition is performed, and data is just copied if needed.
 
 """
-function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
+@timeit_debug pencil(src).timer function transpose!(
+        dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
     dest === src && return dest  # same pencil & same data
 
     Pi = pencil(src)
     Po = pencil(dest)
     timer = Pi.timer
-
-    @timeit_debug timer "transpose!" begin
 
     # Verifications
     if src.extra_dims !== dest.extra_dims
@@ -60,8 +59,6 @@ function transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
         # MPI data transposition.
         transpose_impl!(R, dest, src)
     end
-
-    end  # @timeit_debug
 
     dest
 end
@@ -287,42 +284,39 @@ function _get_remote_indices(R::Int, coords_local::Dims{M}, Nproc::Int) where M
     CartesianIndices(t)
 end
 
-function _copy_to_vec!(dest::Vector{T},
-                       dest_offset::Int,
-                       src::AbstractArray{T,N},
-                       src_range::ArrayRegion{P},
-                       extra_dims::Dims{E},
-                       timer,
-                      ) where {T,N,P,E}
+@timeit_debug timer function _copy_to_vec!(dest::Vector{T},
+                                           dest_offset::Int,
+                                           src::AbstractArray{T,N},
+                                           src_range::ArrayRegion{P},
+                                           extra_dims::Dims{E},
+                                           timer,
+                                          ) where {T,N,P,E}
     @assert P + E == N
 
     n = dest_offset
-    @timeit_debug timer "copy_to_vec!" begin
     @inbounds for I in CartesianIndices(src_range)
         for K in CartesianIndices(extra_dims)
             dest[n += 1] = src[K, I]
         end
     end
-    end
 
     dest
 end
 
-function _copy_from_vec!(dest::AbstractArray{T,N},
-                         o_range_iperm::ArrayRegion{P},
-                         src::Vector{T},
-                         src_offset::Int,
-                         perm::OptionalPermutation{P},
-                         extra_dims::Dims{E},
-                         timer,
-                        ) where {T,N,P,E}
+@timeit_debug timer function _copy_from_vec!(dest::AbstractArray{T,N},
+                                             o_range_iperm::ArrayRegion{P},
+                                             src::Vector{T},
+                                             src_offset::Int,
+                                             perm::OptionalPermutation{P},
+                                             extra_dims::Dims{E},
+                                             timer,
+                                            ) where {T,N,P,E}
     @assert P + E == N
 
     # The idea is to visit `dest` not in its natural order (with the fastest
     # dimension first), but with a permutation corresponding to the layout of
     # the `src` data.
     n = src_offset
-    @timeit_debug timer "copy_from_vec!" begin
     @inbounds for I in CartesianIndices(o_range_iperm)
         # Switch from input to output permutation.
         # Note: this should have zero cost if perm == nothing.
@@ -330,7 +324,6 @@ function _copy_from_vec!(dest::AbstractArray{T,N},
         for K in CartesianIndices(extra_dims)
             dest[K, J] = src[n += 1]
         end
-    end
     end
 
     dest
