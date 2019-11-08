@@ -11,11 +11,9 @@ using Random
 using Test
 using TimerOutputs
 
-TimerOutputs.enable_debug_timings(PencilFFTs)
-TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)
-
 const DATA_DIMS = (64, 40, 32)
-const ITERATIONS = 20
+
+const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
@@ -42,45 +40,37 @@ end
 function test_transforms(comm, proc_dims, size_in)
     root = 0
     myrank = MPI.Comm_rank(comm)
+    myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
     pairs = (Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.BFFT() => FFTW.plan_bfft,
             )
 
-    @testset "$p" for p in pairs
-        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, Float64) 
-        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, Float64) 
+    @testset "$p ($T)" for p in pairs, T in (Float32, Float64)
+        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
+        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T) 
         fftw_planner = p.second
 
-        to = get_timer(plan)
-
         @inferred allocate_input(plan)
+        @inferred allocate_output(plan)
         u = allocate_input(plan)
+        v = allocate_output(plan)
 
-        uprime = similar(u)
         randn!(u)
-        ug = gather(u, root)
 
-        v = plan * u
         mul!(v, plan, u)
+        uprime = similar(u)
         ldiv!(uprime, plan, v)
-
         @test u ≈ uprime
 
         # Compare result with serial FFT.
         same = Ref(false)
+        ug = gather(u, root)
         vg = gather(v, root)
 
-        reset_timer!(to)
-        for n = 1:ITERATIONS
-            mul!(v, plan, u)
-            ldiv!(uprime, plan, v)
-        end
-
         if ug !== nothing && vg !== nothing
-            println(plan)
-            println(to)
+            println("\n", plan, "\n")
 
             p = fftw_planner(ug)
 
@@ -96,6 +86,8 @@ function test_transforms(comm, proc_dims, size_in)
 
         MPI.Barrier(comm)
     end
+
+    redirect_stdout(stdout)  # undo redirection
 
     nothing
 end
