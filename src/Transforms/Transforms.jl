@@ -255,6 +255,9 @@ show(io::IO, ::F) where F <: AbstractTransform =
 
 Trait determining whether a transform is normalised or not.
 
+All forward transforms are normalised (`FFT`, `RFFT`, ...), as well as the
+scaled backward transforms (`IFFT`, `IRFFT`, ...).
+
 The parameter `B` is a `Bool`.
 
 See also [`normalised`](@ref).
@@ -264,7 +267,7 @@ struct Normalised{B} end
 """
     normalised(transform::Transform)
 
-Returns [`Normalised`](@ref) trait of the given transform.
+Returns [`Normalised`](@ref) trait of a given transform.
 """
 function normalised end
 
