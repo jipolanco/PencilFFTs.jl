@@ -16,6 +16,7 @@ using FFTW
 import LinearAlgebra: I
 
 import Base: inv, show
+export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
@@ -51,13 +52,93 @@ plan(t::AbstractTransform, A; kwargs...) = plan(t, A, 1:ndims(A); kwargs...)
 """
     inv(transform::AbstractTransform)
 
-Returns the (unnormalised) inverse of the given transform.
+Returns the (normalised) inverse of the given transform.
 
-Note that there is no one-to-one correspondence between direct and inverse
-transforms. For instance, inverse of [`FFT`](@ref) is [`BFFT`](@ref), while
-[`FFT`](@ref) is the inverse of both [`BFFT`](@ref) and [`IFFT`](@ref).
+Note that this function is not defined for unnormalised backward transforms such
+as [`BFFT`](@ref) or [`BRFFT`](@ref). For those, use [`binv`](@ref) instead.
+
+See also [`binv`](@ref).
+
+# Example
+
+```jldoctest
+julia> inv(Transforms.FFT())
+IFFT()
+
+julia> inv(Transforms.RFFT())
+IRFFT()
+
+julia> inv(Transforms.BRFFT())
+ERROR: MethodError: no method matching inv(::PencilFFTs.Transforms.BRFFT)
+```
 """
 function inv end
+
+"""
+    binv(transform::AbstractTransform)
+
+Returns the backwards transform associated to the given transform.
+
+As opposed to [`inv`](@ref), the backwards transform returned by this function
+is not normalised. The normalisation factor for a given array can be obtained
+by calling [`scale_factor`](@ref).
+
+See also [`scale_factor`](@ref), [`inv`](@ref).
+
+# Example
+
+```jldoctest
+julia> binv(Transforms.FFT())
+BFFT()
+
+julia> binv(Transforms.BRFFT())
+RFFT()
+
+julia> binv(Transforms.IFFT())
+FFT()
+```
+"""
+function binv end
+
+# By default, binv == inv.
+binv(t::AbstractTransform) = inv(t)
+
+"""
+    scale_factor(transform::AbstractTransform, A, [dims])
+
+Get factor required to normalise the given array after a transformation along
+dimensions `dims` (all dimensions by default).
+
+The array `A` must have the dimensions of the `transform` output.
+
+See also [`plan`](@ref) for a description of the arguments.
+
+# Examples
+
+```jldoctest
+julia> A = zeros(ComplexF32, 3, 4, 5);
+
+julia> scale_factor(Transforms.FFT(), A)
+LinearAlgebra.UniformScaling{Bool}
+true*I
+
+julia> scale_factor(Transforms.IFFT(), A)
+LinearAlgebra.UniformScaling{Bool}
+true*I
+
+julia> scale_factor(Transforms.BFFT(), A)
+60
+
+julia> scale_factor(Transforms.BFFT(), A, 2:3)
+20
+```
+"""
+function scale_factor end
+
+scale_factor(t::AbstractTransform, A) = scale_factor(t, A, 1:ndims(A))
+
+# By default, the scale factor is 1 (identity).
+scale_factor(::AbstractTransform, A, dims) = I
 
 """
     length_output(transform::AbstractTransform, length_in::Integer)

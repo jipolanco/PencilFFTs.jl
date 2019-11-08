@@ -21,16 +21,19 @@ function test_transform_types(size_in)
 
     @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
                                                     typeof(transforms)}
-    @test inv(Transforms.RFFT()) === Transforms.BRFFT()
+    @test inv(Transforms.RFFT()) === Transforms.IRFFT()
+    @test binv(Transforms.RFFT()) === Transforms.BRFFT()
+    @test inv(Transforms.IRFFT()) === binv(Transforms.IRFFT()) ===
+        Transforms.RFFT()
     @test inv(Transforms.IRFFT()) === Transforms.RFFT()
 
-    transforms_inv = inv.(transforms)
+    transforms_binv = binv.(transforms)
     size_out = Transforms.length_output.(transforms, size_in)
 
-    @test transforms_inv ===
+    @test transforms_binv ===
         (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
     @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
-    @test Transforms.length_output.(transforms_inv, size_out) === size_in
+    @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
     @test PencilFFTs.input_data_type(fft_params) === Float64
 

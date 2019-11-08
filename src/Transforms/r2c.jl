@@ -54,8 +54,14 @@ plan(::IRFFT, args...; kwargs...) =
 plan(::BRFFT, args...; kwargs...) =
     FFTW.plan_brfft(_args_bw_rfft(args)...; kwargs...)
 
-inv(::TransformR2C) = BRFFT()
-inv(::TransformC2R) = RFFT()
+inv(::RFFT) = IRFFT()
+inv(::IRFFT) = RFFT()
+
+binv(::RFFT) = BRFFT()
+binv(::BRFFT) = RFFT()
+
+# This is the same as BFFT...
+scale_factor(::BRFFT, A, dims) = scale_factor(BFFT(), A, dims)
 
 # r2c along the first dimension, then c2c for the other dimensions.
 expand_dims(::RFFT, ::Val{N}) where N =

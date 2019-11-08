@@ -29,10 +29,14 @@ BRFFT
 The following functions are used internally by `PencilFFTs`.
 
 ```@docs
+plan
+
+binv
+inv
+scale_factor
+
 eltype_input
 eltype_output
-inv
-length_output
-plan
 expand_dims
+length_output
 ```

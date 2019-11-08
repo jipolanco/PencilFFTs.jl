@@ -45,9 +45,18 @@ plan(::FFT, args...; kwargs...) = FFTW.plan_fft(args...; kwargs...)
 plan(::IFFT, args...; kwargs...) = FFTW.plan_ifft(args...; kwargs...)
 plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
 
-inv(::FFT) = BFFT()
+# Normalised inverses
+# Note: inv(::BFFT) is left undefined
+inv(::FFT) = IFFT()
 inv(::IFFT) = FFT()
-inv(::BFFT) = FFT()
+
+# Unnormalised inverses
+# Note: binv(::IFFT) = inv(::IFFT) = FFT()
+# (as per the default binv() definition)
+binv(::FFT) = BFFT()
+binv(::BFFT) = FFT()
+
+scale_factor(::BFFT, A, dims) = prod(size(A, i)::Int for i in dims)
 
 expand_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
     N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)
