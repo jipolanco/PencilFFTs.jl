@@ -2,10 +2,11 @@
 
 - Reduce array allocations (buffers)
 
-- Add inverse transforms
+- Transforms: define `backwards` and redefine `inv`
 
-- Allow passing "effective" transform instead of list of 1D transforms.
-  For instance, `RFFT -> (RFFT, FFT, FFT)`.
+- Inverse transforms: use separate plans, and normalise at the end
+
+- Pencils: split code
 
 - Vector (or tensor) transforms
   * use fastest or slowest indices for components?
