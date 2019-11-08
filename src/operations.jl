@@ -30,6 +30,7 @@ function ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
         _check_arrays(p, dst, src)
         plans = reverse(p.plans)  # plans are applied from right to left
         _apply_plans!(Val(FFTW.BACKWARD), dst, src, plans...)
+        ldiv!(p.scale_factor, dst)  # normalise transform
     end
 end
 
@@ -74,7 +75,7 @@ function _apply_plans!(dir::Val{FFTW.BACKWARD}, y::PencilArray, x::PencilArray,
     end
 
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
-    @timeit_debug plan.timer "FFT" ldiv!(data(v), plan.fft_plan, data(u))
+    @timeit_debug plan.timer "FFT" mul!(data(v), plan.bfft_plan, data(u))
 
     _apply_plans!(dir, y, v, next_plans...)
 end

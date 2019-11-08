@@ -14,9 +14,9 @@ struct PencilPlan1D{Pi <: Pencil,
     transform  :: Tr       # transform type
 
     fft_plan   :: FFTPlanF  # forward FFTW plan
+    bfft_plan  :: FFTPlanB  # backward FFTW plan (unnormalised)
 
-    # TODO do I need this??
-    bfft_plan  :: FFTPlanB  # backward FFTW plan
+    scale_factor :: Int  # scale factor for backward transform
 
     # Temporary data buffers (shared among all 1D plans)
     ibuf       :: Vector{UInt8}
@@ -103,6 +103,12 @@ struct PencilFFTPlan{T,
     # data transposition!
     plans :: P
 
+    # Scale factor for backwards transforms.
+    # Note: this being an integer means that only forward transforms may be
+    # passed to the PencilFFTPlan constructor (e.g. BFFT or BRFFT won't work
+    # as "forward" transforms).
+    scale_factor :: Int
+
     # Runtime timing.
     # Should be used along with the @timeit_debug macro, to be able to turn it
     # off if desired.
@@ -121,6 +127,7 @@ struct PencilFFTPlan{T,
                            timer::TimerOutput=TimerOutput(),
                            ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
                           ) where {N, M, T <: FFTReal}
+        _check_transforms(transforms...)
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
 
@@ -135,8 +142,9 @@ struct PencilFFTPlan{T,
                      )
 
         plans = _create_plans(g, t, plan1d_opt)
+        scale = prod(p -> p.scale_factor, plans)
 
-        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans, timer)
+        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans, scale, timer)
     end
 
     function PencilFFTPlan(size_global::Dims{N},
@@ -146,6 +154,16 @@ struct PencilFFTPlan{T,
                       args...; kwargs...)
     end
 end
+
+function _check_transforms(t::AbstractTransform,
+                           next::Vararg{AbstractTransform})
+    if normalised(t) === Transforms.Normalised{false}()
+        throw(ArgumentError("can't have unnormalised transform as input: $t"))
+    end
+    _check_transforms(next...)
+end
+
+_check_transforms() = nothing
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
@@ -161,7 +179,7 @@ function _create_plans(::Type{Ti},
                        topology::MPITopology{M},
                        plan1d_opt::NamedTuple,
                        plan_prev,
-                       transform_n::AbstractTransform,
+                       transform_fw::AbstractTransform,
                        transforms_next::Vararg{AbstractTransform, Ntr}
                       ) where {Ti, N, M, Ntr}
     n = N - Ntr  # current dimension index
@@ -227,7 +245,7 @@ function _create_plans(::Type{Ti},
     end
 
     # Output transform along dimension `n`.
-    To = eltype_output(transform_n, eltype(Pi))
+    To = eltype_output(transform_fw, eltype(Pi))
     Po = let dims = ntuple(j -> j ≤ n ? so[j] : si[j], Val(N))
         if dims === size_global(Pi) && To === eltype(Pi)
             Pi  # in this case Pi and Po are the same
@@ -235,6 +253,8 @@ function _create_plans(::Type{Ti},
             Pencil(Pi, To, size_global=dims, timer=timer)
         end
     end
+
+    local scale_bw
 
     # TODO
     # - this may be a multidimensional transform, for example when doing slab
@@ -256,15 +276,21 @@ function _create_plans(::Type{Ti},
 
         # Create temporary arrays with the dimensions required for forward and
         # backward transforms.
-        pairs = (transform_n => _temporary_pencil_array(Pi, plan1d_opt.ibuf),
-                 inv(transform_n) => _temporary_pencil_array(Po, plan1d_opt.obuf))
+        transform_bw = binv(transform_fw)
+        pairs = (transform_fw => _temporary_pencil_array(Pi, plan1d_opt.ibuf),
+                 transform_bw => _temporary_pencil_array(Po, plan1d_opt.obuf))
+
+        # Scale factor for backward transform.
+        bw = last(pairs)
+        scale_bw = scale_factor(bw.first, bw.second, dims)
 
         # Generate forward and backward FFTW transforms.
         fftw_kw = plan1d_opt.fftw_kw
         map(p -> plan(p.first, data(p.second), dims; fftw_kw...), pairs)
     end
-    plan_n = PencilPlan1D(Pi, Po, transform_n, fftplans..., plan1d_opt.ibuf,
-                          plan1d_opt.obuf, plan1d_opt.timer)
+
+    plan_n = PencilPlan1D(Pi, Po, transform_fw, fftplans..., scale_bw,
+                          plan1d_opt.ibuf, plan1d_opt.obuf, plan1d_opt.timer)
 
     (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
                            transforms_next...)...)

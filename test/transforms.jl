@@ -45,14 +45,21 @@ function test_transforms(comm, proc_dims, size_in)
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
-    pairs = (Transforms.RFFT() => FFTW.plan_rfft,
-             Transforms.FFT() => FFTW.plan_fft,
-             Transforms.BFFT() => FFTW.plan_bfft,
+    pairs = (Transforms.FFT() => FFTW.plan_fft,
+             Transforms.RFFT() => FFTW.plan_rfft,
+             Transforms.BFFT() => FFTW.plan_bfft,  # should fail
             )
 
     @testset "$p ($T)" for p in pairs, T in (Float32, Float64)
+        if normalised(p.first) === Transforms.Normalised{false}()
+            # can't have unnormalised transform as input
+            @test_throws ArgumentError PencilFFTPlan(size_in, p.first,
+                                                     proc_dims, comm, T)
+            continue
+        end
+
         @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
-        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T) 
+        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
         fftw_planner = p.second
 
         @inferred allocate_input(plan)
@@ -65,6 +72,7 @@ function test_transforms(comm, proc_dims, size_in)
         mul!(v, plan, u)
         uprime = similar(u)
         ldiv!(uprime, plan, v)
+
         @test u ≈ uprime
 
         # Compare result with serial FFT.
@@ -80,11 +88,6 @@ function test_transforms(comm, proc_dims, size_in)
             vg_serial = p * ug
             mul!(vg_serial, p, ug)
             @test vg ≈ vg_serial
-
-            uprime_serial = similar(ug)
-            # For some reason, this also modifies vg_serial...
-            ldiv!(uprime_serial, p, vg_serial)
-            @test ug ≈ uprime_serial
         end
 
         MPI.Barrier(comm)
@@ -108,8 +111,6 @@ function test_pencil_plans(size_in::Tuple)
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
 
-    test_transforms(comm, proc_dims, size_in)
-
     @testset "Transform types" begin
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
             @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
@@ -128,6 +129,8 @@ function test_pencil_plans(size_in::Tuple)
             end
         end
     end
+
+    test_transforms(comm, proc_dims, size_in)
 
     nothing
 end
