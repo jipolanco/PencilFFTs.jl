@@ -80,78 +80,91 @@ function main()
     pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 1, 3))
     pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=(3, 2, 1))
 
-    # Too many decomposed directions
-    @test_throws ArgumentError Pencil(
-        MPITopology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
+    @testset "Pencil constructor checks" begin
+        # Too many decomposed directions
+        @test_throws ArgumentError Pencil(
+            MPITopology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
 
-    # Invalid permutation
-    @test_throws ArgumentError Pencil(topo, Nxyz, (1, 2), permute=(0, 3, 15))
+        # Invalid permutation
+        @test_throws ArgumentError Pencil(
+            topo, Nxyz, (1, 2), permute=(0, 3, 15))
 
-    # Decomposed dimensions may not be repeated.
-    @test_throws ArgumentError Pencil(topo, Nxyz, (2, 2))
+        # Decomposed dimensions may not be repeated.
+        @test_throws ArgumentError Pencil(topo, Nxyz, (2, 2))
 
-    # Decomposed dimensions must be in 1:N = 1:3.
-    @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
-    @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
-
-    test_array_wrappers(Pencil(pen2, Float32))
-    test_array_wrappers(Pencil(pen3, Float64))
-
-    @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) === (1, 42, 12, 1, 1)
-    @test get_permutation(pen1) === nothing
-    @test get_permutation(pen2) === (2, 1, 3)
-
-    @test Pencils.relative_permutation(pen2, pen3) === (3, 1, 2)
-
-    let a = (2, 1, 3), b = (3, 2, 1)
-        @test Pencils.permute_indices((:a, :b, :c), (2, 3, 1)) === (:b, :c, :a)
-        a2b = Pencils.relative_permutation(a, b)
-        @test Pencils.permute_indices(a, a2b) === b
-
-        x = (3, 1, 2)
-        x2nothing = Pencils.relative_permutation(x, nothing)
-        @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
+        # Decomposed dimensions must be in 1:N = 1:3.
+        @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
+        @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
     end
 
-    @assert Pencils.size_local(pen1) ==
-        Pencils.size_remote(pen1, pen1.topology.coords_local...)
+    @testset "PencilArray" begin
+        test_array_wrappers(Pencil(pen2, Float32))
+        test_array_wrappers(Pencil(pen3, Float64))
+    end
 
-    u1 = PencilArray(pen1)
-    u2 = PencilArray(pen2)
-    u3 = PencilArray(pen3)
+    @testset "auxiliary functions" begin
+        @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) ===
+            (1, 42, 12, 1, 1)
+        @test get_permutation(pen1) === nothing
+        @test get_permutation(pen2) === (2, 1, 3)
 
-    # Set initial random data.
-    randn!(rng, u1)
-    u1 .+= 10 * myrank
-    u1_orig = copy(u1)
+        @test Pencils.relative_permutation(pen2, pen3) === (3, 1, 2)
 
-    # Direct u1 -> u3 transposition is not possible!
-    @test_throws ArgumentError transpose!(u3, u1)
+        let a = (2, 1, 3), b = (3, 2, 1)
+            @test Pencils.permute_indices((:a, :b, :c), (2, 3, 1)) ===
+                (:b, :c, :a)
+            a2b = Pencils.relative_permutation(a, b)
+            @test Pencils.permute_indices(a, a2b) === b
 
-    # Transpose back and forth between different pencil configurations
-    transpose!(u2, u1)
-    @test compare_distributed_arrays(u1, u2)
+            x = (3, 1, 2)
+            x2nothing = Pencils.relative_permutation(x, nothing)
+            @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
+        end
 
-    transpose!(u3, u2)
-    @test compare_distributed_arrays(u2, u3)
+        @test Pencils.size_local(pen1) ==
+            Pencils.size_remote(pen1, pen1.topology.coords_local...)
+    end
 
-    transpose!(u2, u3)
-    @test compare_distributed_arrays(u2, u3)
-
-    transpose!(u1, u2)
-    @test compare_distributed_arrays(u1, u2)
-
-    @test u1_orig == u1
-
-    # Test transpositions without permutations.
-    let pen2 = Pencil(pen1, decomp_dims=(1, 3))
+    @testset "transpose!" begin
+        u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
+        u3 = PencilArray(pen3)
+
+        # Set initial random data.
+        randn!(rng, u1)
+        u1 .+= 10 * myrank
+        u1_orig = copy(u1)
+
+        # Direct u1 -> u3 transposition is not possible!
+        @test_throws ArgumentError transpose!(u3, u1)
+
+        # Transpose back and forth between different pencil configurations
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
+
+        transpose!(u3, u2)
+        @test compare_distributed_arrays(u2, u3)
+
+        transpose!(u2, u3)
+        @test compare_distributed_arrays(u2, u3)
+
+        transpose!(u1, u2)
+        @test compare_distributed_arrays(u1, u2)
+
+        @test u1_orig == u1
+
+        # Test transpositions without permutations.
+        let pen2 = Pencil(pen1, decomp_dims=(1, 3))
+            u2 = PencilArray(pen2)
+            transpose!(u2, u1)
+            @test compare_distributed_arrays(u1, u2)
+        end
+
     end
 
     # Test arrays with extra dimensions.
-    let u1 = PencilArray(pen1, 3, 4)
+    @testset "extra dimensions" begin
+        u1 = PencilArray(pen1, 3, 4)
         u2 = PencilArray(pen2, 3, 4)
         u3 = PencilArray(pen3, 3, 4)
         randn!(rng, u1)
@@ -162,7 +175,8 @@ function main()
     end
 
     # Test slab (1D) decomposition.
-    let topo = MPITopology(comm, (Nproc, ))
+    @testset "1D decomposition" begin
+        topo = MPITopology(comm, (Nproc, ))
         pen1 = Pencil(topo, Nxyz, (1, ))
         pen2 = Pencil(pen1, decomp_dims=(2, ))
         u1 = PencilArray(pen1)
@@ -213,8 +227,10 @@ function main()
         @inferred Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
         @inferred Pencils.relative_permutation((1, 2, 3), nothing)
 
-        @inferred Nothing gather(u2)
+        u1 = PencilArray(pen1)
+        u2 = PencilArray(pen2)
 
+        @inferred Nothing gather(u2)
         @inferred transpose!(u2, u1)
         @inferred Pencils.transpose_impl!(1, u2, u1)
         @inferred Pencils._get_remote_indices(1, (2, 3), 8)
