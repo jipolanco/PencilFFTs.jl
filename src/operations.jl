@@ -1,7 +1,5 @@
 const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 
-using LinearAlgebra
-
 ## Forward transforms
 function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
               src::PencilArray{Ti,N}) where {T, N,

@@ -1,9 +1,11 @@
+const FFTWPlanOrIdentity = Union{FFTW.FFTWPlan, Transforms.IdentityPlan}
+
 # One-dimensional distributed FFT plan.
 struct PencilPlan1D{Pi <: Pencil,
                     Po <: Pencil,
                     Tr <: AbstractTransform,
-                    FFTPlanF <: FFTW.FFTWPlan,
-                    FFTPlanB <: FFTW.FFTWPlan,
+                    FFTPlanF <: FFTWPlanOrIdentity,
+                    FFTPlanB <: FFTWPlanOrIdentity,
                    }
     # Each pencil pair describes the decomposition of input and output FFT
     # data. The two pencils will be different for transforms that do not

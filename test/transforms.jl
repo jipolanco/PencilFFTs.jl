@@ -45,7 +45,36 @@ function test_transforms(comm, proc_dims, size_in)
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
-    pairs = (Transforms.FFT() => FFTW.plan_fft,
+    # Test NoTransform
+    # TODO
+    # - generalise test
+    # - put code somewhere else...
+    @testset "NoTransform ($T)" for T in (Float32, Float64)
+        tr = (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
+        plan = PencilFFTPlan(size_in, tr, proc_dims, comm, T)
+        u = allocate_input(plan)
+        randn!(u)
+        v = allocate_output(plan)
+        w = similar(u)
+        mul!(v, plan, u)
+        ldiv!(w, plan, v)
+        @test u ≈ w
+
+        ug = gather(u, root)
+        vg = gather(v, root)
+
+        if ug !== nothing && vg !== nothing
+            println("\n", plan, "\n")
+            p = FFTW.plan_rfft(ug, 2:3)
+            vg_serial = p * ug
+            @test vg ≈ vg_serial
+        end
+
+        MPI.Barrier(comm)
+    end
+
+    pairs = (
+             Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,  # should fail
             )
