@@ -20,4 +20,12 @@ jobs:
         - julia --project=docs/ docs/make.jl
       after_success: skip
 
+# https://docs.travis-ci.com/user/installing-dependencies/
+before_install:
+  - sudo apt-get -y install mpich libmpich-dev
+
+addons:
+  apt:
+    update: true  # runs apt-get update
+
 # vim: shiftwidth=2
