@@ -24,6 +24,12 @@ IRFFT
 BRFFT
 ```
 
+## Custom plans
+
+```@docs
+IdentityPlan
+```
+
 ## Functions
 
 The following functions are used internally by `PencilFFTs`.

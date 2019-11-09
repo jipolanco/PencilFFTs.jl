@@ -11,7 +11,10 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft.html).
 module Transforms
 
 using FFTW
-import LinearAlgebra: I
+
+# Operations defined for custom plans (currently IdentityPlan).
+import LinearAlgebra: mul!, ldiv!
+import Base: *, \
 
 import Base: inv, show
 export binv, scale_factor, normalised
@@ -283,11 +286,12 @@ inv(::NoTransform) = NoTransform()
 length_output(::NoTransform, length_in::Integer) = length_in
 eltype_output(::NoTransform, ::Type{T}) where T = T
 eltype_input(::NoTransform, ::Type) = Nothing
-plan(::NoTransform, A, dims; kwargs...) = I  # identity matrix (UniformScaling)
+plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
 expand_dims(::NoTransform, ::Val{N}) where N =
     N == 0 ? () : (NoTransform(), expand_dims(NoTransform(), Val(N - 1))...)
 
 include("c2c.jl")
 include("r2c.jl")
+include("custom_plans.jl")
 
 end
