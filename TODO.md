@@ -9,6 +9,10 @@
 
 - Add benchmarks: compare with P3DFFT, ...
 
+## Docs
+
+- How should I access the data? index permutations?
+
 ## For later
 
 - Compatibility with [MKL FFTW3 wrappers](https://software.intel.com/en-us/mkl-developer-reference-c-using-fftw3-wrappers)?
