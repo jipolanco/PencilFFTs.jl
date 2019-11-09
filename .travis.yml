@@ -7,6 +7,25 @@ julia:
   - 1.2
   - nightly
 
+env:
+  # Disable using MPI_Alltoallv for transpositions (this is the default).
+  - PENCILS_USE_ALLTOALLV=0
+
+script:
+  - mpichversion
+  - julia -e 'using InteractiveUtils;
+              versioninfo()'
+  - echo $PENCILS_USE_ALLTOALLV
+  # Force precompilation of packages in serial mode.
+  # Otherwise, if precompilation runs in parallel, there may be race
+  # conditions...
+  - julia --project=@. -e 'import Pkg;
+                           Pkg.instantiate();
+                           using PencilFFTs'
+  # Note: code coverage (at least using Coverage.jl) apparently doesn't work
+  # with parallel code.
+  - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(; coverage=false)'
+
 jobs:
   allow_failures:
     julia: nightly
