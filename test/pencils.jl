@@ -9,6 +9,8 @@ using LinearAlgebra
 using Random
 using Test
 
+const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
+
 function test_array_wrappers(p::Pencil)
     T = eltype(p)
     u = PencilArray(p)
@@ -65,6 +67,9 @@ function main()
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
+    root = 0
+
+    myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
     rng = MersenneTwister(42 + myrank)
 
