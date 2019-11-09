@@ -22,6 +22,7 @@ makedocs(
         "Pencils.md",
     ],
     doctest = true,
+    # TODO switch to github
     repo = "https://gitlab.oca.eu/jpolanco/pencilffts.jl/blob/{commit}{path}#{line}",
     # checkdocs = :exports,
     linkcheck = true,
@@ -30,6 +31,6 @@ makedocs(
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
-#=deploydocs(
-    repo = "<repository url>"
-)=#
+deploydocs(
+    repo = "github.com/jipolanco/PencilFFTs.jl"
+)

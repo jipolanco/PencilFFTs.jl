@@ -13,6 +13,8 @@
 
 - How should I access the data? index permutations?
 
+- Document environment variables: `PENCILS_USE_ALLTOALLV`
+
 ## For later
 
 - Compatibility with [MKL FFTW3 wrappers](https://software.intel.com/en-us/mkl-developer-reference-c-using-fftw3-wrappers)?
