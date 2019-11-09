@@ -47,4 +47,7 @@ addons:
   apt:
     update: true  # runs apt-get update
 
+notifications:
+  email: false
+
 # vim: shiftwidth=2
