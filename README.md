@@ -23,12 +23,14 @@ a time (along the non-decomposed direction, using a serial FFT implementation).
 Global data transpositions are then needed to switch from one pencil
 configuration to the other and perform FFTs along the other dimensions.
 
-![Pencil decomposition of 3D domains.](docs/img/pencils.svg)
+![Pencil decomposition of 3D domains.](docs/src/img/pencils.svg)
 
-Since it is relatively easy to write efficient generic code in Julia, this
-package actually supports decomposition of domains of arbitrary dimension `N`,
-along an arbitrary number of dimensions `M < N`.
-(Although domains other than 3D have not been tested!)
+The package is implemented in an efficient generic way that allows to decompose
+any `N`-dimensional geometry along `M < N` dimensions (for the pencil
+decomposition described above, `N = 3` and `M = 2`). Moreover, the transforms
+applied along each dimension can be arbitrarily chosen among those supported by
+`FFTW`, including complex-to-complex, real-to-complex, and (very soon)
+real-to-real transforms.
 
 ## Similar projects
 

@@ -7,6 +7,8 @@
 
 - Add FFTW r2r transforms
 
+- Add benchmarks: compare with P3DFFT, ...
+
 ## For later
 
 - Compatibility with [MKL FFTW3 wrappers](https://software.intel.com/en-us/mkl-developer-reference-c-using-fftw3-wrappers)?
@@ -16,7 +18,7 @@
 
 ## Pencils
 
-- add optional callbacks to `transpose!`?
+- add optional callbacks to `transpose!`? To do stuff while data is being received...
 
 - functions to exchange ghost data between pencils
 

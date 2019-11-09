@@ -17,6 +17,7 @@ makedocs(
     modules = [PencilFFTs],
     pages = [
         "Home" => "index.md",
+        "PencilFFTs.md",
         "Transforms.md",
         "Pencils.md",
     ],
