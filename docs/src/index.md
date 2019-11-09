@@ -5,15 +5,12 @@ Fast Fourier transforms of MPI-distributed Julia arrays.
 This package provides functionality to distribute multidimensional arrays among
 MPI processes, and to perform multidimensional FFTs (and related transforms) on
 them.
-This functionality is typically required for numerically solving physical
-equations using pseudo-spectral methods in high-performance computing clusters
-(a classical example is the Navier-Stokes equations describing hydrodynamic
-turbulence).
 
 The name of this package originates from the decomposition of 3D domains along
 two out of three dimensions, sometimes called *pencil* decomposition.
 This is illustrated by the figure below
-([source](https://hal.archives-ouvertes.fr/tel-02084215v1)).
+([source](https://hal.archives-ouvertes.fr/tel-02084215v1)),
+where each coloured block is managed by a different MPI process.
 Typically, one wants to compute FFTs on a scalar or vector field along the
 three spatial dimensions.
 In the case of a pencil decomposition, 3D FFTs are performed one dimension at
