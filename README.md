@@ -1,6 +1,7 @@
 # PencilFFTs.jl
 
 [![docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/latest/)
+[![Build status](https://travis-ci.com/jipolanco/PencilFFTs.jl.svg?branch=master)](https://travis-ci.com/jipolanco/PencilFFTs.jl)
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
