@@ -1,6 +1,6 @@
 # PencilFFTs.jl
 
-[![docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://pages.oca.eu/jpolanco/pencilffts.jl/public)
+[![docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/latest/)
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
@@ -22,7 +22,7 @@ configuration to the other and perform FFTs along the other dimensions.
 
 ![Pencil decomposition of 3D domains.](docs/src/img/pencils.svg)
 
-See the [package documentation](https://pages.oca.eu/jpolanco/pencilffts.jl/public)
+See the [package documentation](https://jipolanco.github.io/PencilFFTs.jl/latest/)
 for more details.
 
 ## Similar projects
