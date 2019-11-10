@@ -22,8 +22,7 @@ makedocs(
         "Pencils.md",
     ],
     doctest = true,
-    # TODO switch to github
-    repo = "https://gitlab.oca.eu/jpolanco/pencilffts.jl/blob/{commit}{path}#{line}",
+    # repo = "https://gitlab.oca.eu/jpolanco/pencilffts.jl/blob/{commit}{path}#{line}",
     # checkdocs = :exports,
     linkcheck = true,
 )
