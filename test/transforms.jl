@@ -21,11 +21,7 @@ function test_transform_types(size_in)
 
     @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
                                                     typeof(transforms)}
-    @test inv(Transforms.RFFT()) === Transforms.IRFFT()
     @test binv(Transforms.RFFT()) === Transforms.BRFFT()
-    @test inv(Transforms.IRFFT()) === binv(Transforms.IRFFT()) ===
-        Transforms.RFFT()
-    @test inv(Transforms.IRFFT()) === Transforms.RFFT()
 
     transforms_binv = binv.(transforms)
     size_out = Transforms.length_output.(transforms, size_in)
@@ -52,7 +48,7 @@ function test_transforms(comm, proc_dims, size_in)
     @testset "NoTransform ($T)" for T in (Float32, Float64)
         tr = (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
         plan = PencilFFTPlan(size_in, tr, proc_dims, comm, T)
-        println("\n", "-"^60, "\n", plan, "\n")
+        println("\n", "-"^60, "\n\n", plan, "\n")
         u = allocate_input(plan)
         randn!(u)
         v = allocate_output(plan)
@@ -74,15 +70,17 @@ function test_transforms(comm, proc_dims, size_in)
     end
 
     pairs = (
+             Transforms.BRFFT() => FFTW.plan_brfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,
-             Transforms.BRFFT() => FFTW.plan_brfft,
             )
 
     @testset "$p ($T)" for p in pairs, T in (Float32, Float64)
         if p.first === Transforms.BRFFT()
             # FIXME...
+            # In this case, I need to change the order of the transforms
+            # (from right to left)
             @test_broken PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
             continue
         end
@@ -91,7 +89,7 @@ function test_transforms(comm, proc_dims, size_in)
         plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
         fftw_planner = p.second
 
-        println("\n", "-"^60, "\n", plan, "\n")
+        println("\n", "-"^60, "\n\n", plan, "\n")
 
         @inferred allocate_input(plan)
         @inferred allocate_output(plan)

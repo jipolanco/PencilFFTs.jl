@@ -16,7 +16,7 @@ using FFTW
 import LinearAlgebra: mul!, ldiv!
 import Base: *, \
 
-import Base: inv, show
+import Base: show
 export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
@@ -52,40 +52,13 @@ function plan end
 plan(t::AbstractTransform, A; kwargs...) = plan(t, A, 1:ndims(A); kwargs...)
 
 """
-    inv(transform::AbstractTransform)
-
-Returns the (normalised) inverse of the given transform.
-
-Note that this function is not defined for unnormalised backward transforms such
-as [`BFFT`](@ref) or [`BRFFT`](@ref). For those, use [`binv`](@ref) instead.
-
-See also [`binv`](@ref).
-
-# Example
-
-```jldoctest
-julia> inv(Transforms.FFT())
-IFFT()
-
-julia> inv(Transforms.RFFT())
-IRFFT()
-
-julia> inv(Transforms.BRFFT())
-ERROR: MethodError: no method matching inv(::PencilFFTs.Transforms.BRFFT)
-```
-"""
-function inv end
-
-"""
     binv(transform::AbstractTransform)
 
 Returns the backwards transform associated to the given transform.
 
-As opposed to [`inv`](@ref), the backwards transform returned by this function
-is not normalised. The normalisation factor for a given array can be obtained
-by calling [`scale_factor`](@ref).
-
-See also [`scale_factor`](@ref), [`inv`](@ref).
+The backwards transform returned by this function is not normalised. The
+normalisation factor for a given array can be obtained by calling
+[`scale_factor`](@ref).
 
 # Example
 
@@ -95,15 +68,9 @@ BFFT()
 
 julia> binv(Transforms.BRFFT())
 RFFT()
-
-julia> binv(Transforms.IFFT())
-FFT()
 ```
 """
 function binv end
-
-# By default, binv == inv.
-binv(t::AbstractTransform) = inv(t)
 
 """
     scale_factor(transform::AbstractTransform, A, [dims])
@@ -126,9 +93,6 @@ julia> scale_factor(Transforms.FFT(), C)
 
 julia> scale_factor(Transforms.BFFT(), C)
 60
-
-julia> scale_factor(Transforms.IFFT(), C)
-1
 
 julia> scale_factor(Transforms.BFFT(), C, 2:3)
 20
@@ -162,8 +126,8 @@ and output datatypes.
 For instance, for real-to-complex transforms, these are respectively the
 length of input *real* data and of output *complex* data.
 
-Also note that for inverse real-to-complex transforms ([`IRFFT`](@ref) and
-[`BRFFT`](@ref)), it is assumed that the real data length is even. See also
+Also note that for backward real-to-complex transforms ([`BRFFT`](@ref)), it is
+assumed that the real data length is even. See also
 the [`AbstractFFTs.irfft`
 docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
 """
@@ -238,9 +202,6 @@ julia> expand_dims(Transforms.RFFT(), Val(3))
 julia> expand_dims(Transforms.BRFFT(), Val(3))
 (BRFFT(), BFFT(), BFFT())
 
-julia> expand_dims(Transforms.IFFT(), Val(3))
-(IFFT(), IFFT(), IFFT())
-
 julia> expand_dims(Transforms.NoTransform(), Val(2))
 (NoTransform(), NoTransform())
 ```
@@ -262,7 +223,7 @@ Identity transform.
 Specifies that no transformation should be applied.
 """
 struct NoTransform <: AbstractTransform end
-inv(::NoTransform) = NoTransform()
+binv(::NoTransform) = NoTransform()
 length_output(::NoTransform, length_in::Integer) = length_in
 eltype_output(::NoTransform, ::Type{T}) where T = T
 eltype_input(::NoTransform, ::Type) = Nothing

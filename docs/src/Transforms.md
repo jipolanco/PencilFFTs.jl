@@ -16,11 +16,9 @@ AbstractTransform
 NoTransform
 
 FFT
-IFFT
 BFFT
 
 RFFT
-IRFFT
 BRFFT
 ```
 
@@ -38,7 +36,6 @@ The following functions are used internally by `PencilFFTs`.
 plan
 
 binv
-inv
 scale_factor
 
 eltype_input
