@@ -1,0 +1,85 @@
+cmake_minimum_required(VERSION 3.5)
+project(bench_p3dfft++ CXX)
+
+include(ExternalProject)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Compatibility: define "add_compile_definitions" in CMake < 3.12.
+if(NOT COMMAND add_compile_definitions)
+    function(add_compile_definitions)
+        foreach(def IN LISTS ARGN)
+            add_definitions("-D${def}")
+        endforeach()
+    endfunction()
+endif()
+
+# Find MPI
+if(NOT MPI_CXX_FOUND)
+    find_package(MPI REQUIRED COMPONENTS CXX)
+    set(MPI_CXX_SKIP_MPICXX ON CACHE INTERNAL "" FORCE)  # skip MPI C++ API
+    message(STATUS "MPI compiler:  ${MPI_CXX_COMPILER}")
+    message(STATUS "MPI libraries: ${MPI_CXX_LIBRARIES}")
+endif()
+
+include_directories(${MPI_CXX_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_PATH})
+add_compile_options(${MPI_CXX_COMPILE_OPTIONS})
+add_compile_definitions(${MPI_CXX_COMPILE_DEFINITIONS})
+
+# Find FFTW
+find_library(FFTW3_LIB NAMES libfftw3.so HINTS ${FFTW3_LIBDIR})
+find_file(FFTW3_INC NAMES fftw3.h HINTS ${FFTW3_INCDIR})
+if(NOT FFTW3_INC OR NOT FFTW3_LIB)
+    message(SEND_ERROR
+        "FFTW3 not found! Try setting FFTW3_LIBDIR and FFTW3_INCDIR.")
+endif()
+get_filename_component(FFTW3_LIBDIR ${FFTW3_LIB} DIRECTORY CACHE)
+get_filename_component(FFTW3_INCDIR ${FFTW3_INC} DIRECTORY CACHE)
+find_library(FFTW3_LIB_F NAMES libfftw3f.so HINTS ${FFTW3_LIBDIR})
+
+message(STATUS "Using FFTW3 library dir: ${FFTW3_LIBDIR}")
+message(STATUS "Using FFTW3 include dir: ${FFTW3_INCDIR}")
+
+# Install P3DFFT++ as external project.
+set(p3dfft_git_commit_hash 1ac34efd1ac6fcb989e26e89d2661f2f7306dd03)
+set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
+set(p3dfft_config_flags
+    "--enable-fftw"
+    "--enable-fftwestimate"
+    "--enable-timers"
+    "--with-fftw-lib=${fftw3_libdir}"
+    "--with-fftw-inc=${fftw3_incdir}"
+    "--prefix=${p3dfft_install_prefix}"
+    )
+set(p3dfft_config_vars
+    "CXX=${MPI_CXX_COMPILER}"
+    "CFLAGS=-O3 -DNDEBUG")
+
+find_program(MAKE_EXE NAMES make)
+
+ExternalProject_Add(p3dfft_build
+    PREFIX p3dfft.build
+    GIT_REPOSITORY https://github.com/sdsc/p3dfft.3
+    GIT_TAG ${p3dfft_git_commit_hash}
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+    UPDATE_COMMAND ""
+    BUILD_IN_SOURCE TRUE
+    CONFIGURE_COMMAND ./configure ${p3dfft_config_flags} ${p3dfft_config_vars}
+    BUILD_COMMAND ${MAKE_EXE} -C build
+    INSTALL_COMMAND ${MAKE_EXE} -C build install
+    COMMAND ${MAKE_EXE} install-data-am  # install header files
+    )
+
+# Add interface to P3DFFT
+add_library(p3dfft STATIC IMPORTED GLOBAL)
+add_dependencies(p3dfft p3dfft_build)
+set_target_properties(p3dfft PROPERTIES
+    IMPORTED_LOCATION ${p3dfft_install_prefix}/lib/libp3dfft.3.a
+    INTERFACE_INCLUDE_DIRECTORIES ${p3dfft_install_prefix}/include
+    )
+target_compile_definitions(p3dfft INTERFACE HAVE_CONFIG_H TIMERS)
+target_link_libraries(p3dfft INTERFACE ${FFTW3_LIB} ${FFTW3_LIB_F})
+
+add_executable(bench_p3dfft bench_p3dfft.cpp)
+target_link_libraries(bench_p3dfft p3dfft ${MPI_CXX_LIBRARIES})
