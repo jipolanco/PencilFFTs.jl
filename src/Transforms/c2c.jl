@@ -41,7 +41,7 @@ _intprod(x::Int, y::Int...) = x * _intprod(y...)
 _intprod() = one(Int)
 _prod_dims(A, dims) = _intprod((size(A, i) for i in dims)...)
 
-scale_factor(::Union{FFT, BFFT}, A, dims) = _prod_dims(A, dims)
+scale_factor(::TransformC2C, A, dims) = _prod_dims(A, dims)
 
 expand_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
     N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)
