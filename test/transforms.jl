@@ -52,6 +52,7 @@ function test_transforms(comm, proc_dims, size_in)
     @testset "NoTransform ($T)" for T in (Float32, Float64)
         tr = (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
         plan = PencilFFTPlan(size_in, tr, proc_dims, comm, T)
+        println("\n", "-"^60, "\n", plan, "\n")
         u = allocate_input(plan)
         randn!(u)
         v = allocate_output(plan)
@@ -64,7 +65,6 @@ function test_transforms(comm, proc_dims, size_in)
         vg = gather(v, root)
 
         if ug !== nothing && vg !== nothing
-            println("\n", plan, "\n")
             p = FFTW.plan_rfft(ug, 2:3)
             vg_serial = p * ug
             @test vg ≈ vg_serial
@@ -76,20 +76,22 @@ function test_transforms(comm, proc_dims, size_in)
     pairs = (
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
-             Transforms.BFFT() => FFTW.plan_bfft,  # should fail
+             Transforms.BFFT() => FFTW.plan_bfft,
+             Transforms.BRFFT() => FFTW.plan_brfft,
             )
 
     @testset "$p ($T)" for p in pairs, T in (Float32, Float64)
-        if normalised(p.first) === Transforms.Normalised{false}()
-            # can't have unnormalised transform as input
-            @test_throws ArgumentError PencilFFTPlan(size_in, p.first,
-                                                     proc_dims, comm, T)
+        if p.first === Transforms.BRFFT()
+            # FIXME...
+            @test_broken PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
             continue
         end
 
         @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
         plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
         fftw_planner = p.second
+
+        println("\n", "-"^60, "\n", plan, "\n")
 
         @inferred allocate_input(plan)
         @inferred allocate_output(plan)
@@ -110,8 +112,6 @@ function test_transforms(comm, proc_dims, size_in)
         vg = gather(v, root)
 
         if ug !== nothing && vg !== nothing
-            println("\n", plan, "\n")
-
             p = fftw_planner(ug)
 
             vg_serial = p * ug

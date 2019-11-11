@@ -17,10 +17,12 @@ import LinearAlgebra: mul!, ldiv!
 import Base: *, \
 
 import Base: inv, show
-export binv, scale_factor, normalised
+export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
+const RealArray{T} = AbstractArray{T} where T <: FFTReal
+const ComplexArray{T} = AbstractArray{T} where T <: Complex
 
 # TODO
 # - add FFTW.jl specific transforms, including r2r
@@ -116,17 +118,17 @@ The array `A` must have the dimensions of the `transform` output.
 
 # Examples
 
-```jldoctest
+```jldoctest scale_factor
 julia> C = zeros(ComplexF32, 3, 4, 5);
 
 julia> scale_factor(Transforms.FFT(), C)
-1
-
-julia> scale_factor(Transforms.IFFT(), C)
-1
+60
 
 julia> scale_factor(Transforms.BFFT(), C)
 60
+
+julia> scale_factor(Transforms.IFFT(), C)
+1
 
 julia> scale_factor(Transforms.BFFT(), C, 2:3)
 20
@@ -134,19 +136,21 @@ julia> scale_factor(Transforms.BFFT(), C, 2:3)
 julia> R = zeros(Float64, 3, 4, 5);
 
 julia> scale_factor(Transforms.BRFFT(), R, 2)
-6
+4
 
 julia> scale_factor(Transforms.BRFFT(), R, 2:3)
-30
+20
+```
 
+This will fail because the output of `RFFT` is complex, and `R` is a real array:
+```jldoctest scale_factor
+julia> scale_factor(Transforms.RFFT(), R, 2:3)
+ERROR: MethodError: no method matching scale_factor(::PencilFFTs.Transforms.RFFT, ::Array{Float64,3}, ::UnitRange{Int64})
 ```
 """
 function scale_factor end
 
 scale_factor(t::AbstractTransform, A) = scale_factor(t, A, 1:ndims(A))
-
-# By default, the scale factor is 1.
-scale_factor(::AbstractTransform, A, dims) = 1
 
 """
     length_output(transform::AbstractTransform, length_in::Integer)
@@ -251,30 +255,6 @@ show(io::IO, ::F) where F <: AbstractTransform =
     print(io, last(rsplit(string(F), '.', limit=2)), "()")
 
 """
-    Normalised{B}
-
-Trait determining whether a transform is normalised or not.
-
-All forward transforms are normalised (`FFT`, `RFFT`, ...), as well as the
-scaled backward transforms (`IFFT`, `IRFFT`, ...).
-
-The parameter `B` is a `Bool`.
-
-See also [`normalised`](@ref).
-"""
-struct Normalised{B} end
-
-"""
-    normalised(transform::Transform)
-
-Returns [`Normalised`](@ref) trait of a given transform.
-"""
-function normalised end
-
-# By default transforms are normalised.
-normalised(::AbstractTransform) = Normalised{true}()
-
-"""
     NoTransform()
 
 Identity transform.
@@ -289,6 +269,7 @@ eltype_input(::NoTransform, ::Type) = Nothing
 plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
 expand_dims(::NoTransform, ::Val{N}) where N =
     N == 0 ? () : (NoTransform(), expand_dims(NoTransform(), Val(N - 1))...)
+scale_factor(::NoTransform, A, dims) = 1
 
 include("c2c.jl")
 include("r2c.jl")

@@ -45,12 +45,4 @@ eltype_input
 eltype_output
 expand_dims
 length_output
-
-normalised
-```
-
-## Traits
-
-```@docs
-Normalised
 ```

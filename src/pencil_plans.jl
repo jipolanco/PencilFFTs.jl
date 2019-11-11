@@ -105,10 +105,7 @@ struct PencilFFTPlan{T,
     # data transposition!
     plans :: P
 
-    # Scale factor for backwards transforms.
-    # Note: this being an integer means that only forward transforms may be
-    # passed to the PencilFFTPlan constructor (e.g. BFFT or BRFFT won't work
-    # as "forward" transforms).
+    # Scale factor to be applied after backwards transforms.
     scale_factor :: Int
 
     # Runtime timing.
@@ -159,9 +156,7 @@ end
 
 function _check_transforms(t::AbstractTransform,
                            next::Vararg{AbstractTransform})
-    if normalised(t) === Transforms.Normalised{false}()
-        throw(ArgumentError("can't have unnormalised transform as input: $t"))
-    end
+    # TODO Is there something to check here??
     _check_transforms(next...)
 end
 
@@ -279,12 +274,17 @@ function _create_plans(::Type{Ti},
         # Create temporary arrays with the dimensions required for forward and
         # backward transforms.
         transform_bw = binv(transform_fw)
-        pairs = (transform_fw => _temporary_pencil_array(Pi, plan1d_opt.ibuf),
-                 transform_bw => _temporary_pencil_array(Po, plan1d_opt.obuf))
+        pair_fw = transform_fw => _temporary_pencil_array(Pi, plan1d_opt.ibuf)
+        pair_bw = transform_bw => _temporary_pencil_array(Po, plan1d_opt.obuf)
+        pairs = (pair_fw, pair_bw)
 
-        # Scale factor for backward transform.
-        bw = last(pairs)
-        scale_bw = scale_factor(bw.first, bw.second, dims)
+        # Scale factor to be applied after backward transform.
+        scale_bw = let tr = pair_bw.first
+            # `A` must have the dimensions of the backward transform output
+            # (i.e. the forward transform input)
+            A = pair_fw.second
+            scale_factor(tr, A, dims)
+        end
 
         # Generate forward and backward FFTW transforms.
         fftw_kw = plan1d_opt.fftw_kw
