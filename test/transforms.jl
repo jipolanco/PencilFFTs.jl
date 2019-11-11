@@ -41,42 +41,20 @@ function test_transforms(comm, proc_dims, size_in)
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
-    # Test NoTransform
-    # TODO
-    # - generalise test
-    # - put code somewhere else...
-    @testset "NoTransform ($T)" for T in (Float32, Float64)
-        tr = (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-        plan = PencilFFTPlan(size_in, tr, proc_dims, comm, T)
-        println("\n", "-"^60, "\n\n", plan, "\n")
-        u = allocate_input(plan)
-        randn!(u)
-        v = allocate_output(plan)
-        w = similar(u)
-        mul!(v, plan, u)
-        ldiv!(w, plan, v)
-        @test u ≈ w
-
-        ug = gather(u, root)
-        vg = gather(v, root)
-
-        if ug !== nothing && vg !== nothing
-            p = FFTW.plan_rfft(ug, 2:3)
-            vg_serial = p * ug
-            @test vg ≈ vg_serial
-        end
-
-        MPI.Barrier(comm)
-    end
-
     pairs = (
              Transforms.BRFFT() => FFTW.plan_brfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,
+             (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
+                => (x -> FFTW.plan_rfft(x, 2:3)),
+             (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
+                 => (x -> FFTW.plan_fft(x, (1, 3))),
+             (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
+                 => (x -> FFTW.plan_fft(x, 1)),
             )
 
-    @testset "$p ($T)" for p in pairs, T in (Float32, Float64)
+    @testset "$(p.first) -- $T" for p in pairs, T in (Float32, Float64)
         if p.first === Transforms.BRFFT()
             # FIXME...
             # In this case, I need to change the order of the transforms
