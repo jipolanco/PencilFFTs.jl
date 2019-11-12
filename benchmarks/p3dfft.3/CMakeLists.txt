@@ -47,15 +47,20 @@ set(p3dfft_config_flags
     "--enable-fftw"
     "--enable-fftwestimate"
     "--enable-timers"
-    "--with-fftw-lib=${fftw3_libdir}"
-    "--with-fftw-inc=${fftw3_incdir}"
+    "--with-fftw-lib=${FFTW3_LIBDIR}"
+    "--with-fftw-inc=${FFTW3_INCDIR}"
     "--prefix=${p3dfft_install_prefix}"
     )
 set(p3dfft_config_vars
     "CXX=${MPI_CXX_COMPILER}"
     "CFLAGS=-O3 -DNDEBUG")
+message(STATUS "P3DFFT++ config flags: ${p3dfft_config_flags}")
+message(STATUS "P3DFFT++ config variables: ${p3dfft_config_vars}")
 
 find_program(MAKE_EXE NAMES make)
+
+set(p3dfft_incdir ${p3dfft_install_prefix}/include)
+file(MAKE_DIRECTORY ${p3dfft_incdir})
 
 ExternalProject_Add(p3dfft_build
     PREFIX p3dfft.build
