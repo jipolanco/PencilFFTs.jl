@@ -133,7 +133,7 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
   double t = -MPI_Wtime();
   for (int n = 0; n < NUM_REPETITIONS; ++n) {
     trans_f.exec(ui.data(), uo.data(), false);
-    normalise(uo, grid_o.gdims);
+    normalise(uo, grid_i.gdims);
     trans_b.exec(uo.data(), ui_final.data(), true);
   }
   t += MPI_Wtime();
