@@ -12,8 +12,6 @@ template <int N> using Dims = std::array<int, N>;
 constexpr Dims<3> GLOBAL_DIMS = {128, 128, 128};
 constexpr int NUM_REPETITIONS = 10;
 
-using dcomplex = p3dfft::complex_double;
-
 template <class T, size_t N>
 auto print(T &io, const Dims<N> &dims) -> decltype(io) {
   static_assert(N > 0, "");
@@ -110,7 +108,7 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
 
   auto ui = allocate_data<double>(grid_i);
   auto ui_final = ui;
-  auto uo = allocate_data<dcomplex>(grid_o);
+  auto uo = allocate_data<Complex>(grid_o);
 
   init_wave(ui, grid_i);
 
@@ -200,7 +198,7 @@ int main(int argc, char *argv[]) {
   Dims<3> pgrid_o = {pdims[0], pdims[1], 1};
   Dims<3> mem_order_o = {2, 1, 0};
   p3dfft::grid grid_o(gdims_o.data(), dim_conj_sym, pgrid_o.data(),
-                      proc_order_i.data(), mem_order_o.data(), MPI_COMM_WORLD);
+                      proc_order_i.data(), mem_order_o.data(), comm);
 
   transform(grid_i, grid_o);
 
