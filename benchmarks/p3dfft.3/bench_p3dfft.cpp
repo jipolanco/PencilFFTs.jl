@@ -6,15 +6,13 @@
 #include <vector>
 
 // File based on p3dfft.3/sample/C++/test3D_r2c.C
-//
-// Note: memory management is broken in p3dfft. There's a general problem with
-// destructors in p3dfft. AddressSanitizer shows several errors, including
-// "new-delete-type-mismatch" and many memory leaks.
 
 template <int N> using Dims = std::array<int, N>;
 
 constexpr Dims<3> GLOBAL_DIMS = {128, 128, 128};
 constexpr int NUM_REPETITIONS = 10;
+
+using dcomplex = p3dfft::complex_double;
 
 template <class T, size_t N>
 auto print(T &io, const Dims<N> &dims) -> decltype(io) {
@@ -110,18 +108,15 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
   p3dfft::transform3D<Real, Complex> trans_f(grid_i, grid_o, &transforms_fw);
   p3dfft::transform3D<Complex, Real> trans_b(grid_o, grid_i, &transforms_bw);
 
-  // Normalisation factor
-  double Nglob = grid_i.gdims[0] * grid_i.gdims[1] * grid_i.gdims[2];
-
-  auto ui = allocate_data<Real>(grid_i);
+  auto ui = allocate_data<double>(grid_i);
   auto ui_final = ui;
-  auto uo = allocate_data<Complex>(grid_o);
+  auto uo = allocate_data<dcomplex>(grid_o);
 
   init_wave(ui, grid_i);
 
   // Warm-up
   trans_f.exec(ui.data(), uo.data(), false);
-  normalise(uo, grid_o.gdims);
+  normalise(uo, grid_i.gdims);
   trans_b.exec(uo.data(), ui_final.data(), true);
 
   // Check result
@@ -130,7 +125,7 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
     double diff2;
     MPI_Reduce(&diff2_local, &diff2, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
     if (rank == 0)
-      std::cout << diff2 << std::endl;
+      std::cout << "L2 error: " << diff2 << std::endl;
   }
 
 #ifdef TIMERS
@@ -176,36 +171,40 @@ int main(int argc, char *argv[]) {
   auto dims = GLOBAL_DIMS;
 
   // Create 2D Cartesian topology.
-  Dims<2> proc_dims = {0, 0};
-  MPI_Dims_create(Nproc, proc_dims.size(), proc_dims.data());
+  Dims<2> pdims = {0, 0};
+  MPI_Dims_create(Nproc, pdims.size(), pdims.data());
+
+  if (pdims[0] > pdims[1]) {
+    pdims[0] = pdims[1];
+    pdims[1] = Nproc / pdims[0];
+  }
 
   if (myrank == 0) {
     print(std::cout << "Dimensions: ", dims) << "\n";
-    print(std::cout << "Processes:  ", proc_dims) << "\n";
+    print(std::cout << "Processes:  ", pdims) << "\n";
   }
 
-  // Global dimensions and processor/memory order
-  Dims<3> gdims, proc_order, mem_order, pgrid;
-  int dim_conj_sym;
-
   // Input grid
-  gdims = dims;
-  dim_conj_sym = -1;
-  proc_order = {0, 1, 2};
-  mem_order = {0, 1, 2};
-  pgrid = {1, proc_dims[0], proc_dims[1]};
-  p3dfft::grid grid_i(gdims.data(), dim_conj_sym, pgrid.data(),
-                      proc_order.data(), mem_order.data(), comm);
+  Dims<3> gdims_i = dims;
+  int dim_conj_sym = -1;
+  Dims<3> proc_order_i = {0, 1, 2};
+  Dims<3> mem_order_i = {0, 1, 2};
+  Dims<3> pgrid_i = {1, pdims[0], pdims[1]};
+  p3dfft::grid grid_i(gdims_i.data(), dim_conj_sym, pgrid_i.data(),
+                      proc_order_i.data(), mem_order_i.data(), comm);
 
   // Output grid
-  gdims[0] = gdims[0] / 2 + 1;
+  Dims<3> gdims_o = gdims_i;
   dim_conj_sym = 0;
-  mem_order = {2, 1, 0};
-  pgrid = {proc_dims[0], proc_dims[1], 1};
-  p3dfft::grid grid_o(gdims.data(), dim_conj_sym, pgrid.data(),
-                      proc_order.data(), mem_order.data(), comm);
+  gdims_o[0] = gdims_o[0] / 2 + 1;
+  Dims<3> pgrid_o = {pdims[0], pdims[1], 1};
+  Dims<3> mem_order_o = {2, 1, 0};
+  p3dfft::grid grid_o(gdims_o.data(), dim_conj_sym, pgrid_o.data(),
+                      proc_order_i.data(), mem_order_o.data(), MPI_COMM_WORLD);
 
   transform(grid_i, grid_o);
+
+  p3dfft::cleanup();
 
   MPI_Finalize();
   return 0;
