@@ -203,18 +203,22 @@ function _create_plans(::Type{Ti},
         Po_prev = plan_prev.pencil_out
 
         # (i) Determine permutation of pencil data.
-        # The data is permuted so that the n-th logical dimension is the first
-        # (fastest) dimension in the arrays.
-        # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...)
-        perm = if permute_dimensions
+        perm = if !permute_dimensions
+            # Note: I don't want to return `nothing` because that would make
+            # things type-unstable.
+            Pencils.identity_permutation(Val(N))
+        elseif Ntr == 0
+            # This is the last transform, and I want the index order to be
+            # exactly reversed (easier to work with than the alternative below).
+            ntuple(i -> N - i + 1, Val(N))  # (N, N-1, ..., 2, 1)
+        else
+            # Here the data is permuted so that the n-th logical dimension is
+            # the first (fastest) dimension in the arrays.
+            # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...).
             t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
             @assert isperm(t)
             @assert t == (n, (1:n-1)..., (n+1:N)...)
             t
-        else
-            # Note: I don't want to return `nothing` because that would make
-            # things type-unstable.
-            Pencils.identity_permutation(Val(N))
         end :: Pencils.Permutation{N}
 
         # (ii) Determine decomposed dimensions from the previous
