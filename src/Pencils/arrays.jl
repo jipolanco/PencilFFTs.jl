@@ -147,18 +147,19 @@ processes.
 This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
-function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
+@timeit_debug get_timer(pencil(x)) function gather(
+        x::PencilArray{T,N}, root::Integer=0) where {T, N}
     # TODO reduce allocations! see `transpose_impl!`
     comm = get_comm(x)
     rank = MPI.Comm_rank(comm)
     mpi_tag = 42
-    pencil = x.pencil
+    pen = pencil(x)
     extra_dims = x.extra_dims
 
     # Each process sends its data to the root process.
     # If the local indices are permuted, the permutation is reverted before
     # sending the data.
-    data = let perm = pencil.perm
+    data = let perm = pen.perm
         if is_identity_permutation(perm)
             x.data
         else
@@ -177,7 +178,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
     end
 
     # Receive data (root only).
-    topo = pencil.topology
+    topo = pen.topology
     Nproc = length(topo)
     recv = Vector{Array{T,N}}(undef, Nproc)
     recv_req = Vector{MPI.Request}(undef, Nproc)
@@ -186,7 +187,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     for n = 1:Nproc
         # Global data range that I will receive from process n.
-        rrange = pencil.axes_all[n]
+        rrange = pen.axes_all[n]
         rdims = length.(rrange)
 
         src_rank = topo.ranks[n]  # actual rank of sending process
@@ -205,12 +206,12 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     # Copy local data.
     colons_extra_dims = ntuple(n -> Colon(), Val(length(extra_dims)))
-    dest[colons_extra_dims..., pencil.axes_local...] .= data
+    dest[colons_extra_dims..., pen.axes_local...] .= data
 
     # Copy remote data.
     for m = 2:Nproc
         n, status = MPI.Waitany!(recv_req)
-        rrange = pencil.axes_all[n]
+        rrange = pen.axes_all[n]
         dest[colons_extra_dims..., rrange...] .= recv[n]
     end
 
