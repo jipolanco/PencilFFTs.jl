@@ -84,12 +84,18 @@ function assert_compatible(p::Pencil, q::Pencil)
 end
 
 # Reinterpret UInt8 array as a different type of array.
+# The input array should have enough space for the reinterpreted array with the
+# given dimensions.
 # This is a workaround to the performance issues when using `reinterpret`.
 # See for instance:
 # - https://discourse.julialang.org/t/big-overhead-with-the-new-lazy-reshape-reinterpret/7635
 # - https://github.com/JuliaLang/julia/issues/28980
-unsafe_as_array(::Type{T}, x::Vector{UInt8}, dims) where T =
-    unsafe_wrap(Array, convert(Ptr{T}, pointer(x)), dims, own=false)
+function unsafe_as_array(::Type{T}, x::Vector{UInt8}, dims) where T
+    p = Ptr{T}(pointer(x))
+    A = unsafe_wrap(Array, p, dims, own=false)
+    @assert sizeof(A) <= sizeof(x)
+    A
+end
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
