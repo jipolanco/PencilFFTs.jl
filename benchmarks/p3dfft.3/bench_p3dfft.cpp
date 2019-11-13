@@ -14,10 +14,10 @@ constexpr int NUM_REPETITIONS = 10;
 
 template <class T, size_t N>
 auto print(T &io, const Dims<N> &dims) -> decltype(io) {
-  static_assert(N > 0, "");
-  std::cout << "(" << dims[0];
-  for (int n = 1; n < N; ++n) std::cout << ", " << dims[n];
-  std::cout << ")";
+  if (N == 0) return io << "()";
+  io << "(" << dims[0];
+  for (size_t n = 1; n < N; ++n) io << ", " << dims[n];
+  io << ")";
   return io;
 }
 
@@ -50,14 +50,14 @@ std::vector<double> &init_wave(std::vector<double> &u,
   std::vector<double> sinx(gdims[0]), siny(gdims[1]), sinz(gdims[2]);
   double twopi = 8 * std::atan(1.0);
 
-  for (int i = 0; i < sinx.size(); ++i)
+  for (int i = 0; i < gdims[0]; ++i)
     sinx[i] = std::sin((i + glob_start[0]) * twopi / gdims[0]);
-  for (int i = 0; i < siny.size(); ++i)
+  for (int i = 0; i < gdims[1]; ++i)
     siny[i] = std::sin((i + glob_start[1]) * twopi / gdims[1]);
-  for (int i = 0; i < sinz.size(); ++i)
+  for (int i = 0; i < gdims[2]; ++i)
     sinz[i] = std::sin((i + glob_start[2]) * twopi / gdims[2]);
 
-  assert(u.size() == local_dims[0] * local_dims[1] * local_dims[2]);
+  assert(u.size() == size_t(local_dims[0]) * local_dims[1] * local_dims[2]);
   auto *p = u.data();
   for (int k = 0; k < local_dims[2]; ++k)
   for (int j = 0; j < local_dims[1]; ++j) {
