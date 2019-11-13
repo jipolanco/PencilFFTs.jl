@@ -1,9 +1,18 @@
-const USE_ALLTOALLV = let key = "PENCILS_USE_ALLTOALLV"
-    key in keys(ENV) && ENV[key] == "1"
+module TransposeMethods
+export TransposeMethod
+abstract type TransposeMethod end
+struct IsendIrecv <: TransposeMethod end
+struct Alltoallv <: TransposeMethod end
+Base.show(io::IO, ::T) where T <: TransposeMethod =
+    print(io, last(rsplit(string(T), '.', limit=2)), "()")
 end
 
+using .TransposeMethods
+export TransposeMethods
+
 """
-    transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N})
+    transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
+               method=TransposeMethods.IsendIrecv())
 
 Transpose data from one pencil configuration to the other.
 
@@ -19,9 +28,26 @@ The two pencil configurations must be compatible for transposition:
   not in `(1, 2)`. If the decomposed dimensions are the same, then no
   transposition is performed, and data is just copied if needed.
 
+# Performance tuning
+
+The `method` argument allows to choose between transposition implementations.
+This can be useful to tune performance of MPI data transfers.
+Two values are currently accepted:
+
+- `TransposeMethods.IsendIrecv()` uses non-blocking point-to-point data transfers
+  (`MPI_Isend` and `MPI_Irecv`).
+  This may be more performant since data transfers are interleaved with local
+  data transpositions (index permutation of received data).
+  This is the default.
+
+- `TransposeMethods.Alltoallv()` uses `MPI_Alltoallv` for global data
+  transpositions.
+
 """
 @timeit_debug pencil(src).timer function transpose!(
-        dest::PencilArray{T,N}, src::PencilArray{T,N}) where {T, N}
+        dest::PencilArray{T,N}, src::PencilArray{T,N};
+        method::TransposeMethod=TransposeMethods.IsendIrecv(),
+       ) where {T, N}
     dest === src && return dest  # same pencil & same data
 
     Pi = pencil(src)
@@ -57,7 +83,7 @@ The two pencil configurations must be compatible for transposition:
         end
     else
         # MPI data transposition.
-        transpose_impl!(R, dest, src)
+        transpose_impl!(R, dest, src, method=method)
     end
 
     dest
@@ -100,10 +126,13 @@ end
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
 function transpose_impl!(R::Int, out::PencilArray{T,N},
-                         in::PencilArray{T,N}) where {T, N}
+                         in::PencilArray{T,N};
+                         method::TransposeMethod=TransposeMethods.IsendIrecv(),
+                        ) where {T, N}
     Pi = in.pencil
     Po = out.pencil
     timer = Pi.timer
+    use_alltoallv = method === TransposeMethods.Alltoallv()
 
     topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
@@ -148,7 +177,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
 
     index_local_req = -1  # request index associated to local exchange
 
-    if USE_ALLTOALLV
+    if use_alltoallv
         send_counts = Vector{Cint}(undef, Nproc)
         recv_counts = similar(send_counts)
     else
@@ -184,7 +213,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             copy_range!(recv_buf, length_recv, in, local_send_range, extra_dims,
                         timer)
 
-            if USE_ALLTOALLV
+            if use_alltoallv
                 # Don't send data to myself via Alltoallv.
                 send_counts[n] = recv_counts[n] = zero(Cint)
             else
@@ -201,7 +230,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
             irecv += length_recv_n
             isend += length_send_n
 
-            if USE_ALLTOALLV
+            if use_alltoallv
                 send_counts[n] = length_send_n
                 recv_counts[n] = length_recv_n
             else
@@ -222,7 +251,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
         end
     end
 
-    if USE_ALLTOALLV
+    if use_alltoallv
         # This @view is needed because the Alltoallv wrapper checks that the
         # length of the buffer is consistent with recv_counts.
         recv_buf_view = @view recv_buf[1:length_recv]
@@ -235,7 +264,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     # ordering to Po ordering.
     @timeit_debug timer "unpack data" let perm = relative_permutation(Pi, Po)
         for m = 1:Nproc
-            if USE_ALLTOALLV
+            if use_alltoallv
                 n = m
             elseif m == 1
                 n = index_local_req  # copy local data first
@@ -262,7 +291,7 @@ function transpose_impl!(R::Int, out::PencilArray{T,N},
     end
 
     # Wait for all our data to be sent before returning.
-    if !USE_ALLTOALLV
+    if !use_alltoallv
         @timeit_debug timer "wait send" MPI_Waitall!(send_req)
     end
 

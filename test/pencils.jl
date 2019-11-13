@@ -130,7 +130,10 @@ function main()
             Pencils.size_remote(pen1, pen1.topology.coords_local...)
     end
 
-    @testset "transpose!" begin
+    transpose_methods = (TransposeMethods.IsendIrecv(),
+                         TransposeMethods.Alltoallv())
+
+    @testset "transpose! $method" for method in transpose_methods
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
         u3 = PencilArray(pen3)

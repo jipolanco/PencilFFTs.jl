@@ -60,7 +60,9 @@ end
 function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
                           iterations=ITERATIONS,
                           with_permutations::Val=Val(true),
-                          extra_dims::Tuple=())
+                          extra_dims::Tuple=(),
+                          transpose_method=TransposeMethods.IsendIrecv(),
+                         )
     topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
@@ -77,20 +79,22 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     u[1] .+= 10 * myrank
     u_orig = copy(u[1])
 
+    transpose_m!(a, b) = transpose!(a, b, method=transpose_method)
+
     # Precompile functions
-    transpose!(u[2], u[1])
-    transpose!(u[3], u[2])
-    transpose!(u[2], u[3])
-    transpose!(u[1], u[2])
+    transpose_m!(u[2], u[1])
+    transpose_m!(u[3], u[2])
+    transpose_m!(u[2], u[3])
+    transpose_m!(u[1], u[2])
     gather(u[2])
 
     reset_timer!(to)
 
     for it = 1:iterations
-        transpose!(u[2], u[1])
-        transpose!(u[3], u[2])
-        transpose!(u[2], u[3])
-        transpose!(u[1], u[2])
+        transpose_m!(u[2], u[1])
+        transpose_m!(u[3], u[2])
+        transpose_m!(u[2], u[3])
+        transpose_m!(u[1], u[2])
         MEASURE_GATHER && gather(u[2])
     end
 
@@ -102,8 +106,9 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
             Processes:               $proc_dims
             Data dimensions:         $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
             Permutations (1, 2, 3):  $(get_permutation.(pens))
+            Transpositions:          1 -> 2 -> 3 -> 2 -> 1
+            Method:                  $(transpose_method)
             """)
-        println("Transpositions (1 -> 2 -> 3 -> 2 -> 1):")
         println(to)
         println()
     end
@@ -111,10 +116,10 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     if PROFILE
         Profile.clear()
         @profile for it = 1:iterations
-            transpose!(u[2], u[1])
-            transpose!(u[3], u[2])
-            transpose!(u[2], u[3])
-            transpose!(u[1], u[2])
+            transpose_m!(u[2], u[1])
+            transpose_m!(u[3], u[2])
+            transpose_m!(u[2], u[3])
+            transpose_m!(u[1], u[2])
         end
         if myrank == 0
             open(io -> Profile.print(io, maxdepth=PROFILE_DEPTH),
@@ -132,31 +137,27 @@ function main()
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
 
-    if myrank == 0
-        if Pencils.USE_ALLTOALLV
-            @info "Using MPI_Alltoallv for transpositions"
-        else
-            @info "Using MPI_Isend / MPI_Irecv for transpositions"
-        end
-        println()
-    end
-
-    # Slab decompositions
-    benchmark_decomp(comm, (Nproc, ), DIMS)
-
-    # Pencil decompositions
-    benchmark_decomp(comm, (1, Nproc), DIMS)
-    benchmark_decomp(comm, (Nproc, 1), DIMS)
-
     # Let MPI_Dims_create choose the decomposition.
     proc_dims = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
         pdims[1], pdims[2]
     end
 
-    benchmark_decomp(comm, proc_dims, DIMS)
-    benchmark_decomp(comm, proc_dims, DIMS, with_permutations=Val(false))
+    pdims_list = (
+                  (Nproc, ),  # slab (1D) decomposition
+                  (Nproc, 1),
+                  (1, Nproc),
+                  proc_dims,
+                 )
 
+    transpose_methods = (TransposeMethods.IsendIrecv(),
+                         TransposeMethods.Alltoallv())
+
+    for pdims in pdims_list, method in transpose_methods
+        benchmark_decomp(comm, pdims, DIMS, transpose_method=method)
+    end
+
+    benchmark_decomp(comm, proc_dims, DIMS, with_permutations=Val(false))
     benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),
                      iterations=ITERATIONS >> 1)
     benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),

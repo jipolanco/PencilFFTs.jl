@@ -18,15 +18,10 @@
     - apt-get -qq update
     - apt-get install -y --no-install-recommends mpich libmpich-dev
 
-  variables:
-    # Disable using MPI_Alltoallv for transpositions (this is the default).
-    PENCILS_USE_ALLTOALLV: "0"
-
   script:
     - mpichversion
     - julia -e 'using InteractiveUtils;
                 versioninfo()'
-    - echo $PENCILS_USE_ALLTOALLV
     # Force precompilation of packages in serial mode.
     # Otherwise, if precompilation runs in parallel, there may be race
     # conditions...
