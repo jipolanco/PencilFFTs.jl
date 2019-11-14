@@ -132,7 +132,9 @@ function transpose_impl!(
     Pi = in.pencil
     Po = out.pencil
     timer = Pi.timer
+
     use_alltoallv = method === TransposeMethods.Alltoallv()
+    @assert use_alltoallv || method === TransposeMethods.IsendIrecv()
 
     topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
