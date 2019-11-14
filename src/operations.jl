@@ -7,7 +7,7 @@ function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                                              To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs mul!" begin
         _check_arrays(p, src, dst)
-        _apply_plans!(Val(FFTW.FORWARD), dst, src, p.plans...)
+        _apply_plans!(Val(FFTW.FORWARD), dst, src, p, p.plans...)
     end
 end
 
@@ -29,7 +29,7 @@ function ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
         plans = reverse(p.plans)  # plans are applied from right to left
         # TODO can I fuse transform + scaling into one operation? (maybe using
         # callbacks?)
-        _apply_plans!(Val(FFTW.BACKWARD), dst, src, plans...)
+        _apply_plans!(Val(FFTW.BACKWARD), dst, src, p, plans...)
         ldiv!(p.scale_factor, dst)  # normalise transform
     end
 end
@@ -43,6 +43,7 @@ function \(p::PencilFFTPlan, src::PencilArray)
 end
 
 function _apply_plans!(dir::Val{FFTW.FORWARD}, y::PencilArray, x::PencilArray,
+                       full_plan::PencilFFTPlan,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
     Pi = plan.pencil_in
     Po = plan.pencil_out
@@ -52,16 +53,17 @@ function _apply_plans!(dir::Val{FFTW.FORWARD}, y::PencilArray, x::PencilArray,
         x
     else
         u = _temporary_pencil_array(Pi, plan.ibuf)
-        transpose!(u, x)
+        transpose!(u, x, method=full_plan.transpose_method)
     end
 
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
     @timeit_debug plan.timer "FFT" mul!(data(v), plan.fft_plan, data(u))
 
-    _apply_plans!(dir, y, v, next_plans...)
+    _apply_plans!(dir, y, v, full_plan, next_plans...)
 end
 
 function _apply_plans!(dir::Val{FFTW.BACKWARD}, y::PencilArray, x::PencilArray,
+                       full_plan::PencilFFTPlan,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
     Pi = plan.pencil_out
     Po = plan.pencil_in
@@ -71,16 +73,16 @@ function _apply_plans!(dir::Val{FFTW.BACKWARD}, y::PencilArray, x::PencilArray,
         x
     else
         u = _temporary_pencil_array(Pi, plan.ibuf)
-        transpose!(u, x)
+        transpose!(u, x, method=full_plan.transpose_method)
     end
 
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, plan.obuf)
     @timeit_debug plan.timer "FFT" mul!(data(v), plan.bfft_plan, data(u))
 
-    _apply_plans!(dir, y, v, next_plans...)
+    _apply_plans!(dir, y, v, full_plan, next_plans...)
 end
 
-_apply_plans!(::Val, y::PencilArray, x::PencilArray) = y
+_apply_plans!(::Val, y::PencilArray, x::PencilArray, ::PencilFFTPlan) = y
 
 function _check_arrays(p::PencilFFTPlan, xin, xout)
     if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
