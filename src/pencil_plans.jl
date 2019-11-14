@@ -37,6 +37,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
     PencilFFTPlan(size_global::Dims{N}, transforms,
                   proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
                   fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
+                  transpose_method=TransposeMethods.IsendIrecv(),
                   timer=TimerOutput(),
                   )
 
@@ -62,12 +63,20 @@ The distribution is performed over `M` dimensions (with `M < N`) according to
 the values in `proc_dims`, which specifies the number of MPI processes to put
 along each dimension.
 
-The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the `FFTW`
-plan creation functions
-(see [`AbstractFFTs` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
+# Optional arguments
 
-It is also possible to pass a `TimerOutput` to the constructor. See
-[Measuring performance](@ref Pencils.measuring_performance) for details.
+- The floating point precision can be selected by setting `real_type` parameter,
+  which is `Float64` by default.
+
+- The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
+  `FFTW` plan creation functions (see [`AbstractFFTs`
+  docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
+
+- `transpose_method` allows to select between implementations of the global
+  data transpositions. See the [`transpose!`](@ref) docs for details.
+
+- `timer` should be a `TimerOutput` object.
+  See [Measuring performance](@ref Pencils.measuring_performance) for details.
 
 # Example
 
@@ -94,6 +103,7 @@ struct PencilFFTPlan{T,
                      M,
                      G <: GlobalFFTParams,
                      P <: NTuple{N, PencilPlan1D},
+                     TransposeMethod <: AbstractTransposeMethod,
                     }
     global_params :: G
     topology      :: MPITopology{M}
@@ -107,6 +117,9 @@ struct PencilFFTPlan{T,
 
     # Scale factor to be applied after backwards transforms.
     scale_factor :: Int
+
+    # `method` parameter passed to `Pencils.transpose!`
+    transpose_method :: TransposeMethod
 
     # Runtime timing.
     # Should be used along with the @timeit_debug macro, to be able to turn it
@@ -123,6 +136,8 @@ struct PencilFFTPlan{T,
                            ::Type{T}=Float64;
                            fftw_flags=FFTW.ESTIMATE,
                            fftw_timelimit=FFTW.NO_TIMELIMIT,
+                           transpose_method::AbstractTransposeMethod=
+                               TransposeMethods.IsendIrecv(),
                            timer::TimerOutput=TimerOutput(),
                            ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
                           ) where {N, M, T <: FFTReal}
@@ -133,6 +148,7 @@ struct PencilFFTPlan{T,
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
 
         # Options for creation of 1D plans.
+        # TODO expose `permute_dimensions`?
         plan1d_opt = (permute_dimensions=true,
                       ibuf=ibuf,
                       obuf=obuf,
@@ -143,7 +159,8 @@ struct PencilFFTPlan{T,
         plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> p.scale_factor, plans)
 
-        new{T, N, M, typeof(g), typeof(plans)}(g, t, plans, scale, timer)
+        new{T, N, M, typeof(g), typeof(plans), typeof(transpose_method)}(
+            g, t, plans, scale, transpose_method, timer)
     end
 
     function PencilFFTPlan(size_global::Dims{N},

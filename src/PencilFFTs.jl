@@ -14,6 +14,7 @@ include("Transforms/Transforms.jl")
 
 # For convenience...
 import .Transforms: AbstractTransform, FFTReal
+import .TransposeMethods: AbstractTransposeMethod
 
 export PencilFFTPlan
 export allocate_input, allocate_output
