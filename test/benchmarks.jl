@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 
+using PencilFFTs
 using PencilFFTs.Pencils
 
 import Base: show
@@ -7,11 +8,13 @@ import Base: show
 using MPI
 
 using InteractiveUtils
+using LinearAlgebra
 using Profile
 using Random
 using Test
 using TimerOutputs
 
+TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(Pencils)
 
 const PROFILE = false
@@ -22,6 +25,10 @@ const MEASURE_GATHER = false
 
 const DIMS = (128, 192, 64)
 const ITERATIONS = 20
+
+const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
+
+const SEPARATOR = string("\n\n", "*"^80)
 
 # Slab decomposition
 function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true};
@@ -57,12 +64,12 @@ function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{false}
     pen1, pen2, pen3
 end
 
-function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
-                          iterations=ITERATIONS,
-                          with_permutations::Val=Val(true),
-                          extra_dims::Tuple=(),
-                          transpose_method=TransposeMethods.IsendIrecv(),
-                         )
+function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
+                           iterations=ITERATIONS,
+                           with_permutations::Val=Val(true),
+                           extra_dims::Tuple=(),
+                           transpose_method=TransposeMethods.IsendIrecv(),
+                          )
     topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
@@ -101,7 +108,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
     @test u[1] == u_orig
 
     if myrank == 0
-        print(
+        println("\n",
             """
             Processes:               $proc_dims
             Data dimensions:         $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
@@ -109,8 +116,7 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
             Transpositions:          1 -> 2 -> 3 -> 2 -> 1
             Method:                  $(transpose_method)
             """)
-        println(to)
-        println()
+        println(to, SEPARATOR)
     end
 
     if PROFILE
@@ -126,6 +132,42 @@ function benchmark_decomp(comm, proc_dims::Tuple, data_dims::Tuple;
                  PROFILE_OUTPUT, "w")
         end
     end
+
+    nothing
+end
+
+function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
+                        iterations=ITERATIONS,
+                        transpose_method=TransposeMethods.IsendIrecv(),
+                       )
+    isroot = MPI.Comm_rank(comm) == 0
+
+    to = TimerOutput()
+    plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
+                         timer=to, transpose_method=transpose_method)
+
+    isroot && println("\n", plan, "\nMethod: ", plan.transpose_method, "\n")
+
+    u = allocate_input(plan)
+    v = allocate_output(plan)
+    uprime = similar(u)
+
+    randn!(u)
+
+    # Warm-up
+    mul!(v, plan, u)
+    ldiv!(uprime, plan, v)
+
+    @test u ≈ uprime
+
+    reset_timer!(to)
+
+    for it = 1:iterations
+        mul!(v, plan, u)
+        ldiv!(u, plan, v)
+    end
+
+    isroot && println(to, SEPARATOR)
 
     nothing
 end
@@ -154,14 +196,14 @@ function main()
                          TransposeMethods.Alltoallv())
 
     for pdims in pdims_list, method in transpose_methods
-        benchmark_decomp(comm, pdims, DIMS, transpose_method=method)
+        benchmark_rfft(comm, pdims, DIMS, transpose_method=method)
     end
 
-    benchmark_decomp(comm, proc_dims, DIMS, with_permutations=Val(false))
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),
-                     iterations=ITERATIONS >> 1)
-    benchmark_decomp(comm, proc_dims, DIMS, extra_dims=(2, ),
-                     iterations=ITERATIONS >> 1, with_permutations=Val(false))
+    benchmark_pencils(comm, proc_dims, DIMS, with_permutations=Val(false))
+    benchmark_pencils(comm, proc_dims, DIMS, extra_dims=(2, ),
+                      iterations=ITERATIONS >> 1)
+    benchmark_pencils(comm, proc_dims, DIMS, extra_dims=(2, ),
+                      iterations=ITERATIONS >> 1, with_permutations=Val(false))
 
     MPI.Finalize()
 end
