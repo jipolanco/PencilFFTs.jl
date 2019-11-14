@@ -1,9 +1,9 @@
 module TransposeMethods
-export TransposeMethod
-abstract type TransposeMethod end
-struct IsendIrecv <: TransposeMethod end
-struct Alltoallv <: TransposeMethod end
-Base.show(io::IO, ::T) where T <: TransposeMethod =
+export AbstractTransposeMethod
+abstract type AbstractTransposeMethod end
+struct IsendIrecv <: AbstractTransposeMethod end
+struct Alltoallv <: AbstractTransposeMethod end
+Base.show(io::IO, ::T) where T <: AbstractTransposeMethod =
     print(io, last(rsplit(string(T), '.', limit=2)), "()")
 end
 
@@ -46,7 +46,7 @@ Two values are currently accepted:
 """
 @timeit_debug pencil(src).timer function transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
-        method::TransposeMethod=TransposeMethods.IsendIrecv(),
+        method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
        ) where {T, N}
     dest === src && return dest  # same pencil & same data
 
@@ -125,10 +125,10 @@ end
 
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
-function transpose_impl!(R::Int, out::PencilArray{T,N},
-                         in::PencilArray{T,N};
-                         method::TransposeMethod=TransposeMethods.IsendIrecv(),
-                        ) where {T, N}
+function transpose_impl!(
+            R::Int, out::PencilArray{T,N}, in::PencilArray{T,N};
+            method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
+        ) where {T, N}
     Pi = in.pencil
     Po = out.pencil
     timer = Pi.timer
