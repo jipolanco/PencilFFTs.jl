@@ -11,7 +11,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-# https://julialang.github.io/Pkg.jl/v1/compatibility/#Tilde-specifiers-1
+# https://julialang.github.io/Pkg.jl/v1/compatibility/#Inequality-specifiers-1
 # Pin version of TimerOutputs to 0.5.1.
 # Right now, all other versions (older and newer) cause type inference issues.
-TimerOutputs = "~0.5.1"
+TimerOutputs = "= 0.5.1"
