@@ -39,7 +39,8 @@ binv(::BFFT) = FFT()
 
 _intprod(x::Int, y::Int...) = x * _intprod(y...)
 _intprod() = one(Int)
-_prod_dims(A, dims) = _intprod((size(A, i) for i in dims)...)
+_prod_dims(s::Dims, dims) = _intprod((s[i] for i in dims)...)
+_prod_dims(A::AbstractArray, dims) = _prod_dims(size(A), dims)
 
 scale_factor(::TransformC2C, A, dims) = _prod_dims(A, dims)
 

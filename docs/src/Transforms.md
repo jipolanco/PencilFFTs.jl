@@ -20,6 +20,8 @@ BFFT
 
 RFFT
 BRFFT
+
+R2R
 ```
 
 ## Custom plans
@@ -41,5 +43,6 @@ scale_factor
 eltype_input
 eltype_output
 expand_dims
+kind
 length_output
 ```

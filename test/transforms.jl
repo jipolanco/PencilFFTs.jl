@@ -33,6 +33,19 @@ function test_transform_types(size_in)
 
     @test PencilFFTs.input_data_type(fft_params) === Float64
 
+    # Test type stability of generated plan_r2r (which, as defined in FFTW.jl,
+    # is type unstable!). See comments of `plan` in src/Transforms/r2r.jl.
+    let A = zeros(4, 6, 8)
+        kind = FFTW.REDFT00
+        transform = Transforms.R2R{kind}()
+        @inferred Transforms.plan(transform, A, 2)
+        @inferred Transforms.plan(transform, A, (1, 3))
+        @inferred Transforms.plan(transform, A)
+
+        # This will fail because length(2:3) is not known by the compiler.
+        @test_throws ErrorException @inferred Transforms.plan(transform, A, 2:3)
+    end
+
     nothing
 end
 
@@ -41,17 +54,20 @@ function test_transforms(comm, proc_dims, size_in)
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
+    pair_r2r(tr::Transforms.R2R) = tr => (x -> FFTW.plan_r2r(x, kind(tr)))
+
     pairs = (
              Transforms.BRFFT() => FFTW.plan_brfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,
+             # pair_r2r(Transforms.R2R{FFTW.REDFT00}()),
              (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
                 => (x -> FFTW.plan_rfft(x, 2:3)),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
-                 => (x -> FFTW.plan_fft(x, (1, 3))),
+                => (x -> FFTW.plan_fft(x, (1, 3))),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
-                 => (x -> FFTW.plan_fft(x, 1)),
+                => (x -> FFTW.plan_fft(x, 1)),
             )
 
     @testset "$(p.first) -- $T" for p in pairs, T in (Float32, Float64)
@@ -120,18 +136,34 @@ function test_pencil_plans(size_in::Tuple)
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
             @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
             @inferred PencilFFTs.input_data_type(Float64, transforms...)
+        end
 
-            let transforms = (Transforms.NoTransform(), Transforms.FFT())
-                @test PencilFFTs.input_data_type(Float32, transforms...) ===
+        let transforms = (Transforms.NoTransform(), Transforms.FFT())
+            @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 ComplexF32
-                @inferred PencilFFTs.input_data_type(Float32, transforms...)
-            end
+            @inferred PencilFFTs.input_data_type(Float32, transforms...)
+        end
 
-            let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
-                @test PencilFFTs.input_data_type(Float32, transforms...) ===
+        let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
+            @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 Nothing
-                @inferred PencilFFTs.input_data_type(Float32, transforms...)
-            end
+            @inferred PencilFFTs.input_data_type(Float32, transforms...)
+        end
+
+        let transforms = Transforms.R2R{FFTW.REDFT00}()
+            # @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
+            plan = PencilFFTPlan(size_in, transforms, proc_dims, comm)
+            println(plan)
+
+            plan1d_opt = (permute_dimensions=true,
+                          ibuf=UInt8[],
+                          obuf=UInt8[],
+                          timer=TimerOutput(),
+                          fftw_kw=(),
+                         )
+            @inferred PencilFFTs._create_plans(plan.global_params,
+                                               plan.topology,
+                                               plan1d_opt)
         end
     end
 

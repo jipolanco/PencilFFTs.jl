@@ -24,10 +24,6 @@ const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
 const RealArray{T} = AbstractArray{T} where T <: FFTReal
 const ComplexArray{T} = AbstractArray{T} where T <: Complex
 
-# TODO
-# - add FFTW.jl specific transforms, including r2r
-#   (see https://juliamath.github.io/FFTW.jl/stable/fft.html)
-
 """
     AbstractTransform
 
@@ -49,7 +45,15 @@ For more details on the function arguments, see
 """
 function plan end
 
-plan(t::AbstractTransform, A; kwargs...) = plan(t, A, 1:ndims(A); kwargs...)
+function plan(t::AbstractTransform, A; kwargs...)
+    # Instead of passing dims = 1:N, we pass a tuple (1, 2, ..., N) to make sure
+    # that the length of dims is known at compile time. This is important for
+    # guessing the return type of r2r plans, which in principle are type
+    # unstable (see comments in r2r.jl).
+    N = ndims(A)
+    dims = ntuple(identity, Val(N))  # (1, 2, ..., N)
+    plan(t, A, dims; kwargs...)
+end
 
 """
     binv(transform::AbstractTransform)
@@ -234,6 +238,7 @@ scale_factor(::NoTransform, A, dims) = 1
 
 include("c2c.jl")
 include("r2c.jl")
+include("r2r.jl")
 include("custom_plans.jl")
 
 end
