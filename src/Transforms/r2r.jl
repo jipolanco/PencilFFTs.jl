@@ -38,11 +38,14 @@ DFTs](http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html#The-Halfcomple
 struct R2R{kind} <: AbstractTransform
     function R2R{kind}() where kind
         if kind ∉ R2R_SUPPORTED_KINDS
-            throw(ArgumentError("unsupported r2r transform kind: $kind"))
+            throw(ArgumentError(
+                "unsupported r2r transform kind: $(FFTW.kind2string(kind))"))
         end
         new()
     end
 end
+
+show(io::IO, tr::R2R) = print(io, "R2R{", FFTW.kind2string(kind(tr)), "}()")
 
 """
     kind(transform::R2R)
