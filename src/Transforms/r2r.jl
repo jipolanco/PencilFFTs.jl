@@ -1,7 +1,16 @@
 ## Real-to-real transforms (requires FFTW.jl)
 
-# TODO
-# - Support DHT and R2HC/HC2R
+const R2R_SUPPORTED_KINDS = (
+    FFTW.DHT,
+    FFTW.REDFT00,
+    FFTW.REDFT01,
+    FFTW.REDFT10,
+    FFTW.REDFT11,
+    FFTW.RODFT00,
+    FFTW.RODFT01,
+    FFTW.RODFT10,
+    FFTW.RODFT11,
+)
 
 """
     R2R{kind}()
@@ -21,19 +30,19 @@ docs and the [`FFTW`](http://www.fftw.org/doc/) manual:
 - [discrete Hartley transform](http://www.fftw.org/doc/1d-Discrete-Hartley-Transforms-_0028DHTs_0029.html#g_t1d-Discrete-Hartley-Transforms-_0028DHTs_0029):
   `FFTW.DHT`
 
-- [halfcomplex-format DFT](http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html#The-Halfcomplex_002dformat-DFT):
-  `FFTW.R2HC`, `FFTW.HC2R`
+Note: [half-complex format
+DFTs](http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html#The-Halfcomplex_002dformat-DFT)
+(`FFTW.R2HC`, `FFTW.HC2R`) are not currently supported.
 
 """
-struct R2R{kind} <: AbstractTransform end
-
-# Discrete Cosine transforms.
-const DCT = Union{R2R{FFTW.REDFT00}, R2R{FFTW.REDFT01},
-                  R2R{FFTW.REDFT10}, R2R{FFTW.REDFT11}}
-
-# Discrete Sine transforms.
-const DST = Union{R2R{FFTW.RODFT00}, R2R{FFTW.RODFT01},
-                  R2R{FFTW.RODFT10}, R2R{FFTW.RODFT11}}
+struct R2R{kind} <: AbstractTransform
+    function R2R{kind}() where kind
+        if kind ∉ R2R_SUPPORTED_KINDS
+            throw(ArgumentError("unsupported r2r transform kind: $kind"))
+        end
+        new()
+    end
+end
 
 """
     kind(transform::R2R)
@@ -46,12 +55,10 @@ length_output(::R2R, length_in::Integer) = length_in
 eltype_input(::R2R, ::Type{T}) where T = T
 eltype_output(::R2R, ::Type{T}) where T = T
 
-_kinds(::Val{kind}, ::Val{N}) where {kind, N} = ntuple(_ -> kind, N)
-
 # NOTE: plan_r2r is type-unstable!!
 # More precisely, plan_r2r returns a FFTW.r2rFFTWPlan{T, K, inplace, N},
 # whose second parameter `K` is "a tuple of the transform kinds along each
-# dimension.". That is, `K` is a tuple of the form `(kind, kind, ..., kind)`
+# dimension". That is, `K` is a tuple of the form `(kind, kind, ..., kind)`
 # with the same length as `dims`.
 #
 # Since we have static information on the kind (it's a parameter of the R2R
@@ -62,10 +69,13 @@ _kinds(::Val{kind}, ::Val{N}) where {kind, N} = ntuple(_ -> kind, N)
 # `2:3`).
 function plan(transform::R2R, A, dims; kwargs...)
     kd = kind(transform)
-    K = _kinds(Val(kd), Val(length(dims)))
+    K = ntuple(_ -> kd, length(dims))
     R = FFTW.r2rFFTWPlan{T, K} where T  # try to guess the return type
     FFTW.plan_r2r(A, kd, dims; kwargs...) :: R
 end
+
+# Default scale factor for r2r transforms.
+scale_factor(::R2R, A, dims) = _prod_dims(2 .* size(A), dims)
 
 # From FFTW docs (4.8.3 1d Real-even DFTs (DCTs)):
 #   The unnormalized inverse of REDFT00 is REDFT00, of REDFT10 is REDFT01 and
@@ -78,8 +88,6 @@ binv(::R2R{FFTW.REDFT01}) = R2R{FFTW.REDFT10}()
 binv(::R2R{FFTW.REDFT10}) = R2R{FFTW.REDFT01}()
 binv(::R2R{FFTW.REDFT11}) = R2R{FFTW.REDFT11}()
 
-scale_factor(::DCT, A, dims) =
-    _prod_dims(2 .* size(A), dims)
 scale_factor(::R2R{FFTW.REDFT00}, A, dims) =
     _prod_dims(2 .* (size(A) .- 1), dims)
 
@@ -87,16 +95,20 @@ scale_factor(::R2R{FFTW.REDFT00}, A, dims) =
 #    The unnormalized inverse of RODFT00 is RODFT00, of RODFT10 is RODFT01 and
 #    vice versa, and of RODFT11 is RODFT11.
 #    Each unnormalized inverse results in the original array multiplied by N,
-#    where N is the logical DFT size. For RODFT00, N=2(n+1); otherwise, N=2n. 
+#    where N is the logical DFT size. For RODFT00, N=2(n+1); otherwise, N=2n.
 binv(::R2R{FFTW.RODFT00}) = R2R{FFTW.RODFT00}()
 binv(::R2R{FFTW.RODFT01}) = R2R{FFTW.RODFT10}()
 binv(::R2R{FFTW.RODFT10}) = R2R{FFTW.RODFT01}()
 binv(::R2R{FFTW.RODFT11}) = R2R{FFTW.RODFT11}()
 
-scale_factor(::DST, A, dims) =
-    _prod_dims(2 .* size(A), dims)
 scale_factor(::R2R{FFTW.RODFT00}, A, dims) =
     _prod_dims(2 .* (size(A) .+ 1), dims)
+
+# From FFTW docs (4.8.5 1d Discrete Hartley Transforms (DHTs)):
+#    [...] applying the transform twice (the DHT is its own inverse) will
+#    multiply the input by n.
+binv(::R2R{FFTW.DHT}) = R2R{FFTW.DHT}()
+scale_factor(::R2R{FFTW.DHT}, A, dims) = _prod_dims(A, dims)
 
 expand_dims(::F, ::Val{N}) where {F <: R2R, N} =
     N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)

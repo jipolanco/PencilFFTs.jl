@@ -15,16 +15,7 @@ const DATA_DIMS = (64, 40, 32)
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
-const TEST_KINDS_R2R = (
-    FFTW.REDFT00,
-    FFTW.REDFT01,
-    FFTW.REDFT10,
-    FFTW.REDFT11,
-    FFTW.RODFT00,
-    FFTW.RODFT01,
-    FFTW.RODFT10,
-    FFTW.RODFT11,
-)
+const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
@@ -55,6 +46,11 @@ function test_transform_types(size_in)
 
         # This will fail because length(2:3) is not known by the compiler.
         @test_throws ErrorException @inferred Transforms.plan(transform, A, 2:3)
+    end
+
+    for kind in (FFTW.R2HC, FFTW.HC2R)
+        # Unsupported r2r kinds.
+        @test_throws ArgumentError Transforms.R2R{kind}()
     end
 
     nothing
