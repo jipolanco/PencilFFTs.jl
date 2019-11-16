@@ -4,6 +4,8 @@ project(bench_p3dfft++ CXX)
 include(ExternalProject)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Compatibility: define "add_compile_definitions" in CMake < 3.12.
 if(NOT COMMAND add_compile_definitions)
@@ -26,15 +28,41 @@ include_directories(${MPI_CXX_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_PATH})
 add_compile_options(${MPI_CXX_COMPILE_OPTIONS})
 add_compile_definitions(${MPI_CXX_COMPILE_DEFINITIONS})
 
-# Find FFTW
-find_library(FFTW3_LIB NAMES libfftw3.so HINTS ${FFTW3_LIBDIR})
-find_file(FFTW3_INC NAMES fftw3.h HINTS ${FFTW3_INCDIR})
-if(NOT FFTW3_INC OR NOT FFTW3_LIB)
-    message(SEND_ERROR
-        "FFTW3 not found! Try setting FFTW3_LIBDIR and FFTW3_INCDIR.")
+# Find FFTW.
+option(USE_JULIA_FFTW "Use same FFTW library as Julia" ON)
+
+if(USE_JULIA_FFTW)
+    execute_process(
+        COMMAND julia -e "import FFTW; println(FFTW.libfftw3)"
+        OUTPUT_VARIABLE julia_libfftw3
+        RESULT_VARIABLE julia_result
+        )
+    if(NOT julia_result EQUAL 0)
+        message(FATAL_ERROR "julia process failed!")
+    endif()
+
+    string(STRIP ${julia_libfftw3} FFTW3_LIB)
+    get_filename_component(FFTW3_LIBDIR ${FFTW3_LIB} DIRECTORY CACHE)
+    find_file(FFTW3_INC fftw3.h HINTS ${FFTW3_LIBDIR}/../include)
+
+    if(NOT FFTW3_INC)
+        message(SEND_ERROR "fftw3.h included in FFTW.jl not found!")
+    endif()
+
+    get_filename_component(FFTW3_INCDIR ${FFTW3_INC} DIRECTORY CACHE)
+else()
+    set(FFTW3_LIBDIR "" CACHE PATH "FFTW3 library directory")
+    set(FFTW3_INCDIR "" CACHE PATH "FFTW3 include directory")
+
+    find_library(FFTW3_LIB NAMES libfftw3.so HINTS ${FFTW3_LIBDIR})
+    find_file(FFTW3_INC NAMES fftw3.h HINTS ${FFTW3_INCDIR})
+
+    if(NOT FFTW3_INC OR NOT FFTW3_LIB)
+        message(SEND_ERROR
+            "FFTW3 not found! Try setting FFTW3_LIBDIR and FFTW3_INCDIR.")
+    endif()
 endif()
-get_filename_component(FFTW3_LIBDIR ${FFTW3_LIB} DIRECTORY CACHE)
-get_filename_component(FFTW3_INCDIR ${FFTW3_INC} DIRECTORY CACHE)
+
 find_library(FFTW3_LIB_F NAMES libfftw3f.so HINTS ${FFTW3_LIBDIR})
 
 message(STATUS "Using FFTW3 library dir: ${FFTW3_LIBDIR}")
