@@ -1,5 +1,6 @@
 #include <p3dfft.h>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <iostream>
@@ -9,7 +10,7 @@
 
 template <int N> using Dims = std::array<int, N>;
 
-constexpr Dims<3> GLOBAL_DIMS = {128, 128, 128};
+constexpr Dims<3> DIMS_DEFAULT = {128, 128, 128};
 constexpr int NUM_REPETITIONS = 10;
 
 template <class T, size_t N>
@@ -147,8 +148,27 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
 #endif
 }
 
+struct BenchOptions {
+  Dims<3> dims;
+
+  BenchOptions(int argc, char *const argv[]) : dims(DIMS_DEFAULT) {
+    std::vector<std::string> args;
+    while (argc--) args.push_back(*argv++);
+
+    // Parse "-N" option.
+    auto it = std::find(args.begin(), args.end(), "-N");
+    if (it < args.end() - 1) {
+      auto val_str = *(it + 1);
+      int N = std::stoi(val_str);
+      dims = {N, N, N};
+    }
+  }
+};
+
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
+
+  auto opt = BenchOptions(argc, argv);
 
   p3dfft::setup();
 
@@ -166,7 +186,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Data dimensions.
-  auto dims = GLOBAL_DIMS;
+  auto dims = opt.dims;
 
   // Create 2D Cartesian topology.
   Dims<2> pdims = {0, 0};
