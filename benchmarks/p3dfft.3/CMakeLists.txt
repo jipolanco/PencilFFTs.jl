@@ -109,7 +109,7 @@ add_library(p3dfft STATIC IMPORTED GLOBAL)
 add_dependencies(p3dfft p3dfft_build)
 set_target_properties(p3dfft PROPERTIES
     IMPORTED_LOCATION ${p3dfft_install_prefix}/lib/libp3dfft.3.a
-    INTERFACE_INCLUDE_DIRECTORIES ${p3dfft_incdir}
+    INTERFACE_INCLUDE_DIRECTORIES "${p3dfft_incdir};${FFTW3_INCDIR}"
     INTERFACE_COMPILE_DEFINITIONS "HAVE_CONFIG_H;TIMERS"
     )
 target_link_libraries(p3dfft INTERFACE ${FFTW3_LIB} ${FFTW3_LIB_F})
