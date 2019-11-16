@@ -23,12 +23,23 @@ const PROFILE_DEPTH = 8
 
 const MEASURE_GATHER = false
 
-const DIMS = (128, 192, 64)
+const DIMS_DEFAULT = (128, 192, 64)
 const ITERATIONS = 20
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 const SEPARATOR = string("\n\n", "*"^80)
+
+function parse_dims() :: Dims{3}
+    i = findfirst(s -> s == "-N", ARGS)
+    i === nothing && return DIMS_DEFAULT
+    N = try
+        parse(Int, ARGS[i + 1])
+    catch e
+        error("Could not parse `-N` option.")
+    end
+    (N, N, N)
+end
 
 # Slab decomposition
 function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true};
@@ -175,9 +186,15 @@ end
 function main()
     MPI.Init()
 
+    dims = parse_dims()
+
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
+
+    if myrank == 0
+        @info "Global dimensions: $dims"
+    end
 
     # Let MPI_Dims_create choose the decomposition.
     proc_dims = let pdims = zeros(Int, 2)
@@ -196,13 +213,13 @@ function main()
                          TransposeMethods.Alltoallv())
 
     for pdims in pdims_list, method in transpose_methods
-        benchmark_rfft(comm, pdims, DIMS, transpose_method=method)
+        benchmark_rfft(comm, pdims, dims, transpose_method=method)
     end
 
-    benchmark_pencils(comm, proc_dims, DIMS, with_permutations=Val(false))
-    benchmark_pencils(comm, proc_dims, DIMS, extra_dims=(2, ),
+    benchmark_pencils(comm, proc_dims, dims, with_permutations=Val(false))
+    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
                       iterations=ITERATIONS >> 1)
-    benchmark_pencils(comm, proc_dims, DIMS, extra_dims=(2, ),
+    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
                       iterations=ITERATIONS >> 1, with_permutations=Val(false))
 
     MPI.Finalize()
