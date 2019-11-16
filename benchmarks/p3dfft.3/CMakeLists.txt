@@ -80,7 +80,7 @@ set(p3dfft_config_flags
     )
 set(p3dfft_config_vars
     "CXX=${MPI_CXX_COMPILER}"
-    "CFLAGS=-O3 -DNDEBUG")
+    "CXXFLAGS=-O3 -DNDEBUG")
 set(p3dfft_interface_definitions "HAVE_CONFIG_H")
 
 option(P3DFFT_ENABLE_TIMERS "Enable P3DFFT timers" ON)
