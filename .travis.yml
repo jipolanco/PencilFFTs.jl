@@ -24,7 +24,7 @@ script:
 
 jobs:
   allow_failures:
-    julia: nightly
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.2
