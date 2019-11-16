@@ -42,7 +42,7 @@ Get `kind` of real-to-real transform.
 """
 kind(::R2R{K}) where K = K
 
-length_output(::DCT, length_in::Integer) = length_in
+length_output(::R2R, length_in::Integer) = length_in
 eltype_input(::R2R, ::Type{T}) where T = T
 eltype_output(::R2R, ::Type{T}) where T = T
 
