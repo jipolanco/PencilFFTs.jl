@@ -74,7 +74,6 @@ set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
 set(p3dfft_config_flags
     "--enable-fftw"
     "--enable-fftwestimate"
-    "--enable-timers"
     "--with-fftw-lib=${FFTW3_LIBDIR}"
     "--with-fftw-inc=${FFTW3_INCDIR}"
     "--prefix=${p3dfft_install_prefix}"
@@ -82,6 +81,14 @@ set(p3dfft_config_flags
 set(p3dfft_config_vars
     "CXX=${MPI_CXX_COMPILER}"
     "CFLAGS=-O3 -DNDEBUG")
+set(p3dfft_interface_definitions "HAVE_CONFIG_H")
+
+option(P3DFFT_ENABLE_TIMERS "Enable P3DFFT timers" ON)
+if(P3DFFT_ENABLE_TIMERS)
+    list(APPEND p3dfft_config_flags "--enable-timers")
+    list(APPEND p3dfft_interface_definitions "TIMERS")
+endif()
+
 message(STATUS "P3DFFT++ config flags: ${p3dfft_config_flags}")
 message(STATUS "P3DFFT++ config variables: ${p3dfft_config_vars}")
 
@@ -110,7 +117,7 @@ add_dependencies(p3dfft p3dfft_build)
 set_target_properties(p3dfft PROPERTIES
     IMPORTED_LOCATION ${p3dfft_install_prefix}/lib/libp3dfft.3.a
     INTERFACE_INCLUDE_DIRECTORIES "${p3dfft_incdir};${FFTW3_INCDIR}"
-    INTERFACE_COMPILE_DEFINITIONS "HAVE_CONFIG_H;TIMERS"
+    INTERFACE_COMPILE_DEFINITIONS ${p3dfft_interface_definitions}
     )
 target_link_libraries(p3dfft INTERFACE ${FFTW3_LIB} ${FFTW3_LIB_F})
 
