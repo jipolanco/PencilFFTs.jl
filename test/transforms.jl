@@ -125,22 +125,15 @@ function test_transforms(comm, proc_dims, size_in)
     nothing
 end
 
-function test_pencil_plans(size_in::Tuple)
+function test_pencil_plans(size_in::Tuple, pdims::Tuple)
     @assert length(size_in) >= 3
     comm = MPI.COMM_WORLD
-    Nproc = MPI.Comm_size(comm)
 
-    # Let MPI_Dims_create choose the decomposition.
-    proc_dims = let pdims = zeros(Int, 2)
-        MPI.Dims_create!(Nproc, pdims)
-        pdims[1], pdims[2]
-    end
-
-    @inferred PencilFFTPlan(size_in, Transforms.RFFT(), proc_dims, comm, Float64)
+    @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
 
     @testset "Transform types" begin
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-            @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
+            @inferred PencilFFTPlan(size_in, transforms, pdims, comm)
             @inferred PencilFFTs.input_data_type(Float64, transforms...)
         end
 
@@ -157,7 +150,7 @@ function test_pencil_plans(size_in::Tuple)
         end
     end
 
-    test_transforms(comm, proc_dims, size_in)
+    test_transforms(comm, pdims, size_in)
 
     nothing
 end
@@ -167,7 +160,19 @@ function main()
 
     size_in = DATA_DIMS
     test_transform_types(size_in)
-    test_pencil_plans(size_in)
+
+    comm = MPI.COMM_WORLD
+    Nproc = MPI.Comm_size(comm)
+    pdims_1d = (Nproc, )  # slab (1D) decomposition
+
+    # Let MPI_Dims_create choose the 2D decomposition.
+    pdims_2d = let pdims = zeros(Int, 2)
+        MPI.Dims_create!(Nproc, pdims)
+        pdims[1], pdims[2]
+    end
+
+    test_pencil_plans(size_in, pdims_1d)
+    test_pencil_plans(size_in, pdims_2d)
 
     MPI.Finalize()
 end
