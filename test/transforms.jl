@@ -108,15 +108,12 @@ function test_transforms(comm, proc_dims, size_in)
         @test u ≈ uprime
 
         # Compare result with serial FFT.
-        same = Ref(false)
         ug = gather(u, root)
         vg = gather(v, root)
 
         if ug !== nothing && vg !== nothing
             p = fftw_planner(ug)
-
             vg_serial = p * ug
-            mul!(vg_serial, p, ug)
             @test vg ≈ vg_serial
         end
 
