@@ -215,9 +215,7 @@ function expand_dims end
 expand_dims(::F, ::Val) where {F <: AbstractTransform} =
     throw(ArgumentError("I don't know how to expand transform $F"))
 
-show(io::IO, ::F) where F <: AbstractTransform =
-    # PencilFFTs.Transforms.Name -> Name()
-    print(io, last(rsplit(string(F), '.', limit=2)), "()")
+show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
 
 """
     NoTransform()

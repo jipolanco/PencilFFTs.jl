@@ -1,5 +1,7 @@
 ## Real-to-real transforms (requires FFTW.jl)
 
+import FFTW: kind2string
+
 const R2R_SUPPORTED_KINDS = (
     FFTW.DHT,
     FFTW.REDFT00,
@@ -39,13 +41,13 @@ struct R2R{kind} <: AbstractTransform
     function R2R{kind}() where kind
         if kind ∉ R2R_SUPPORTED_KINDS
             throw(ArgumentError(
-                "unsupported r2r transform kind: $(FFTW.kind2string(kind))"))
+                "unsupported r2r transform kind: $(kind2string(kind))"))
         end
         new()
     end
 end
 
-show(io::IO, tr::R2R) = print(io, "R2R{", FFTW.kind2string(kind(tr)), "}()")
+show(io::IO, tr::R2R) = print(io, "R2R{", kind2string(kind(tr)), "}")
 
 """
     kind(transform::R2R)

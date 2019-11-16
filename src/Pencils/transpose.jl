@@ -4,7 +4,7 @@ abstract type AbstractTransposeMethod end
 struct IsendIrecv <: AbstractTransposeMethod end
 struct Alltoallv <: AbstractTransposeMethod end
 Base.show(io::IO, ::T) where T <: AbstractTransposeMethod =
-    print(io, last(rsplit(string(T), '.', limit=2)), "()")
+    print(io, nameof(T))
 end
 
 using .TransposeMethods
