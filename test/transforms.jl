@@ -15,6 +15,17 @@ const DATA_DIMS = (64, 40, 32)
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
+const TEST_KINDS_R2R = (
+    FFTW.REDFT00,
+    FFTW.REDFT01,
+    FFTW.REDFT10,
+    FFTW.REDFT11,
+    FFTW.RODFT00,
+    FFTW.RODFT01,
+    FFTW.RODFT10,
+    FFTW.RODFT11,
+)
+
 function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
@@ -54,14 +65,16 @@ function test_transforms(comm, proc_dims, size_in)
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
-    pair_r2r(tr::Transforms.R2R) = tr => (x -> FFTW.plan_r2r(x, kind(tr)))
+    pair_r2r(tr::Transforms.R2R) =
+        tr => (x -> FFTW.plan_r2r(x, Transforms.kind(tr)))
+    pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
 
     pairs = (
              Transforms.BRFFT() => FFTW.plan_brfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,
-             # pair_r2r(Transforms.R2R{FFTW.REDFT00}()),
+             pairs_r2r...,
              (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
                 => (x -> FFTW.plan_rfft(x, 2:3)),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
@@ -148,22 +161,6 @@ function test_pencil_plans(size_in::Tuple)
             @test PencilFFTs.input_data_type(Float32, transforms...) ===
                 Nothing
             @inferred PencilFFTs.input_data_type(Float32, transforms...)
-        end
-
-        let transforms = Transforms.R2R{FFTW.REDFT00}()
-            # @inferred PencilFFTPlan(size_in, transforms, proc_dims, comm)
-            plan = PencilFFTPlan(size_in, transforms, proc_dims, comm)
-            println(plan)
-
-            plan1d_opt = (permute_dimensions=true,
-                          ibuf=UInt8[],
-                          obuf=UInt8[],
-                          timer=TimerOutput(),
-                          fftw_kw=(),
-                         )
-            @inferred PencilFFTs._create_plans(plan.global_params,
-                                               plan.topology,
-                                               plan1d_opt)
         end
     end
 
