@@ -103,10 +103,6 @@ struct PencilFFTPlan{T,
     topology      :: MPITopology{M}
 
     # One-dimensional plans, including data decomposition configurations.
-    # TODO Maybe this should be a tuple of M + 1 pairs.
-    # This is the minimal number of configurations required.
-    # In the case of slab decomposition in 3D, this would avoid a
-    # data transposition!
     plans :: P
 
     # Scale factor to be applied after backwards transforms.
@@ -139,7 +135,6 @@ struct PencilFFTPlan{T,
                            timer::TimerOutput=TimerOutput(),
                            ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
                           ) where {N, M, T <: FFTReal}
-        _check_transforms(transforms...)
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
 
@@ -168,14 +163,6 @@ struct PencilFFTPlan{T,
                       args...; kwargs...)
     end
 end
-
-function _check_transforms(t::AbstractTransform,
-                           next::Vararg{AbstractTransform})
-    # TODO Is there something to check here??
-    _check_transforms(next...)
-end
-
-_check_transforms() = nothing
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
@@ -272,9 +259,6 @@ function _create_plans(::Type{Ti},
 
     local scale_bw
 
-    # TODO
-    # - this may be a multidimensional transform, for example when doing slab
-    #   decomposition
     fftplans = let p = get_permutation(Pi)
         dims = if p === nothing
             n  # no index permutation
