@@ -19,12 +19,6 @@ struct PencilPlan1D{Pi <: Pencil,
     bfft_plan  :: FFTPlanB  # backward FFTW plan (unnormalised)
 
     scale_factor :: Int  # scale factor for backward transform
-
-    # Temporary data buffers (shared among all 1D plans)
-    ibuf       :: Vector{UInt8}
-    obuf       :: Vector{UInt8}
-
-    timer      :: TimerOutput
 end
 
 """
@@ -121,6 +115,10 @@ struct PencilFFTPlan{T,
     # `method` parameter passed to `Pencils.transpose!`
     transpose_method :: TransposeMethod
 
+    # Temporary data buffers.
+    ibuf :: Vector{UInt8}
+    obuf :: Vector{UInt8}
+
     # Runtime timing.
     # Should be used along with the @timeit_debug macro, to be able to turn it
     # off if desired.
@@ -160,7 +158,7 @@ struct PencilFFTPlan{T,
         scale = prod(p -> p.scale_factor, plans)
 
         new{T, N, M, typeof(g), typeof(plans), typeof(transpose_method)}(
-            g, t, plans, scale, transpose_method, timer)
+            g, t, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 
     function PencilFFTPlan(size_global::Dims{N},
@@ -312,8 +310,7 @@ function _create_plans(::Type{Ti},
         map(p -> plan(p.first, data(p.second), dims; fftw_kw...), pairs)
     end
 
-    plan_n = PencilPlan1D(Pi, Po, transform_fw, fftplans..., scale_bw,
-                          plan1d_opt.ibuf, plan1d_opt.obuf, plan1d_opt.timer)
+    plan_n = PencilPlan1D(Pi, Po, transform_fw, fftplans..., scale_bw)
 
     (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
                            transforms_next...)...)
