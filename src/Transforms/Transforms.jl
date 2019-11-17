@@ -68,10 +68,10 @@ normalisation factor for a given array can be obtained by calling
 
 ```jldoctest
 julia> binv(Transforms.FFT())
-BFFT()
+BFFT
 
 julia> binv(Transforms.BRFFT())
-RFFT()
+RFFT
 ```
 """
 function binv end
@@ -201,13 +201,13 @@ Expand a single multidimensional transform into one transform per dimension.
 ```jldoctest
 # Expand a real-to-complex transform in 3 dimensions.
 julia> expand_dims(Transforms.RFFT(), Val(3))
-(RFFT(), FFT(), FFT())
+(RFFT, FFT, FFT)
 
 julia> expand_dims(Transforms.BRFFT(), Val(3))
-(BRFFT(), BFFT(), BFFT())
+(BRFFT, BFFT, BFFT)
 
 julia> expand_dims(Transforms.NoTransform(), Val(2))
-(NoTransform(), NoTransform())
+(NoTransform, NoTransform)
 ```
 """
 function expand_dims end
