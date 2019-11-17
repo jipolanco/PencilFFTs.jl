@@ -24,7 +24,7 @@ configuration to the other and perform FFTs along the other dimensions.
 
 ![Pencil decomposition of 3D domains.](docs/src/img/pencils.svg)
 
-See the [package documentation](https://jipolanco.github.io/PencilFFTs.jl/latest/)
+See the [package documentation](https://jipolanco.github.io/PencilFFTs.jl/stable/)
 for more details.
 
 ## Similar projects
