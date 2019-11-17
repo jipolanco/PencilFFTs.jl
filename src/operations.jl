@@ -42,11 +42,20 @@ function \(p::PencilFFTPlan, src::PencilArray)
     end
 end
 
-function _apply_plans!(dir::Val{FFTW.FORWARD}, y::PencilArray, x::PencilArray,
+function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
                        full_plan::PencilFFTPlan,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
-    Pi = plan.pencil_in
-    Po = plan.pencil_out
+    if dir === Val(FFTW.FORWARD)
+        Pi = plan.pencil_in
+        Po = plan.pencil_out
+        fftw_plan = plan.fft_plan
+    elseif dir === Val(FFTW.BACKWARD)
+        Pi = plan.pencil_out
+        Po = plan.pencil_in
+        fftw_plan = plan.bfft_plan
+    end
+
+    @debug "Apply 1D plan" fftw_plan get_permutation(Pi)
 
     # Transpose pencil if required.
     u = if pencil(x) === Pi
@@ -57,27 +66,7 @@ function _apply_plans!(dir::Val{FFTW.FORWARD}, y::PencilArray, x::PencilArray,
     end
 
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, full_plan.obuf)
-    @timeit_debug full_plan.timer "FFT" mul!(data(v), plan.fft_plan, data(u))
-
-    _apply_plans!(dir, y, v, full_plan, next_plans...)
-end
-
-function _apply_plans!(dir::Val{FFTW.BACKWARD}, y::PencilArray, x::PencilArray,
-                       full_plan::PencilFFTPlan,
-                       plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
-    Pi = plan.pencil_out
-    Po = plan.pencil_in
-
-    # Transpose pencil if required.
-    u = if pencil(x) === Pi
-        x
-    else
-        u = _temporary_pencil_array(Pi, full_plan.ibuf)
-        transpose!(u, x, method=full_plan.transpose_method)
-    end
-
-    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, full_plan.obuf)
-    @timeit_debug full_plan.timer "FFT" mul!(data(v), plan.bfft_plan, data(u))
+    @timeit_debug full_plan.timer "FFT" mul!(data(v), fftw_plan, data(u))
 
     _apply_plans!(dir, y, v, full_plan, next_plans...)
 end
