@@ -33,6 +33,7 @@ const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 include("mpi_topology.jl")  # MPITopology
 include("pencil.jl")        # Pencil
 include("arrays.jl")        # PencilArray
+include("shifted_array.jl") # ShiftedArrayView
 
 include("data_ranges.jl")
 include("mpi_wrappers.jl")

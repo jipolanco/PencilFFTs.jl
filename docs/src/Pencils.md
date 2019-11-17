@@ -14,6 +14,7 @@ Pencils
 MPITopology
 Pencil
 PencilArray
+ShiftedArrayView
 ```
 
 ## Functions
@@ -25,6 +26,7 @@ gather
 get_comm
 get_decomposition
 get_permutation
+global_view
 length
 ndims
 ndims_extra
