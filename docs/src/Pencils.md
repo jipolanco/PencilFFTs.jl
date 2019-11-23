@@ -27,11 +27,13 @@ get_comm
 get_decomposition
 get_permutation
 global_view
+has_indices
 length
 ndims
 ndims_extra
 parent
 pencil
+range_local
 size
 size_global
 size_local

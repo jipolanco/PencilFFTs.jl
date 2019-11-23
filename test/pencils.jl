@@ -39,6 +39,27 @@ function test_array_wrappers(p::Pencil)
         @inferred size_global(w)
     end
 
+    let offsets = (3, 4)
+        dims = (8, 3)
+        x = randn(dims...)
+        u = ShiftedArrayView(x, offsets)
+        @test axes(u) == (4:11, 5:7)
+        @test u[6, 6] == x[3, 2]
+        @test u[2] == x[2]  # linear indexing stays the same
+        @test sum(u) ≈ sum(x)
+        @test has_indices(u, 5, 6)
+        @test !has_indices(u, 2, 1)
+    end
+
+    let offsets = (3, )
+        x = randn(8)
+        u = ShiftedArrayView(x, offsets)
+        @test axes(u) == (4:11, )
+        @test u[6] == x[3]  # linear indexing is shifted (1D arrays only)
+        @test sum(u) ≈ sum(x)
+        @test has_indices(u, 5) && !has_indices(u, -2)
+    end
+
     nothing
 end
 
@@ -125,9 +146,6 @@ function main()
             x2nothing = Pencils.relative_permutation(x, nothing)
             @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
         end
-
-        @test Pencils.size_local(pen1) ==
-            Pencils.size_remote(pen1, pen1.topology.coords_local...)
     end
 
     transpose_methods = (TransposeMethods.IsendIrecv(),
@@ -180,6 +198,12 @@ function main()
         @test compare_distributed_arrays(u1, u2)
         transpose!(u3, u2)
         @test compare_distributed_arrays(u2, u3)
+
+        @inferred global_view(u1)
+        let g = global_view(u1)
+            @inferred axes(g)
+            @inferred axes(g, 3)
+        end
     end
 
     # Test slab (1D) decomposition.
@@ -225,11 +249,6 @@ function main()
 
         @inferred PencilArray(pen2)
         @inferred PencilArray(pen2, 3, 4)
-
-        # @inferred Pencils.size_remote(pen1, 1, 1)
-        # @inferred Pencils.size_remote(pen1, 1, :)
-        # @inferred Pencils.size_remote(pen1, :, 1)
-        # @inferred Pencils.size_remote(pen1, :, :)
 
         @inferred Pencils.permute_indices(Nxyz, (2, 3, 1))
         @inferred Pencils.relative_permutation((1, 2, 3), (2, 3, 1))

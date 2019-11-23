@@ -12,11 +12,12 @@ using TimerOutputs
 import Base: ndims, size, length, eltype, show
 import LinearAlgebra: transpose!
 
-export Pencil, PencilArray, MPITopology
+export Pencil, PencilArray, MPITopology, ShiftedArrayView
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
+export global_view, has_indices
 export ndims_extra
-export size_local, size_global
+export range_local, size_local, size_global
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.
