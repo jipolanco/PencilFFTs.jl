@@ -1,5 +1,7 @@
 # See https://docs.julialang.org/en/latest/devdocs/offset-arrays
 
+import Base: @propagate_inbounds
+
 """
     ShiftedArrayView{T,N}
 
@@ -32,20 +34,27 @@ IndexStyle(::ShiftedArrayView{T,N,A} where {T,N}) where A = IndexStyle(A)
 
 # For dimensions N > 1, linear indexing doesn't shift the indices, so that fast
 # IndexLinear indexing can still be used when possible.
-Base.getindex(x::ShiftedArrayView, i::Int) = x.data[i]
-Base.setindex!(x::ShiftedArrayView, v, i::Int) = x.data[i] = v
+@propagate_inbounds Base.getindex(x::ShiftedArrayView, i::Int) = x.data[i]
 
-Base.getindex(x::ShiftedArrayView{T,N} where T, I::Vararg{Int,N}) where N =
+@propagate_inbounds Base.setindex!(x::ShiftedArrayView, v, i::Int) =
+    x.data[i] = v
+
+@propagate_inbounds Base.getindex(
+        x::ShiftedArrayView{T,N} where T, I::Vararg{Int,N}) where N =
     x.data[(I .- x.offsets)...]
-Base.setindex!(x::ShiftedArrayView{T,N} where T, v, I::Vararg{Int,N}) where N =
+
+@propagate_inbounds Base.setindex!(
+        x::ShiftedArrayView{T,N} where T, v, I::Vararg{Int,N}) where N =
     x.data[(I .- x.offsets)...] = v
 
 # Special case of 1D arrays.
 # We always assume that indices are shifted.
 IndexStyle(::ShiftedArrayView{T,1} where {T}) = IndexCartesian()
-Base.getindex(x::ShiftedArrayView{T,1} where T, i::Int) =
+
+@propagate_inbounds Base.getindex(x::ShiftedArrayView{T,1} where T, i::Int) =
     x.data[i - first(x.offsets)]
-Base.setindex!(x::ShiftedArrayView{T,1} where T, v, i::Int) =
+
+@propagate_inbounds Base.setindex!(x::ShiftedArrayView{T,1} where T, v, i::Int) =
     x.data[i - first(x.offsets)] = v
 
 """

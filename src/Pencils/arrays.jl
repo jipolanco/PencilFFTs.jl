@@ -1,5 +1,6 @@
 # Functions implemented for PencilArray.
-import Base: size, getindex, setindex!, similar, IndexStyle, parent
+import Base: size, getindex, setindex!, similar, IndexStyle, parent,
+    @propagate_inbounds
 export data, pencil
 
 """
@@ -77,8 +78,8 @@ PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
 size(x::PencilArray) = size(data(x))
 
 IndexStyle(::PencilArray{T,N,P,A} where {T,N,P}) where A = IndexStyle(A)
-getindex(x::PencilArray, inds...) = getindex(x.data, inds...)
-setindex!(x::PencilArray, v, inds...) = setindex!(x.data, v, inds...)
+@propagate_inbounds getindex(x::PencilArray, inds...) = x.data[inds...]
+@propagate_inbounds setindex!(x::PencilArray, v, inds...) = x.data[inds...] = v
 
 similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
     PencilArray(x.pencil, similar(x.data, S, dims))
