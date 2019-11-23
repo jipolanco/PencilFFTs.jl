@@ -304,7 +304,7 @@ end
 _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
               plan_prev) = ()
 
-function show(io::IO, p::PencilFFTPlan)
+function Base.show(io::IO, p::PencilFFTPlan)
     show(io, p.global_params)
     show(io, p.topology)
     nothing

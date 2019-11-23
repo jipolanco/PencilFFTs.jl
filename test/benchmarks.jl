@@ -3,8 +3,6 @@
 using PencilFFTs
 using PencilFFTs.Pencils
 
-import Base: show
-
 using MPI
 
 using InteractiveUtils

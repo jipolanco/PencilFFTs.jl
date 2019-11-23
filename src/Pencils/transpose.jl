@@ -44,7 +44,7 @@ Two values are currently accepted:
   transpositions.
 
 """
-@timeit_debug pencil(src).timer function transpose!(
+@timeit_debug pencil(src).timer function LinearAlgebra.transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
         method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
        ) where {T, N}

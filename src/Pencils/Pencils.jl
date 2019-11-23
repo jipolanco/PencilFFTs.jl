@@ -10,7 +10,7 @@ using MPI
 using TimerOutputs
 
 import Base: @propagate_inbounds
-import LinearAlgebra: transpose!
+import LinearAlgebra
 
 export Pencil, PencilArray, MPITopology, ShiftedArrayView
 export data, pencil

@@ -54,7 +54,7 @@ struct GlobalFFTParams{T, N, F <: AbstractTransformList{N}}
     end
 end
 
-function show(io::IO, g::GlobalFFTParams)
+function Base.show(io::IO, g::GlobalFFTParams)
     println(io, "Transforms: ", g.transforms)
     println(io, "Global dimensions: ",
             g.size_global_in, "  ->  ", g.size_global_out)

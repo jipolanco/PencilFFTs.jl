@@ -1,8 +1,8 @@
 const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 
 ## Forward transforms
-function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
-              src::PencilArray{Ti,N}) where {T, N,
+function LinearAlgebra.mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
+                            src::PencilArray{Ti,N}) where {T, N,
                                              Ti <: RealOrComplex{T},
                                              To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs mul!" begin
@@ -11,7 +11,7 @@ function mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
     end
 end
 
-function *(p::PencilFFTPlan, src::PencilArray)
+function Base.:*(p::PencilFFTPlan, src::PencilArray)
     @timeit_debug p.timer "PencilFFTs *" begin
         _check_arrays(p, src, nothing)
         dst = allocate_output(p)
@@ -20,8 +20,8 @@ function *(p::PencilFFTPlan, src::PencilArray)
 end
 
 ## Backward transforms
-function ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
-               src::PencilArray{Ti,N}) where {T, N,
+function LinearAlgebra.ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
+                             src::PencilArray{Ti,N}) where {T, N,
                                              Ti <: RealOrComplex{T},
                                              To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs ldiv!" begin
@@ -34,7 +34,7 @@ function ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
     end
 end
 
-function \(p::PencilFFTPlan, src::PencilArray)
+function Base.:\(p::PencilFFTPlan, src::PencilArray)
     @timeit_debug p.timer "PencilFFTs \\" begin
         _check_arrays(p, nothing, src)
         dst = allocate_input(p)

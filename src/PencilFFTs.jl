@@ -3,6 +3,7 @@ module PencilFFTs
 import FFTW
 import MPI
 
+using LinearAlgebra
 using Reexport
 using TimerOutputs
 
@@ -21,9 +22,6 @@ export allocate_input, allocate_output
 
 # Functions to be extended for PencilFFTs types.
 import .Pencils: get_comm, get_timer
-
-import Base: *, \, show
-import LinearAlgebra: mul!, ldiv!
 
 const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 

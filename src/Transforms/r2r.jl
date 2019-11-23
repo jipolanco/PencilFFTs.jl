@@ -47,7 +47,7 @@ struct R2R{kind} <: AbstractTransform
     end
 end
 
-show(io::IO, tr::R2R) = print(io, "R2R{", kind2string(kind(tr)), "}")
+Base.show(io::IO, tr::R2R) = print(io, "R2R{", kind2string(kind(tr)), "}")
 
 """
     kind(transform::R2R)

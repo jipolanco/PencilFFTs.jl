@@ -13,10 +13,8 @@ module Transforms
 using FFTW
 
 # Operations defined for custom plans (currently IdentityPlan).
-import LinearAlgebra: mul!, ldiv!
-import Base: *, \
+import LinearAlgebra
 
-import Base: show
 export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
@@ -215,7 +213,7 @@ function expand_dims end
 expand_dims(::F, ::Val) where {F <: AbstractTransform} =
     throw(ArgumentError("I don't know how to expand transform $F"))
 
-show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
+Base.show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
 
 """
     NoTransform()
