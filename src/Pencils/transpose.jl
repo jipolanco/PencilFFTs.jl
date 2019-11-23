@@ -10,6 +10,8 @@ end
 using .TransposeMethods
 export TransposeMethods
 
+import LinearAlgebra: transpose!
+
 """
     transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
                method=TransposeMethods.IsendIrecv())
@@ -44,7 +46,7 @@ Two values are currently accepted:
   transpositions.
 
 """
-@timeit_debug pencil(src).timer function LinearAlgebra.transpose!(
+@timeit_debug pencil(src).timer function transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
         method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
        ) where {T, N}
