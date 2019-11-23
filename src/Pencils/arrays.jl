@@ -1,7 +1,3 @@
-# Functions implemented for PencilArray.
-import Base: size, getindex, setindex!, similar, IndexStyle, parent
-export data, pencil
-
 """
     PencilArray(pencil::P, data::AbstractArray{T,N})
 
@@ -74,19 +70,20 @@ PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
     PencilArray(pencil, Array{eltype(pencil)}(undef, extra_dims...,
                                               size_local(pencil)...))
 
-size(x::PencilArray) = size(x.data)
+Base.size(x::PencilArray) = size(data(x))
 
 IndexStyle(::PencilArray{T,N,P,A} where {T,N,P}) where A = IndexStyle(A)
-getindex(x::PencilArray, inds...) = getindex(x.data, inds...)
-setindex!(x::PencilArray, v, inds...) = setindex!(x.data, v, inds...)
+@propagate_inbounds Base.getindex(x::PencilArray, inds...) = x.data[inds...]
+@propagate_inbounds Base.setindex!(x::PencilArray, v, inds...) =
+    x.data[inds...] = v
 
-similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
+Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
     PencilArray(x.pencil, similar(x.data, S, dims))
 
 """
     data(x::PencilArray)
 
-Returns array wrapped by the `PencilArray`.
+Returns array wrapped by a `PencilArray`.
 """
 data(x::PencilArray) = x.data
 
@@ -105,7 +102,7 @@ Returns the actual array containing the `PencilArray` data.
 If the `PencilArray` is wrapping a `SubArray`, then this returns its "parent
 array".
 """
-parent(x::PencilArray) = parent(x.data)
+Base.parent(x::PencilArray) = parent(data(x))
 
 """
     ndims_extra(x::PencilArray)
@@ -126,6 +123,17 @@ Unlike `size`, the returned dimensions are *not* permuted according to the
 associated pencil configuration.
 """
 size_global(x::PencilArray) = (x.extra_dims..., size_global(x.pencil)...)
+
+"""
+    range_local(x::PencilArray; permute=true)
+
+Local data range held by the PencilArray.
+
+By default the dimensions are permuted to match the order of indices in the
+array.
+"""
+range_local(x::PencilArray; permute=true) =
+    (Base.OneTo.(x.extra_dims)..., range_local(pencil(x), permute=permute)...)
 
 """
     get_comm(x::PencilArray)

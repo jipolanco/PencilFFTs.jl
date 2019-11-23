@@ -141,7 +141,7 @@ function _sort_dimensions(dims::Dims{N}) where N
     ntuple(n -> s[n], Val(N))  # convert array to tuple
 end
 
-function show(io::IO, p::Pencil)
+function Base.show(io::IO, p::Pencil)
     print(io,
           """
           Decomposition of $(ndims(p))D data
@@ -155,7 +155,7 @@ end
 
 Element type associated to the given pencil.
 """
-eltype(::Pencil{N, M, T} where {N, M}) where T = T
+Base.eltype(::Pencil{N, M, T} where {N, M}) where T = T
 
 """
     get_timer(p::Pencil)
@@ -174,7 +174,7 @@ Number of spatial dimensions associated to pencil data.
 This corresponds to the total number of dimensions of the space, which includes
 the decomposed and non-decomposed dimensions.
 """
-ndims(::Pencil{N}) where N = N
+Base.ndims(::Pencil{N}) where N = N
 
 """
     get_comm(p::Pencil)
@@ -200,15 +200,26 @@ Get tuple with decomposed dimensions of the given pencil configuration.
 get_decomposition(p::Pencil) = p.decomp_dims
 
 """
-    size_local(p::Pencil; permute=true)
+    range_local(p::Pencil; permute=true)
 
-Local dimensions of the Cartesian grid held by the pencil.
+Local data range held by the pencil.
 
 By default the dimensions are permuted to match those of the associated data
 arrays.
 """
-size_local(p::Pencil{N}; permute::Bool=true) where N =
-    length.(permute ? p.axes_local_perm : p.axes_local) :: Dims{N}
+range_local(p::Pencil{N}; permute::Bool=true) where N =
+    (permute ? p.axes_local_perm : p.axes_local) :: ArrayRegion{N}
+
+"""
+    size_local(p::Pencil; permute=true)
+
+Local dimensions of the data held by the pencil.
+
+By default the dimensions are permuted to match those of the associated data
+arrays.
+"""
+size_local(p::Pencil; permute::Bool=true) =
+    length.(range_local(p, permute=permute))
 
 """
     size_global(p::Pencil)
@@ -220,22 +231,6 @@ Unlike `size_local`, the returned dimensions are *not* permuted to match the
 dimensions of the local data.
 """
 size_global(p::Pencil) = p.size_global
-
-# Dimensions of remote data for a single process.
-# TODO do I need this?
-size_remote(p::Pencil{N,M} where N, coords::Vararg{Int,M};
-            permute=p.perm) where M =
-    permute_indices(length.(p.axes_all[coords...]), permute)
-
-# Dimensions (Nx, Ny, Nz) of remote data for multiple processes.
-# TODO do I need this?
-function size_remote(p::Pencil{N,M} where N,
-                     coords::Vararg{Union{Int,Colon},M};
-                     permute=p.perm) where M
-    # Returns an array with as many dimensions as colons in `dims`.
-    axes = p.axes_all[coords...]
-    [permute_indices(length.(ax), permute) for ax in axes]
-end
 
 """
     to_local(p::Pencil, global_inds; permute=true)
