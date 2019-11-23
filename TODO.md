@@ -5,15 +5,14 @@
 - Vector (or tensor) transforms
   * use fastest or slowest indices for components?
 
-- Add FFTW r2r transforms
-
 - Add benchmarks: compare with P3DFFT, ...
+
+- Disallow (or support?) initialising BRFFT plan. Instead, RFFT plan should be
+  created and applied backwards.
 
 ## Docs
 
 - How should I access the data? index permutations?
-
-- Document environment variables: `PENCILS_USE_ALLTOALLV`
 
 ## For later
 
@@ -29,13 +28,3 @@
 - functions to exchange ghost data between pencils
 
 - parallel HDF5 I/O (optional?)
-
-- try to add new `MPI.Cart_*` functions to `MPI.jl`
-
-- compatibility with other distributed array packages? (`MPIArrays`,
-  `DistributedArrays`?)
-
-## Other ideas
-
-- Define arrays with [custom
-  ranges](https://docs.julialang.org/en/v1.2/devdocs/offset-arrays), so that they take global indices.

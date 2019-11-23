@@ -23,7 +23,6 @@ export range_local, size_local, size_global
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.
-# TODO maybe use CartesianIndices?
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
 # Describes indices in an array as a tuple.

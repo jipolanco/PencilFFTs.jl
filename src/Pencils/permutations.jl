@@ -27,7 +27,7 @@ relative_permutation(::Nothing, ::Nothing) = nothing
 
 # In this case, the result is the inverse permutation of `x`, such that
 # `permute_indices(x, perm) == (1, 2, 3, ...)`.
-# TODO compare to using `invperm`
+# (Same as `invperm`, which is type unstable for tuples.)
 relative_permutation(x::Permutation{N}, ::Nothing) where N =
     relative_permutation(x, identity_permutation(Val(N)))
 
