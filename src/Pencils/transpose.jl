@@ -330,9 +330,9 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
     @timeit_debug timer "copy_range!" begin
 
     n = dest_offset
-    @inbounds for I in CartesianIndices(src_range)
+    for I in CartesianIndices(src_range)
         for K in CartesianIndices(extra_dims)
-            dest[n += 1] = src[K, I]
+            @inbounds dest[n += 1] = src[K, I]
         end
     end
 
@@ -341,14 +341,10 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
     dest
 end
 
-function copy_permuted!(dest::AbstractArray{T,N},
-                                            o_range_iperm::ArrayRegion{P},
-                                            src::Vector{T},
-                                            src_offset::Int,
-                                            perm::OptionalPermutation{P},
-                                            extra_dims::Dims{E},
-                                            timer,
-                                           ) where {T,N,P,E}
+function copy_permuted!(dest::AbstractArray{T,N}, o_range_iperm::ArrayRegion{P},
+                        src::Vector{T}, src_offset::Int,
+                        perm::OptionalPermutation{P}, extra_dims::Dims{E},
+                        timer) where {T,N,P,E}
     @assert P + E == N
 
     @timeit_debug timer "copy_permuted!" begin
@@ -357,12 +353,12 @@ function copy_permuted!(dest::AbstractArray{T,N},
     # dimension first), but with a permutation corresponding to the layout of
     # the `src` data.
     n = src_offset
-    @inbounds for I in CartesianIndices(o_range_iperm)
+    for I in CartesianIndices(o_range_iperm)
         # Switch from input to output permutation.
         # Note: this should have zero cost if perm == nothing.
         J = permute_indices(I, perm)
         for K in CartesianIndices(extra_dims)
-            dest[K, J] = src[n += 1]
+            @inbounds dest[K, J] = src[n += 1]
         end
     end
 
