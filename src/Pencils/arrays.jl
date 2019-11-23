@@ -171,8 +171,13 @@ processes.
 This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
-@timeit_debug get_timer(pencil(x)) function gather(
+function gather(
         x::PencilArray{T,N}, root::Integer=0) where {T, N}
+
+    timer = get_timer(pencil(x))
+
+    @timeit_debug timer "gather" begin
+
     # TODO reduce allocations! see `transpose_impl!`
     comm = get_comm(x)
     rank = MPI.Comm_rank(comm)
@@ -238,6 +243,8 @@ datasets!
         rrange = pen.axes_all[n]
         dest[colons_extra_dims..., rrange...] .= recv[n]
     end
+
+    end  # @timeit_debug
 
     dest
 end

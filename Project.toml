@@ -9,9 +9,3 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
-
-[compat]
-# https://julialang.github.io/Pkg.jl/v1/compatibility/#Inequality-specifiers-1
-# Pin version of TimerOutputs to 0.5.1.
-# Right now, all other versions (older and newer) cause type inference issues.
-TimerOutputs = "= 0.5.1"

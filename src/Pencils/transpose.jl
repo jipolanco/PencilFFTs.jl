@@ -46,7 +46,7 @@ Two values are currently accepted:
   transpositions.
 
 """
-@timeit_debug pencil(src).timer function transpose!(
+function transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
         method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
        ) where {T, N}
@@ -55,6 +55,8 @@ Two values are currently accepted:
     Pi = pencil(src)
     Po = pencil(dest)
     timer = Pi.timer
+
+    @timeit_debug timer "transpose!" begin
 
     # Verifications
     if src.extra_dims !== dest.extra_dims
@@ -87,6 +89,8 @@ Two values are currently accepted:
         # MPI data transposition.
         transpose_impl!(R, dest, src, method=method)
     end
+
+    end  # @timeit_debug
 
     dest
 end
@@ -318,14 +322,12 @@ function _get_remote_indices(R::Int, coords_local::Dims{M}, Nproc::Int) where M
     CartesianIndices(t)
 end
 
-@timeit_debug timer function copy_range!(dest::Vector{T},
-                                         dest_offset::Int,
-                                         src::AbstractArray{T,N},
-                                         src_range::ArrayRegion{P},
-                                         extra_dims::Dims{E},
-                                         timer,
-                                        ) where {T,N,P,E}
+function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
+                     src_range::ArrayRegion{P}, extra_dims::Dims{E}, timer,
+                    ) where {T,N,P,E}
     @assert P + E == N
+
+    @timeit_debug timer "copy_range!" begin
 
     n = dest_offset
     @inbounds for I in CartesianIndices(src_range)
@@ -334,10 +336,12 @@ end
         end
     end
 
+    end  # @timeit_debug
+
     dest
 end
 
-@timeit_debug timer function copy_permuted!(dest::AbstractArray{T,N},
+function copy_permuted!(dest::AbstractArray{T,N},
                                             o_range_iperm::ArrayRegion{P},
                                             src::Vector{T},
                                             src_offset::Int,
@@ -346,6 +350,8 @@ end
                                             timer,
                                            ) where {T,N,P,E}
     @assert P + E == N
+
+    @timeit_debug timer "copy_permuted!" begin
 
     # The idea is to visit `dest` not in its natural order (with the fastest
     # dimension first), but with a permutation corresponding to the layout of
@@ -359,6 +365,8 @@ end
             dest[K, J] = src[n += 1]
         end
     end
+
+    end  # @timeit_debug
 
     dest
 end
