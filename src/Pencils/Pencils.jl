@@ -7,6 +7,7 @@ them. Also defines relevant data structures for handling distributed data.
 module Pencils
 
 using MPI
+using Reexport
 using TimerOutputs
 
 import Base: @propagate_inbounds
@@ -31,11 +32,14 @@ const Indices{N} = NTuple{N,Int} where N
 const Permutation{N} = NTuple{N,Int} where N
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
+# Modules
+include("ShiftedArrays.jl")
+@reexport using .ShiftedArrays
+
 # Type definitions
 include("mpi_topology.jl")  # MPITopology
 include("pencil.jl")        # Pencil
 include("arrays.jl")        # PencilArray
-include("shifted_array.jl") # ShiftedArrayView
 
 include("data_ranges.jl")
 include("mpi_wrappers.jl")

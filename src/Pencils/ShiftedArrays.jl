@@ -1,5 +1,8 @@
+module ShiftedArrays
+
 # See https://docs.julialang.org/en/latest/devdocs/offset-arrays
 
+export ShiftedArrayView, has_indices
 import Base: @propagate_inbounds
 
 """
@@ -68,33 +71,12 @@ IndexStyle(::ShiftedArrayView{T,1} where {T}) = IndexCartesian()
     x.data[i - first(x.offsets)] = v
 
 """
-    data(x::ShiftedArrayView)
-
-Returns array wrapped by a `ShiftedArrayView`.
-"""
-data(x::ShiftedArrayView) = x.data
-
-"""
     has_indices(x::ShiftedArrayView, indices...)
 
 Check whether the given set of indices is within the range of a shifted array.
 """
 has_indices(x::ShiftedArrayView, I...) = checkbounds(Bool, x, I...)
 
-Base.parent(x::ShiftedArrayView) = parent(data(x))
+Base.parent(x::ShiftedArrayView) = parent(x.data)
 
-"""
-    global_view(x::PencilArray)
-
-Create a [`ShiftedArrayView`](@ref) of a `PencilArray` that takes global
-indices.
-
-The order of indices in the returned view is the same as for the original array
-`x`. That is, if the indices of `x` are permuted, so are those of the returned
-array.
-"""
-function global_view(x::PencilArray)
-    r = range_local(x)
-    offsets = first.(r) .- 1
-    ShiftedArrayView(x, offsets)
-end
+end  # module ShiftedArrays

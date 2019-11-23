@@ -143,6 +143,22 @@ Get MPI communicator associated to a pencil-distributed array.
 get_comm(x::PencilArray) = get_comm(x.pencil)
 
 """
+    global_view(x::PencilArray)
+
+Create a [`ShiftedArrayView`](@ref) of a `PencilArray` that takes global
+indices.
+
+The order of indices in the returned view is the same as for the original array
+`x`. That is, if the indices of `x` are permuted, so are those of the returned
+array.
+"""
+function global_view(x::PencilArray)
+    r = range_local(x)
+    offsets = first.(r) .- 1
+    ShiftedArrayView(x, offsets)
+end
+
+"""
     gather(x::PencilArray, [root::Integer=0])
 
 Gather data from all MPI processes into one (big) array.
