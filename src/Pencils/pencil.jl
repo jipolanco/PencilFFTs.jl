@@ -141,7 +141,7 @@ function _sort_dimensions(dims::Dims{N}) where N
     ntuple(n -> s[n], Val(N))  # convert array to tuple
 end
 
-function show(io::IO, p::Pencil)
+function Base.show(io::IO, p::Pencil)
     print(io,
           """
           Decomposition of $(ndims(p))D data
@@ -155,7 +155,7 @@ end
 
 Element type associated to the given pencil.
 """
-eltype(::Pencil{N, M, T} where {N, M}) where T = T
+Base.eltype(::Pencil{N, M, T} where {N, M}) where T = T
 
 """
     get_timer(p::Pencil)
@@ -174,7 +174,7 @@ Number of spatial dimensions associated to pencil data.
 This corresponds to the total number of dimensions of the space, which includes
 the decomposed and non-decomposed dimensions.
 """
-ndims(::Pencil{N}) where N = N
+Base.ndims(::Pencil{N}) where N = N
 
 """
     get_comm(p::Pencil)

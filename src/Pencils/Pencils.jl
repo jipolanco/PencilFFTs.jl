@@ -9,10 +9,11 @@ module Pencils
 using MPI
 using TimerOutputs
 
-import Base: ndims, size, length, eltype, show
+import Base: @propagate_inbounds
 import LinearAlgebra: transpose!
 
 export Pencil, PencilArray, MPITopology, ShiftedArrayView
+export data, pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
 export global_view, has_indices

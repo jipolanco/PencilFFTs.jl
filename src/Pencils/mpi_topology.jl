@@ -101,21 +101,21 @@ end
 
 Get dimensionality of Cartesian topology.
 """
-ndims(t::MPITopology{N}) where N = N
+Base.ndims(t::MPITopology{N}) where N = N
 
 """
     size(t::MPITopology)
 
 Get dimensions of Cartesian topology.
 """
-size(t::MPITopology) = t.dims
+Base.size(t::MPITopology) = t.dims
 
 """
     length(t::MPITopology)
 
 Get total size of Cartesian topology (i.e. total number of MPI processes).
 """
-length(t::MPITopology) = prod(size(t))
+Base.length(t::MPITopology) = prod(size(t))
 
 """
     get_comm(t::MPITopology)
