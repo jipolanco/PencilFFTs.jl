@@ -25,6 +25,16 @@ end
 Base.size(x::ShiftedArrayView) = size(x.data)
 Base.axes(x::ShiftedArrayView) = x.axes
 
+function Base.similar(x::ShiftedArrayView, ::Type{S}, dims::Dims) where S
+    a = similar(x.data, S, dims)
+    ShiftedArrayView(a, x.offsets)
+end
+
+function Base.similar(x::ShiftedArrayView{T,N} where T, ::Type{S},
+                      inds::NTuple{N, UnitRange{Int}}) where {S,N}
+    similar(x, S, length.(inds))
+end
+
 # This definition is to avoid type instability.
 # By default, instead of 1:1, this function would return Base.OneTo(1) if d > N.
 Base.axes(x::ShiftedArrayView{T,N} where T, d) where N =

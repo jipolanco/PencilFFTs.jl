@@ -49,6 +49,12 @@ function test_array_wrappers(p::Pencil)
         @test sum(u) ≈ sum(x)
         @test has_indices(u, 5, 6)
         @test !has_indices(u, 2, 1)
+
+        s = similar(u, (4, 5))
+        @test s isa ShiftedArrayView && size(s) == (4, 5)
+
+        v = copy(u)
+        @test v isa ShiftedArrayView && axes(v) === axes(u)
     end
 
     let offsets = (3, )
