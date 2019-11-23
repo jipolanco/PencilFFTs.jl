@@ -89,7 +89,7 @@ struct MPITopology{N}
     end
 end
 
-function show(io::IO, t::MPITopology)
+function Base.show(io::IO, t::MPITopology)
     M = ndims(t)
     s = join(size(t), '×')
     print(io, "MPI topology: $(M)D decomposition ($s processes)")
