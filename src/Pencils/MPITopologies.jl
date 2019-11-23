@@ -1,3 +1,11 @@
+module MPITopologies
+
+export MPITopology
+export get_comm
+
+import MPI
+include("mpi_wrappers.jl")
+
 """
     MPITopology{N}
 
@@ -168,4 +176,6 @@ function create_subcomms(::Val{N}, comm::MPI.Comm) where N
         remain_dims[n] = one(Cint)
         MPI_Cart_sub(comm, remain_dims)
     end
+end
+
 end

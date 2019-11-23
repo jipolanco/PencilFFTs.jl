@@ -242,11 +242,12 @@ function main()
     end
 
     begin
+        MPITopologies = Pencils.MPITopologies
         periods = zeros(Int, length(proc_dims))
         comm_cart = MPI.Cart_create(comm, collect(proc_dims), periods, false)
-        @inferred Pencils.create_subcomms(Val(2), comm_cart)
+        @inferred MPITopologies.create_subcomms(Val(2), comm_cart)
         @inferred Pencils.MPITopology{2}(comm_cart)
-        @inferred Pencils.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
+        @inferred MPITopologies.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
         @inferred Pencils.to_local(pen2, (1, 2, 3))
         @inferred Pencils.to_local(pen2, (1:2, 1:2, 1:2))

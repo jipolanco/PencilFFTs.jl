@@ -33,13 +33,16 @@ const Permutation{N} = NTuple{N,Int} where N
 const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
 # Modules
+include("MPITopologies.jl")
+using .MPITopologies
+import .MPITopologies: get_comm
+
 include("ShiftedArrays.jl")
 @reexport using .ShiftedArrays
 
 # Type definitions
-include("mpi_topology.jl")  # MPITopology
-include("pencil.jl")        # Pencil
-include("arrays.jl")        # PencilArray
+include("pencil.jl")  # Pencil
+include("arrays.jl")  # PencilArray
 
 include("data_ranges.jl")
 include("mpi_wrappers.jl")
