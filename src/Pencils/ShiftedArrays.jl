@@ -43,7 +43,8 @@ end
 Base.axes(x::ShiftedArrayView{T,N} where T, d) where N =
     d <= N ? axes(x)[d] : 1:1
 
-IndexStyle(::ShiftedArrayView{T,N,A} where {T,N}) where A = IndexStyle(A)
+Base.IndexStyle(::Type{<:ShiftedArrayView{T,N,A}} where {T,N}) where A =
+    IndexStyle(A)
 
 # For dimensions N > 1, linear indexing doesn't shift the indices, so that fast
 # IndexLinear indexing can still be used when possible.
@@ -62,7 +63,7 @@ IndexStyle(::ShiftedArrayView{T,N,A} where {T,N}) where A = IndexStyle(A)
 
 # Special case of 1D arrays.
 # We always assume that indices are shifted.
-IndexStyle(::ShiftedArrayView{T,1} where {T}) = IndexCartesian()
+Base.IndexStyle(::Type{<:ShiftedArrayView{T,1}} where {T}) = IndexCartesian()
 
 @propagate_inbounds Base.getindex(x::ShiftedArrayView{T,1} where T, i::Int) =
     x.data[i - first(x.offsets)]

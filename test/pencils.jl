@@ -26,6 +26,7 @@ function test_array_wrappers(p::Pencil)
         a = zeros(T, psize)
         u = PencilArray(p, a)
         @test u.data === a
+        @test IndexStyle(typeof(u)) === IndexStyle(typeof(a)) === IndexLinear()
 
         b = zeros(T, psize .+ 2)
         @test_throws DimensionMismatch PencilArray(p, b)
@@ -43,6 +44,7 @@ function test_array_wrappers(p::Pencil)
         dims = (8, 3)
         x = randn(dims...)
         u = ShiftedArrayView(x, offsets)
+        @test IndexStyle(typeof(u)) === IndexStyle(typeof(x)) === IndexLinear()
         @test axes(u) == (4:11, 5:7)
         @test u[6, 6] == x[3, 2]
         @test u[2] == x[2]  # linear indexing stays the same
@@ -60,6 +62,7 @@ function test_array_wrappers(p::Pencil)
     let offsets = (3, )
         x = randn(8)
         u = ShiftedArrayView(x, offsets)
+        @test IndexStyle(typeof(u)) === IndexCartesian()  # special case in 1D
         @test axes(u) == (4:11, )
         @test u[6] == x[3]  # linear indexing is shifted (1D arrays only)
         @test sum(u) ≈ sum(x)

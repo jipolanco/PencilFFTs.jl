@@ -72,7 +72,10 @@ PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
 
 Base.size(x::PencilArray) = size(data(x))
 
-IndexStyle(::PencilArray{T,N,P,A} where {T,N,P}) where A = IndexStyle(A)
+# Use same index style as the parent array.
+Base.IndexStyle(::Type{<:PencilArray{T,N,P,A}} where {T,N,P}) where A =
+    IndexStyle(A)
+
 @propagate_inbounds Base.getindex(x::PencilArray, inds...) = x.data[inds...]
 @propagate_inbounds Base.setindex!(x::PencilArray, v, inds...) =
     x.data[inds...] = v
