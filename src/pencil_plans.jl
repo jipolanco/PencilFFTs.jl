@@ -216,8 +216,6 @@ function _create_plans(::Type{Ti},
 
         # (i) Determine permutation of pencil data.
         perm = if !permute_dims
-            # Note: I don't want to return `nothing` because that would make
-            # things type-unstable.
             nothing
         elseif Ntr == 0
             # This is the last transform, and I want the index order to be
