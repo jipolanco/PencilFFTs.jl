@@ -1,5 +1,11 @@
 const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 
+# This allows to treat plans as scalars when broadcasting.
+# This means that, if u = (u1, u2, u3) is a tuple of PencilArrays
+# compatible with p, then p .* u does what one would expect, that is, it
+# transforms the three components and returns a tuple.
+Broadcast.broadcastable(p::PencilFFTPlan) = Ref(p)
+
 ## Forward transforms
 function LinearAlgebra.mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                             src::PencilArray{Ti,N}) where {T, N,
