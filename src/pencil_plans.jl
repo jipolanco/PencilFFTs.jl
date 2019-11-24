@@ -1,4 +1,5 @@
 const FFTWPlanOrIdentity = Union{FFTW.FFTWPlan, Transforms.IdentityPlan}
+const ValBool = Union{Val{false}, Val{true}}
 
 # One-dimensional distributed FFT plan.
 struct PencilPlan1D{Pi <: Pencil,
@@ -31,6 +32,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
     PencilFFTPlan(size_global::Dims{N}, transforms,
                   proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
                   fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
+                  permute_dims=Val(true),
                   transpose_method=TransposeMethods.IsendIrecv(),
                   timer=TimerOutput(),
                   )
@@ -65,6 +67,14 @@ along each dimension.
 - The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
   `FFTW` plan creation functions (see [`AbstractFFTs`
   docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
+
+- `permute_dims` determines whether the indices of the output data should be
+  reversed. For instance, if the input data has global dimensions
+  `(Nx, Ny, Nz)`, then the output of a complex-to-complex FFT would have
+  dimensions `(Nz, Ny, Nx)`. This enables FFTs to always be performed along
+  the first (i.e. fastest) array dimension, which could lead to performance
+  gains. This option is enabled by default. For type inference reasons, it must
+  be a value type (`Val(true)` or `Val(false)`).
 
 - `transpose_method` allows to select between implementations of the global
   data transpositions. See the [`transpose!`](@ref) docs for details.
@@ -130,6 +140,7 @@ struct PencilFFTPlan{T,
                            ::Type{T}=Float64;
                            fftw_flags=FFTW.ESTIMATE,
                            fftw_timelimit=FFTW.NO_TIMELIMIT,
+                           permute_dims::ValBool=Val(true),
                            transpose_method::AbstractTransposeMethod=
                                TransposeMethods.IsendIrecv(),
                            timer::TimerOutput=TimerOutput(),
@@ -141,8 +152,7 @@ struct PencilFFTPlan{T,
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
 
         # Options for creation of 1D plans.
-        # TODO expose `permute_dimensions`?
-        plan1d_opt = (permute_dimensions=true,
+        plan1d_opt = (permute_dims=permute_dims,
                       ibuf=ibuf,
                       obuf=obuf,
                       timer=timer,
@@ -185,7 +195,7 @@ function _create_plans(::Type{Ti},
     si = g.size_global_in
     so = g.size_global_out
 
-    permute_dimensions = plan1d_opt.permute_dimensions
+    permute_dims = plan1d_opt.permute_dims::Val === Val(true)
     timer = plan1d_opt.timer
 
     Pi = if plan_prev === nothing
@@ -205,10 +215,10 @@ function _create_plans(::Type{Ti},
         Po_prev = plan_prev.pencil_out
 
         # (i) Determine permutation of pencil data.
-        perm = if !permute_dimensions
+        perm = if !permute_dims
             # Note: I don't want to return `nothing` because that would make
             # things type-unstable.
-            Pencils.identity_permutation(Val(N))
+            nothing
         elseif Ntr == 0
             # This is the last transform, and I want the index order to be
             # exactly reversed (easier to work with than the alternative below).
@@ -221,7 +231,7 @@ function _create_plans(::Type{Ti},
             @assert isperm(t)
             @assert t == (n, (1:n-1)..., (n+1:N)...)
             t
-        end :: Pencils.Permutation{N}
+        end :: Pencils.OptionalPermutation{N}
 
         # (ii) Determine decomposed dimensions from the previous
         # decomposition `n - 1`.
@@ -272,7 +282,7 @@ function _create_plans(::Type{Ti},
         # Either there's no permutation and we're transforming the first
         # dimension, or there's a permutation that puts the transformed
         # dimension in the first index.
-        @assert !permute_dimensions || (p === nothing ? n == 1 : first(p) == n)
+        @assert !permute_dims || (p === nothing ? n == 1 : first(p) == n)
 
         # Create temporary arrays with the dimensions required for forward and
         # backward transforms.
