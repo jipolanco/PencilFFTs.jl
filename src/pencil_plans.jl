@@ -222,7 +222,8 @@ _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
 
 function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
                          topology::MPITopology{M}, dim::Val{1},
-                         plan_prev::Nothing, timer, etc...) where {Ti, N, M}
+                         plan_prev::Nothing, timer,
+                         permute_dims::ValBool) where {Ti, N, M}
     # This is the case of the first pencil pair.
     # Generate initial pencils for the first dimension.
     # - Decompose along dimensions "far" from the first one.
@@ -230,7 +231,9 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     # - No permutation is applied for input data: arrays are accessed in the
     #   natural order (i1, i2, ..., iN).
     decomp_dims = ntuple(m -> N - M + m, Val(M))
-    Pencil(topology, g.size_global_in, decomp_dims, Ti, permute=nothing,
+    perm = _make_permutation_in(permute_dims, Val(1), Val(N))
+    @assert perm === nothing
+    Pencil(topology, g.size_global_in, decomp_dims, Ti, permute=perm,
            timer=timer)
 end
 
@@ -273,7 +276,6 @@ end
 _make_permutation_in(permute_dims::Val{false}, etc...) = nothing
 
 function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
-    @assert n != 1  # this case is covered elsewhere
     # Here the data is permuted so that the n-th logical dimension is the first
     # (fastest) dimension in the arrays.
     # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...).
@@ -283,7 +285,10 @@ function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
     t
 end
 
-# Special case n = N
+# Case n = 1: no permutation of input data
+_make_permutation_in(::Val{true}, dim::Val{1}, ::Val) = nothing
+
+# Case n = N
 function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     # This is the last transform, and I want the index order to be
     # exactly reversed (easier to work with than the alternative above).
