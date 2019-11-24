@@ -198,62 +198,8 @@ function _create_plans(::Type{Ti},
     permute_dims = plan1d_opt.permute_dims::Val === Val(true)
     timer = plan1d_opt.timer
 
-    Pi = if plan_prev === nothing
-        # This is the case of the first pencil pair.
-        @assert n == 1
-
-        # Generate initial pencils for the first dimension.
-        # - Decompose along dimensions "far" from the first one.
-        #   Example: if N = 5 and M = 2, then decomp_dims = (4, 5).
-        # - No permutation is applied for input data: arrays are accessed in the
-        #   natural order (i1, i2, ..., iN).
-        decomp_dims = ntuple(m -> N - M + m, Val(M))
-        Pencil(topology, si, decomp_dims, Ti, permute=nothing,
-               timer=timer)
-
-    else
-        Po_prev = plan_prev.pencil_out
-
-        # (i) Determine permutation of pencil data.
-        perm = if !permute_dims
-            nothing
-        elseif Ntr == 0
-            # This is the last transform, and I want the index order to be
-            # exactly reversed (easier to work with than the alternative below).
-            ntuple(i -> N - i + 1, Val(N))  # (N, N-1, ..., 2, 1)
-        else
-            # Here the data is permuted so that the n-th logical dimension is
-            # the first (fastest) dimension in the arrays.
-            # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...).
-            t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
-            @assert isperm(t)
-            @assert t == (n, (1:n-1)..., (n+1:N)...)
-            t
-        end :: Pencils.OptionalPermutation{N}
-
-        # (ii) Determine decomposed dimensions from the previous
-        # decomposition `n - 1`.
-        # If `n` was decomposed previously, shift its associated value
-        # in `decomp_prev` to the left.
-        # Example: if n = 3 and decomp_prev = (1, 3), then decomp = (1, 2).
-        decomp_prev = get_decomposition(Po_prev)
-        decomp = ntuple(Val(M)) do i
-            p = decomp_prev[i]
-            p == n ? p - 1 : p
-        end
-
-        # Note that if `n` was not decomposed previously, then the
-        # decomposed dimensions stay the same.
-        @assert n ∈ decomp_prev || decomp === decomp_prev
-
-        # If everything is done correctly, there should be no repeated
-        # decomposition dimensions.
-        @assert allunique(decomp)
-
-        # Create new pencil sharing some information with Po_prev.
-        # (Including data type and dimensions, MPI topology and data buffers.)
-        Pencil(Po_prev, decomp_dims=decomp, permute=perm, timer=timer)
-    end
+    Pi = _make_pencil_in(Ti, g, topology, Val(n), plan_prev, plan1d_opt.timer,
+                         plan1d_opt.permute_dims)
 
     # Output transform along dimension `n`.
     To = eltype_output(transform_fw, eltype(Pi))
@@ -311,6 +257,76 @@ end
 # No transforms left!
 _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
               plan_prev) = ()
+
+function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
+                         topology::MPITopology{M}, dim::Val{1},
+                         plan_prev::Nothing, timer, etc...) where {Ti, N, M}
+    # This is the case of the first pencil pair.
+    # Generate initial pencils for the first dimension.
+    # - Decompose along dimensions "far" from the first one.
+    #   Example: if N = 5 and M = 2, then decomp_dims = (4, 5).
+    # - No permutation is applied for input data: arrays are accessed in the
+    #   natural order (i1, i2, ..., iN).
+    decomp_dims = ntuple(m -> N - M + m, Val(M))
+    Pencil(topology, g.size_global_in, decomp_dims, Ti, permute=nothing,
+           timer=timer)
+end
+
+function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
+                         topology::MPITopology{M}, dim::Val{n},
+                         plan_prev::PencilPlan1D, timer,
+                         permute_dims::ValBool,
+                        ) where {Ti, N, M, n}
+    Po_prev = plan_prev.pencil_out
+
+    # (i) Determine permutation of pencil data.
+    # TODO fully compute the permutation at compile time?
+    perm = _make_permutation_in(permute_dims, dim, Val(N))
+
+    # (ii) Determine decomposed dimensions from the previous
+    # decomposition `n - 1`.
+    # If `n` was decomposed previously, shift its associated value
+    # in `decomp_prev` to the left.
+    # Example: if n = 3 and decomp_prev = (1, 3), then decomp = (1, 2).
+    decomp_prev = get_decomposition(Po_prev)
+    decomp = ntuple(Val(M)) do i
+        p = decomp_prev[i]
+        p == n ? p - 1 : p
+    end
+
+    # Note that if `n` was not decomposed previously, then the
+    # decomposed dimensions stay the same.
+    @assert n ∈ decomp_prev || decomp === decomp_prev
+
+    # If everything is done correctly, there should be no repeated
+    # decomposition dimensions.
+    @assert allunique(decomp)
+
+    # Create new pencil sharing some information with Po_prev.
+    # (Including data type and dimensions, MPI topology and data buffers.)
+    Pencil(Po_prev, decomp_dims=decomp, permute=perm, timer=timer)
+end
+
+# No permutations
+_make_permutation_in(permute_dims::Val{false}, etc...) = nothing
+
+function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
+    @assert n != 1  # this case is covered elsewhere
+    # Here the data is permuted so that the n-th logical dimension is the first
+    # (fastest) dimension in the arrays.
+    # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...).
+    t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
+    @assert isperm(t)
+    @assert t == (n, (1:n-1)..., (n+1:N)...)
+    t
+end
+
+# Special case n = N
+function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
+    # This is the last transform, and I want the index order to be
+    # exactly reversed (easier to work with than the alternative above).
+    ntuple(i -> N - i + 1, Val(N))  # (N, N-1, ..., 2, 1)
+end
 
 function Base.show(io::IO, p::PencilFFTPlan)
     show(io, p.global_params)
