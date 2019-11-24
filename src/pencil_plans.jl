@@ -191,14 +191,13 @@ function _create_plans(::Type{Ti},
                        transform_fw::AbstractTransform,
                        transforms_next::Vararg{AbstractTransform, Ntr}
                       ) where {Ti, N, M, Ntr}
-    n = N - Ntr  # current dimension index
+    dim = Val(N - Ntr)  # current dimension index
+    n = N - Ntr
     si = g.size_global_in
     so = g.size_global_out
-
-    permute_dims = plan1d_opt.permute_dims::Val === Val(true)
     timer = plan1d_opt.timer
 
-    Pi = _make_pencil_in(Ti, g, topology, Val(n), plan_prev, plan1d_opt.timer,
+    Pi = _make_pencil_in(Ti, g, topology, Val(n), plan_prev, timer,
                          plan1d_opt.permute_dims)
 
     # Output transform along dimension `n`.
@@ -211,44 +210,7 @@ function _create_plans(::Type{Ti},
         end
     end
 
-    local scale_bw
-
-    fftplans = let p = get_permutation(Pi)
-        dims = if p === nothing
-            n  # no index permutation
-        else
-            # Find index of n-th dimension in the permuted array.
-            # If we permuted data to have the n-th dimension as the fastest
-            # (leftmost) index, then the result should be 1.
-            findfirst(p .== n) :: Int
-        end
-
-        # Either there's no permutation and we're transforming the first
-        # dimension, or there's a permutation that puts the transformed
-        # dimension in the first index.
-        @assert !permute_dims || (p === nothing ? n == 1 : first(p) == n)
-
-        # Create temporary arrays with the dimensions required for forward and
-        # backward transforms.
-        transform_bw = binv(transform_fw)
-        pair_fw = transform_fw => _temporary_pencil_array(Pi, plan1d_opt.ibuf)
-        pair_bw = transform_bw => _temporary_pencil_array(Po, plan1d_opt.obuf)
-        pairs = (pair_fw, pair_bw)
-
-        # Scale factor to be applied after backward transform.
-        scale_bw = let tr = pair_bw.first
-            # `A` must have the dimensions of the backward transform output
-            # (i.e. the forward transform input)
-            A = pair_fw.second
-            scale_factor(tr, A, dims)
-        end
-
-        # Generate forward and backward FFTW transforms.
-        fftw_kw = plan1d_opt.fftw_kw
-        map(p -> plan(p.first, data(p.second), dims; fftw_kw...), pairs)
-    end
-
-    plan_n = PencilPlan1D(Pi, Po, transform_fw, fftplans..., scale_bw)
+    plan_n = _make_1d_fft_plan(dim, Pi, Po, transform_fw, plan1d_opt)
 
     (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
                            transforms_next...)...)
@@ -326,6 +288,39 @@ function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     # This is the last transform, and I want the index order to be
     # exactly reversed (easier to work with than the alternative above).
     ntuple(i -> N - i + 1, Val(N))  # (N, N-1, ..., 2, 1)
+end
+
+function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
+                           transform_fw::AbstractTransform,
+                           plan1d_opt::NamedTuple) where {n}
+    perm = get_permutation(Pi)
+
+    dims = if perm === nothing
+        n  # no index permutation
+    else
+        # Find index of n-th dimension in the permuted array.
+        # If we permuted data to have the n-th dimension as the fastest
+        # (leftmost) index, then the result should be 1.
+        findfirst(==(n), perm) :: Int
+    end
+
+    # Create temporary arrays with the dimensions required for forward and
+    # backward transforms.
+    transform_bw = binv(transform_fw)
+    A_fw = _temporary_pencil_array(Pi, plan1d_opt.ibuf)
+    A_bw = _temporary_pencil_array(Po, plan1d_opt.obuf)
+
+    # Scale factor to be applied after backward transform.
+    # The passed array must have the dimensions of the backward transform output
+    # (i.e. the forward transform input)
+    scale_bw = scale_factor(transform_bw, A_fw, dims)
+
+    # Generate forward and backward FFTW transforms.
+    fftw_kw = plan1d_opt.fftw_kw
+    plan_fw = plan(transform_fw, data(A_fw), dims; fftw_kw...)
+    plan_bw = plan(transform_bw, data(A_bw), dims; fftw_kw...)
+
+    PencilPlan1D(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end
 
 function Base.show(io::IO, p::PencilFFTPlan)
