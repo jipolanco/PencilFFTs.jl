@@ -66,7 +66,7 @@ function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
     end
 
     v = pencil(y) === Po ? y : _temporary_pencil_array(Po, full_plan.obuf)
-    @timeit_debug full_plan.timer "FFT" mul!(data(v), fftw_plan, data(u))
+    @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
     _apply_plans!(dir, y, v, full_plan, next_plans...)
 end

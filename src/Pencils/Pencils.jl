@@ -14,7 +14,7 @@ import Base: @propagate_inbounds
 import LinearAlgebra
 
 export Pencil, PencilArray, MPITopology, ShiftedArrayView
-export data, pencil
+export pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
 export global_view, has_indices

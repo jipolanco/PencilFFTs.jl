@@ -78,6 +78,6 @@ Check whether the given set of indices is within the range of a shifted array.
 """
 has_indices(x::ShiftedArrayView, I...) = checkbounds(Bool, x, I...)
 
-Base.parent(x::ShiftedArrayView) = parent(x.data)
+Base.parent(x::ShiftedArrayView) = x.data
 
 end  # module ShiftedArrays

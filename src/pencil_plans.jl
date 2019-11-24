@@ -322,8 +322,8 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
 
     # Generate forward and backward FFTW transforms.
     fftw_kw = plan1d_opt.fftw_kw
-    plan_fw = plan(transform_fw, data(A_fw), dims; fftw_kw...)
-    plan_bw = plan(transform_bw, data(A_bw), dims; fftw_kw...)
+    plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)
+    plan_bw = plan(transform_bw, parent(A_bw), dims; fftw_kw...)
 
     PencilPlan1D(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end

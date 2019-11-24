@@ -20,7 +20,6 @@ ShiftedArrayView
 ## Functions
 
 ```@docs
-data
 eltype
 gather
 get_comm

@@ -70,7 +70,7 @@ PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
     PencilArray(pencil, Array{eltype(pencil)}(undef, extra_dims...,
                                               size_local(pencil)...))
 
-Base.size(x::PencilArray) = size(data(x))
+Base.size(x::PencilArray) = size(parent(x))
 
 # Use same index style as the parent array.
 Base.IndexStyle(::Type{<:PencilArray{T,N,P,A}} where {T,N,P}) where A =
@@ -84,13 +84,6 @@ Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
     PencilArray(x.pencil, similar(x.data, S, dims))
 
 """
-    data(x::PencilArray)
-
-Returns array wrapped by a `PencilArray`.
-"""
-data(x::PencilArray) = x.data
-
-"""
     pencil(x::PencilArray)
 
 Returns decomposition configuration associated to the `PencilArray`.
@@ -100,12 +93,9 @@ pencil(x::PencilArray) = x.pencil
 """
     parent(x::PencilArray)
 
-Returns the actual array containing the `PencilArray` data.
-
-If the `PencilArray` is wrapping a `SubArray`, then this returns its "parent
-array".
+Returns array wrapped by a `PencilArray`.
 """
-Base.parent(x::PencilArray) = parent(data(x))
+Base.parent(x::PencilArray) = x.data
 
 """
     ndims_extra(x::PencilArray)
