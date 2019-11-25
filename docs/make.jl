@@ -31,5 +31,6 @@ makedocs(
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo = "github.com/jipolanco/PencilFFTs.jl"
+    repo = "github.com/jipolanco/PencilFFTs.jl",
+    forcepush = true,
 )
