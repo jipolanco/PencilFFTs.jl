@@ -138,8 +138,8 @@ get_comm(x::PencilArray) = get_comm(x.pencil)
 """
     global_view(x::PencilArray)
 
-Create a [`ShiftedArrayView`](@ref) of a `PencilArray` that takes global
-indices.
+Create an [`OffsetArray`](https://github.com/JuliaArrays/OffsetArrays.jl) of a
+`PencilArray` that takes global indices.
 
 The order of indices in the returned view is the same as for the original array
 `x`. That is, if the indices of `x` are permuted, so are those of the returned
@@ -148,7 +148,9 @@ array.
 function global_view(x::PencilArray)
     r = range_local(x)
     offsets = first.(r) .- 1
-    ShiftedArrayView(x, offsets)
+    xo = OffsetArray(x, offsets)
+    @assert parent(xo) === x  # OffsetArray shouldn't create a copy...
+    xo
 end
 
 """
@@ -164,8 +166,7 @@ processes.
 This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
-function gather(
-        x::PencilArray{T,N}, root::Integer=0) where {T, N}
+function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     timer = get_timer(pencil(x))
 

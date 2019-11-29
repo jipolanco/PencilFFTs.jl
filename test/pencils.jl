@@ -40,35 +40,6 @@ function test_array_wrappers(p::Pencil)
         @inferred size_global(w)
     end
 
-    let offsets = (3, 4)
-        dims = (8, 3)
-        x = randn(dims...)
-        u = ShiftedArrayView(x, offsets)
-        @test IndexStyle(typeof(u)) === IndexStyle(typeof(x)) === IndexLinear()
-        @test axes(u) == (4:11, 5:7)
-        @test u[6, 6] == x[3, 2]
-        @test u[2] == x[2]  # linear indexing stays the same
-        @test sum(u) ≈ sum(x)
-        @test has_indices(u, 5, 6)
-        @test !has_indices(u, 2, 1)
-
-        s = similar(u, (4, 5))
-        @test s isa ShiftedArrayView && size(s) == (4, 5)
-
-        v = copy(u)
-        @test v isa ShiftedArrayView && axes(v) === axes(u)
-    end
-
-    let offsets = (3, )
-        x = randn(8)
-        u = ShiftedArrayView(x, offsets)
-        @test IndexStyle(typeof(u)) === IndexCartesian()  # special case in 1D
-        @test axes(u) == (4:11, )
-        @test u[6] == x[3]  # linear indexing is shifted (1D arrays only)
-        @test sum(u) ≈ sum(x)
-        @test has_indices(u, 5) && !has_indices(u, -2)
-    end
-
     nothing
 end
 
@@ -209,10 +180,6 @@ function main()
         @test compare_distributed_arrays(u2, u3)
 
         @inferred global_view(u1)
-        let g = global_view(u1)
-            @inferred axes(g)
-            @inferred axes(g, 3)
-        end
     end
 
     # Test slab (1D) decomposition.

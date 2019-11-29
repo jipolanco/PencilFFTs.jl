@@ -7,17 +7,18 @@ them. Also defines relevant data structures for handling distributed data.
 module Pencils
 
 using MPI
+using OffsetArrays
 using Reexport
 using TimerOutputs
 
 import Base: @propagate_inbounds
 import LinearAlgebra
 
-export Pencil, PencilArray, MPITopology, ShiftedArrayView
+export Pencil, PencilArray, MPITopology
 export pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
-export global_view, has_indices
+export global_view
 export ndims_extra
 export range_local, size_local, size_global
 export transpose!
@@ -35,9 +36,6 @@ const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 include("MPITopologies.jl")
 using .MPITopologies
 import .MPITopologies: get_comm
-
-include("ShiftedArrays.jl")
-@reexport using .ShiftedArrays
 
 # Type definitions
 include("pencil.jl")  # Pencil
