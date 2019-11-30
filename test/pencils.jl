@@ -4,22 +4,54 @@ using PencilFFTs.Pencils
 
 using MPI
 
+using BenchmarkTools
 using InteractiveUtils
 using LinearAlgebra
 using Random
 using Test
 
+const BENCHMARK_ARRAYS = false
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
+
+
+Indexation(::Type{IndexLinear}) = LinearIndices
+Indexation(::Type{IndexCartesian}) = CartesianIndices
+
+function test_fill!(::Type{T}, u, val) where {T <: IndexStyle}
+    for I in Indexation(T)(u)
+        @inbounds u[I] = val
+    end
+    u
+end
 
 function test_array_wrappers(p::Pencil)
     T = eltype(p)
     u = PencilArray(p)
+    perm = get_permutation(p)
+    permute = Pencils.permute_indices
 
     @test eltype(u) === eltype(u.data) === T
+    @test length.(axes(u)) === size(u)
+
+    if BENCHMARK_ARRAYS
+        for S in (IndexLinear, IndexCartesian)
+            @info "Filling arrays using $S (Array, PencilArray)" get_permutation(p)
+            @time for v in (parent(u), u)
+                val = 3 * oneunit(eltype(v))
+                @btime test_fill!($S, $v, $val)
+            end
+        end
+    end
 
     let v = similar(u)
         @test typeof(v) === typeof(u)
-        @test size(v) === size(u) === size(u.data)
+        @test size(v) === size(u) === size_local(p, permute=false)
+
+        vp = parent(v)
+        randn!(vp)
+        I = size(v) .>> 1  # non-permuted indices
+        J = Pencils._permute_indices(v, I...)
+        @test v[I...] == vp[J...]
     end
 
     let psize = size_local(p)
@@ -83,8 +115,12 @@ function main()
     topo = MPITopology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
-    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 1, 3))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 3, 1))
     pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=(3, 2, 1))
+
+    # Note: the permutation of pen2 was chosen such that the inverse permutation
+    # is different.
+    @assert pen2.perm !== Pencils.inverse_permutation(pen2.perm)
 
     @testset "Pencil constructor checks" begin
         # Too many decomposed directions
@@ -104,6 +140,7 @@ function main()
     end
 
     @testset "PencilArray" begin
+        test_array_wrappers(pen1)
         test_array_wrappers(Pencil(pen2, Float32))
         test_array_wrappers(Pencil(pen3, Float64))
     end
@@ -112,9 +149,9 @@ function main()
         @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) ===
             (1, 42, 12, 1, 1)
         @test get_permutation(pen1) === nothing
-        @test get_permutation(pen2) === (2, 1, 3)
+        @test get_permutation(pen2) === (2, 3, 1)
 
-        @test Pencils.relative_permutation(pen2, pen3) === (3, 1, 2)
+        @test Pencils.relative_permutation(pen2, pen3) === (2, 1, 3)
 
         let a = (2, 1, 3), b = (3, 2, 1)
             @test Pencils.permute_indices((:a, :b, :c), (2, 3, 1)) ===

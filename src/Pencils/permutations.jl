@@ -1,12 +1,16 @@
 ## Permutation operations ##
 
 # Permute tuple values.
-@inline permute_indices(t::NTuple, ::Nothing) = t
-@inline permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
+@inline permute_indices(t::Tuple, ::Nothing) = t
+@inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
 
-# This is the same as Base.genperm.
-@inline permute_indices(t::NTuple{N}, perm::Permutation{N}) where {N} =
+# This is "safe" because it only works when the length of `t` is N.
+@inline _permute_indices_safe(perm::Permutation{N},
+                              t::Vararg{Any,N}) where {N} =
     ntuple(i -> t[perm[i]], Val(N))
+
+@inline permute_indices(t::Tuple, perm::Permutation) =
+    _permute_indices_safe(perm, t...)
 
 @inline permute_indices(I::CartesianIndex, perm) =
     CartesianIndex(permute_indices(Tuple(I), perm))
@@ -33,6 +37,8 @@ relative_permutation(::Nothing, ::Nothing) = nothing
 # (Same as `invperm`, which is type unstable for tuples.)
 relative_permutation(x::Permutation{N}, ::Nothing) where N =
     relative_permutation(x, identity_permutation(Val(N)))
+
+inverse_permutation(x::OptionalPermutation) = relative_permutation(x, nothing)
 
 relative_permutation(p::Pencil, q::Pencil) =
     relative_permutation(p.perm, q.perm)

@@ -1,5 +1,11 @@
 # TODO
 
+- Support extra dimensions in transforms
+
+- Static permutations
+
+- Avoid transpositions when using `NoTransform`
+
 - Reduce array allocations (buffers)
 
 - Vector (or tensor) transforms

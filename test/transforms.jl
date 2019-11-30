@@ -66,7 +66,6 @@ function test_transforms(comm, proc_dims, size_in)
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
 
     pairs = (
-             Transforms.BRFFT() => FFTW.plan_brfft,
              Transforms.FFT() => FFTW.plan_fft,
              Transforms.RFFT() => FFTW.plan_rfft,
              Transforms.BFFT() => FFTW.plan_bfft,
@@ -77,6 +76,7 @@ function test_transforms(comm, proc_dims, size_in)
                 => (x -> FFTW.plan_fft(x, (1, 3))),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
                 => (x -> FFTW.plan_fft(x, 1)),
+             Transforms.BRFFT() => FFTW.plan_brfft,  # not yet supported
             )
 
     @testset "$(p.first) -- $T" for p in pairs, T in (Float32, Float64)

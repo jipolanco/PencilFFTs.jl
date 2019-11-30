@@ -74,13 +74,15 @@ function transpose!(
     if R === nothing
         # Both pencil configurations are identical, so we just copy the data,
         # permuting dimensions if needed.
+        ui = parent(src)
+        uo = parent(dest)
         if same_permutation(get_permutation(Pi), get_permutation(Po))
-            @timeit_debug timer "copy!" copy!(dest, src)
+            @timeit_debug timer "copy!" copy!(uo, ui)
         elseif parent(src) !== parent(dest)
             perm_base = relative_permutation(Pi, Po)
             perm = prepend_to_permutation(Val(length(src.extra_dims)),
                                           perm_base)
-            @timeit_debug timer "permutedims!" permutedims!(dest, src, perm)
+            @timeit_debug timer "permutedims!" permutedims!(uo, ui, perm)
         else
             # TODO...
             error("in-place dimension permutations not yet supported!")
@@ -322,7 +324,7 @@ function _get_remote_indices(R::Int, coords_local::Dims{M}, Nproc::Int) where M
     CartesianIndices(t)
 end
 
-function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
+function copy_range!(dest::Vector{T}, dest_offset::Int, src::PencilArray{T,N},
                      src_range::ArrayRegion{P}, extra_dims::Dims{E}, timer,
                     ) where {T,N,P,E}
     @assert P + E == N
@@ -330,9 +332,10 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
     @timeit_debug timer "copy_range!" begin
 
     n = dest_offset
+    src_p = parent(src)  # array with non-permuted indices
     for I in CartesianIndices(src_range)
         for K in CartesianIndices(extra_dims)
-            @inbounds dest[n += 1] = src[K, I]
+            @inbounds dest[n += 1] = src_p[K, I]
         end
     end
 
@@ -341,7 +344,7 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::AbstractArray{T,N},
     dest
 end
 
-function copy_permuted!(dest::AbstractArray{T,N}, o_range_iperm::ArrayRegion{P},
+function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
                         src::Vector{T}, src_offset::Int,
                         perm::OptionalPermutation{P}, extra_dims::Dims{E},
                         timer) where {T,N,P,E}
@@ -353,12 +356,13 @@ function copy_permuted!(dest::AbstractArray{T,N}, o_range_iperm::ArrayRegion{P},
     # dimension first), but with a permutation corresponding to the layout of
     # the `src` data.
     n = src_offset
+    dest_p = parent(dest)  # array with non-permuted indices
     for I in CartesianIndices(o_range_iperm)
         # Switch from input to output permutation.
         # Note: this should have zero cost if perm == nothing.
         J = permute_indices(I, perm)
         for K in CartesianIndices(extra_dims)
-            @inbounds dest[K, J] = src[n += 1]
+            @inbounds dest_p[K, J] = src[n += 1]
         end
     end
 
