@@ -65,7 +65,7 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
     E = length(extra_dims)
     N = length(size_in)
 
-    make_plan(planner, args...; dims=1:N) = x -> planner(x, args..., dims .+ E)
+    make_plan(planner, args...; dims=1:N) = x -> planner(x, args..., dims)
 
     pair_r2r(tr::Transforms.R2R) =
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))

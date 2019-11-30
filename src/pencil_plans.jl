@@ -66,8 +66,8 @@ along each dimension.
   which is `Float64` by default.
 
 - `extra_dims` may be used to specify the sizes of one or more extra dimensions
-  that should not be transformed. These dimensions will be added to the leftmost
-  (i.e. fastest) indices of the arrays. Extra dimensions can be used to contain,
+  that should not be transformed. These dimensions will be added to the rightmost
+  (i.e. slowest) indices of the arrays. Extra dimensions can be used to contain,
   for instance, multiple vector field components in a single array.
   See [`Pencils.PencilArray`](@ref) for more details.
 
@@ -317,15 +317,14 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
                            transform_fw::AbstractTransform,
                            plan1d_opt::NamedTuple) where {n}
     perm = get_permutation(Pi)
-    E = length(plan1d_opt.extra_dims)
 
     dims = if perm === nothing
-        E + n  # no index permutation
+        n  # no index permutation
     else
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
         # (leftmost) index, then the result of `findfirst` should be 1.
-        E + (findfirst(==(n), perm) :: Int)
+        findfirst(==(n), perm) :: Int
     end
 
     # Create temporary arrays with the dimensions required for forward and
