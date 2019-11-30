@@ -58,7 +58,7 @@ same_permutation(a::Permutation{N}, ::Nothing) where N =
     a === identity_permutation(Val(N))
 same_permutation(::Nothing, a::Permutation) = same_permutation(a, nothing)
 
-# Prepend `M` non-permuted dimensions to the given permutation.
-# Example: prepend_to_permutation(Val(2), (2, 3, 1)) = (1, 2, 4, 5, 3).
-prepend_to_permutation(::Val{M}, perm::Permutation) where M =
-    (ntuple(identity, M)..., (M .+ perm)...)
+# Append `M` non-permuted dimensions to the given permutation.
+# Example: append_to_permutation((2, 3, 1), Val(2)) = (2, 3, 1, 4, 5).
+append_to_permutation(perm::Permutation{N}, ::Val{M}) where {N, M} =
+    (perm..., ntuple(i -> N + i, Val(M))...)

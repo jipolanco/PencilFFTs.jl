@@ -80,8 +80,7 @@ function transpose!(
             @timeit_debug timer "copy!" copy!(uo, ui)
         elseif parent(src) !== parent(dest)
             perm_base = relative_permutation(Pi, Po)
-            perm = prepend_to_permutation(Val(length(src.extra_dims)),
-                                          perm_base)
+            perm = append_to_permutation(perm_base, Val(length(src.extra_dims)))
             @timeit_debug timer "permutedims!" permutedims!(uo, ui, perm)
         else
             # TODO...
@@ -333,9 +332,9 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::PencilArray{T,N},
 
     n = dest_offset
     src_p = parent(src)  # array with non-permuted indices
-    for I in CartesianIndices(src_range)
-        for K in CartesianIndices(extra_dims)
-            @inbounds dest[n += 1] = src_p[K, I]
+    for K in CartesianIndices(extra_dims)
+        for I in CartesianIndices(src_range)
+            @inbounds dest[n += 1] = src_p[I, K]
         end
     end
 
@@ -357,12 +356,12 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
     # the `src` data.
     n = src_offset
     dest_p = parent(dest)  # array with non-permuted indices
-    for I in CartesianIndices(o_range_iperm)
-        # Switch from input to output permutation.
-        # Note: this should have zero cost if perm == nothing.
-        J = permute_indices(I, perm)
-        for K in CartesianIndices(extra_dims)
-            @inbounds dest_p[K, J] = src[n += 1]
+    for K in CartesianIndices(extra_dims)
+        for I in CartesianIndices(o_range_iperm)
+            # Switch from input to output permutation.
+            # Note: this should have zero cost if perm == nothing.
+            J = permute_indices(I, perm)
+            @inbounds dest_p[J, K] = src[n += 1]
         end
     end
 

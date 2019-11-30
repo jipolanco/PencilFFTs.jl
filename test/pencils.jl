@@ -62,13 +62,13 @@ function test_array_wrappers(p::Pencil)
 
         b = zeros(T, psize .+ 2)
         @test_throws DimensionMismatch PencilArray(p, b)
-        @test_throws DimensionMismatch PencilArray(p, zeros(T, psize..., 3))
+        @test_throws DimensionMismatch PencilArray(p, zeros(T, 3, psize...))
 
         # This is allowed.
-        w = PencilArray(p, zeros(T, 3, psize...))
-        @test size_global(w) === (3, size_global(p)...)
+        w = PencilArray(p, zeros(T, psize..., 3))
+        @test size_global(w) === (size_global(p)..., 3)
 
-        @inferred PencilArray(p, zeros(T, 3, psize...))
+        @inferred PencilArray(p, zeros(T, psize..., 3))
         @inferred size_global(w)
     end
 

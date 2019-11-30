@@ -30,7 +30,7 @@ pencil.
 
 !!! note "Extra dimensions"
 
-    The data array can have one or more extra dimensions to the left (fast
+    The data array can have one or more extra dimensions to the right (slow
     indices).
     For instance, these may correspond to vector or tensor components.
     These dimensions are not affected by permutations.
@@ -40,9 +40,9 @@ pencil.
     ```julia
     dims = (20, 30, 10)
     PencilArray(pencil, zeros(dims...))        # works (scalar)
-    PencilArray(pencil, zeros(3, dims...))     # works (3-component vector)
-    PencilArray(pencil, zeros(4, 3, dims...))  # works (4×3 tensor)
-    PencilArray(pencil, zeros(dims..., 3))     # fails
+    PencilArray(pencil, zeros(dims..., 3))     # works (3-component vector)
+    PencilArray(pencil, zeros(dims..., 4, 3))  # works (4×3 tensor)
+    PencilArray(pencil, zeros(3, dims...))     # fails
     ```
 
 ---
@@ -52,14 +52,14 @@ pencil.
 Allocate uninitialised `PencilArray` that can hold data in the local pencil.
 
 Extra dimensions, for instance representing vector components, can be specified.
-These dimensions are added to the leftmost (fastest) indices of the resulting
+These dimensions are added to the rightmost (slowest) indices of the resulting
 array.
 
 # Example
 Suppose `pencil` has local dimensions `(10, 20, 30)` after permutation. Then:
 ```julia
 PencilArray(pencil)          # array dimensions are (10, 20, 30)
-PencilArray(pencil, (4, 3))  # array dimensions are (4, 3, 10, 20, 30)
+PencilArray(pencil, (4, 3))  # array dimensions are (10, 20, 30, 4, 3)
 ```
 """
 struct PencilArray{T, N,
@@ -83,8 +83,8 @@ struct PencilArray{T, N,
         E = N - Np
         size_data = size(data)
 
-        extra_dims = ntuple(n -> size_data[n], E)  # = size_data[1:E]
-        geom_dims = ntuple(n -> size_data[E + n], Np)  # = size_data[E+1:end]
+        geom_dims = ntuple(n -> size_data[n], Np)  # = size_data[1:Np]
+        extra_dims = ntuple(n -> size_data[Np + n], E)  # = size_data[Np+1:N]
 
         if geom_dims !== size_local(pencil)
             throw(DimensionMismatch(
@@ -101,12 +101,12 @@ struct PencilArray{T, N,
 end
 
 PencilArray(pencil::Pencil, extra_dims::Dims=()) =
-    PencilArray(pencil, Array{eltype(pencil)}(undef, extra_dims...,
-                                              size_local(pencil)...))
+    PencilArray(pencil, Array{eltype(pencil)}(undef, size_local(pencil)...,
+                                              extra_dims...))
 
 function Base.size(x::PencilArray)
     s = _permute_indices(x, size(parent(x))...; perm=x.perm_inv)
-    @assert s === (x.extra_dims..., size_local(x.pencil, permute=false)...)
+    @assert s === (size_local(x.pencil, permute=false)..., x.extra_dims...)
     s
 end
 
@@ -130,16 +130,16 @@ Base.IndexStyle(::Type{<:PencilArray{T,N,E,Np,P,A}}
                       i::Tuple{Union{Integer, AbstractArray}}) =
     (Base.to_index(i...), )
 
-# Permute "permutable" indices of array, i.e., excluding the first E dimensions.
+# Permute "permutable" indices of array, i.e., excluding the last E dimensions.
 function _permute_indices(
         x::PencilArray{T,N,E,Np} where T,
         I::Vararg{Any,N};
         perm=x.perm,
        ) where {N,E,Np}
-    a = ntuple(d -> I[d], Val(E))
-    b = ntuple(d -> I[d + E], Val(Np))
+    a = ntuple(d -> I[d + Np], Val(E))
+    b = ntuple(d -> I[d], Val(Np))
     c = permute_indices(b, perm)
-    (a..., c...)
+    (c..., a...)
 end
 
 @inline _splat_indices(i::CartesianIndex, inds...) =
@@ -194,7 +194,7 @@ Global dimensions associated to the given array.
 Unlike `size`, the returned dimensions are *not* permuted according to the
 associated pencil configuration.
 """
-size_global(x::PencilArray) = (x.extra_dims..., size_global(x.pencil)...)
+size_global(x::PencilArray) = (size_global(x.pencil)..., x.extra_dims...)
 
 """
     range_local(x::PencilArray; permute=true)
@@ -205,7 +205,7 @@ By default the dimensions are permuted to match the order of indices in the
 array.
 """
 range_local(x::PencilArray; permute=true) =
-    (Base.OneTo.(x.extra_dims)..., range_local(pencil(x), permute=permute)...)
+    (range_local(pencil(x), permute=permute)..., Base.OneTo.(x.extra_dims)...)
 
 """
     get_comm(x::PencilArray)
@@ -263,7 +263,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
         else
             # Apply inverse permutation.
             invperm = relative_permutation(perm, nothing)
-            p = prepend_to_permutation(Val(length(extra_dims)), invperm)
+            p = append_to_permutation(invperm, Val(length(extra_dims)))
             permutedims(x.data, p)  # creates copy!
         end
     end
@@ -294,7 +294,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             recv_req[n] = MPI.REQUEST_NULL
         else
             # TODO avoid allocation?
-            recv[n] = Array{T,N}(undef, extra_dims..., rdims...)
+            recv[n] = Array{T,N}(undef, rdims..., extra_dims...)
             recv_req[n] = MPI.Irecv!(recv[n], src_rank, mpi_tag, comm)
         end
     end
@@ -304,13 +304,13 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     # Copy local data.
     colons_extra_dims = ntuple(n -> Colon(), Val(length(extra_dims)))
-    dest[colons_extra_dims..., pen.axes_local...] .= data
+    dest[pen.axes_local..., colons_extra_dims...] .= data
 
     # Copy remote data.
     for m = 2:Nproc
         n, status = MPI.Waitany!(recv_req)
         rrange = pen.axes_all[n]
-        dest[colons_extra_dims..., rrange...] .= recv[n]
+        dest[rrange..., colons_extra_dims...] .= recv[n]
     end
 
     end  # @timeit_debug
