@@ -67,11 +67,16 @@ function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
     u = if pencil(x) === Pi
         x
     else
-        u = _temporary_pencil_array(Pi, full_plan.ibuf)
+        u = _temporary_pencil_array(Pi, full_plan.ibuf, full_plan.extra_dims)
         transpose!(u, x, method=full_plan.transpose_method)
     end
 
-    v = pencil(y) === Po ? y : _temporary_pencil_array(Po, full_plan.obuf)
+    v = if pencil(y) === Po
+        y
+    else
+        _temporary_pencil_array(Po, full_plan.obuf, full_plan.extra_dims)
+    end
+
     @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
     _apply_plans!(dir, y, v, full_plan, next_plans...)
@@ -89,10 +94,11 @@ function _check_arrays(p::PencilFFTPlan, xin, xout)
     nothing
 end
 
-function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8})
+function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8},
+                                 extra_dims::Dims)
     # Create "unsafe" pencil array wrapping buffer data.
     T = eltype(p)
-    dims = size_local(p)
+    dims = (extra_dims..., size_local(p)...)
     nb = prod(dims) * sizeof(T)
     resize!(buf, nb)
     x = Pencils.unsafe_as_array(T, buf, dims)

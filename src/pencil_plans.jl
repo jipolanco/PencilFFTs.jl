@@ -31,6 +31,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 
     PencilFFTPlan(size_global::Dims{N}, transforms,
                   proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
+                  extra_dims=(),
                   fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
                   permute_dims=Val(true),
                   transpose_method=TransposeMethods.IsendIrecv(),
@@ -63,6 +64,12 @@ along each dimension.
 
 - The floating point precision can be selected by setting `real_type` parameter,
   which is `Float64` by default.
+
+- `extra_dims` may be used to specify the sizes of one or more extra dimensions
+  that should not be transformed. These dimensions will be added to the leftmost
+  (i.e. fastest) indices of the arrays. Extra dimensions can be used to contain,
+  for instance, multiple vector field components in a single array.
+  See [`Pencils.PencilArray`](@ref) for more details.
 
 - The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
   `FFTW` plan creation functions (see [`AbstractFFTs`
@@ -103,14 +110,18 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 
 """
 struct PencilFFTPlan{T,
-                     N,
-                     M,
+                     N,   # dimension of arrays (= Nt + Ne)
+                     Nt,  # number of transformed dimensions
+                     Nd,  # number of decomposed dimensions
+                     Ne,  # number of extra dimensions
                      G <: GlobalFFTParams,
-                     P <: NTuple{N, PencilPlan1D},
+                     P <: NTuple{Nt, PencilPlan1D},
                      TransposeMethod <: AbstractTransposeMethod,
                     }
     global_params :: G
-    topology      :: MPITopology{M}
+    topology      :: MPITopology{Nd}
+
+    extra_dims :: Dims{Ne}
 
     # One-dimensional plans, including data decomposition configurations.
     plans :: P
@@ -134,10 +145,11 @@ struct PencilFFTPlan{T,
     # - add constructor with Cartesian MPI communicator, in case the user
     #   already created one
     # - allow more control on the decomposition directions
-    function PencilFFTPlan(size_global::Dims{N},
-                           transforms::AbstractTransformList{N},
-                           proc_dims::Dims{M}, comm::MPI.Comm,
+    function PencilFFTPlan(size_global::Dims{Nt},
+                           transforms::AbstractTransformList{Nt},
+                           proc_dims::Dims{Nd}, comm::MPI.Comm,
                            ::Type{T}=Float64;
+                           extra_dims::Dims{Ne}=(),
                            fftw_flags=FFTW.ESTIMATE,
                            fftw_timelimit=FFTW.NO_TIMELIMIT,
                            permute_dims::ValBool=Val(true),
@@ -145,7 +157,7 @@ struct PencilFFTPlan{T,
                                TransposeMethods.IsendIrecv(),
                            timer::TimerOutput=TimerOutput(),
                            ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
-                          ) where {N, M, T <: FFTReal}
+                          ) where {Nt, Nd, Ne, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
 
@@ -157,13 +169,19 @@ struct PencilFFTPlan{T,
                       obuf=obuf,
                       timer=timer,
                       fftw_kw=fftw_kw,
+                      extra_dims=extra_dims,
                      )
 
         plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> p.scale_factor, plans)
 
-        new{T, N, M, typeof(g), typeof(plans), typeof(transpose_method)}(
-            g, t, plans, scale, transpose_method, ibuf, obuf, timer)
+        N = Nt + Ne
+        G = typeof(g)
+        P = typeof(plans)
+        TM = typeof(transpose_method)
+
+        new{T, N, Nt, Nd, Ne, G, P, TM}(
+            g, t, extra_dims, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 
     function PencilFFTPlan(size_global::Dims{N},
@@ -299,21 +317,23 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
                            transform_fw::AbstractTransform,
                            plan1d_opt::NamedTuple) where {n}
     perm = get_permutation(Pi)
+    E = length(plan1d_opt.extra_dims)
 
     dims = if perm === nothing
-        n  # no index permutation
+        E + n  # no index permutation
     else
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
-        # (leftmost) index, then the result should be 1.
-        findfirst(==(n), perm) :: Int
+        # (leftmost) index, then the result of `findfirst` should be 1.
+        E + (findfirst(==(n), perm) :: Int)
     end
 
     # Create temporary arrays with the dimensions required for forward and
     # backward transforms.
     transform_bw = binv(transform_fw)
-    A_fw = _temporary_pencil_array(Pi, plan1d_opt.ibuf)
-    A_bw = _temporary_pencil_array(Po, plan1d_opt.obuf)
+    extra_dims = plan1d_opt.extra_dims
+    A_fw = _temporary_pencil_array(Pi, plan1d_opt.ibuf, extra_dims)
+    A_bw = _temporary_pencil_array(Po, plan1d_opt.obuf, extra_dims)
 
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output
@@ -330,6 +350,8 @@ end
 
 function Base.show(io::IO, p::PencilFFTPlan)
     show(io, p.global_params)
+    edims = p.extra_dims
+    isempty(edims) || println(io, "Extra dimensions: $edims")
     show(io, p.topology)
     nothing
 end
@@ -357,7 +379,8 @@ get_timer(p::PencilFFTPlan) = p.timer
 Allocate uninitialised distributed array that can hold input data for the given
 plan.
 """
-allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in)
+allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in,
+                                               p.extra_dims)
 
 """
     allocate_output(p::PencilFFTPlan)
@@ -365,4 +388,5 @@ allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in)
 Allocate uninitialised distributed array that can hold output data for the
 given plan.
 """
-allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out)
+allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out,
+                                                p.extra_dims)

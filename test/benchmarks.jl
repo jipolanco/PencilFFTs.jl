@@ -146,6 +146,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
 end
 
 function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
+                        extra_dims=(),
                         iterations=ITERATIONS,
                         transpose_method=TransposeMethods.IsendIrecv(),
                        )
@@ -153,6 +154,7 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
 
     to = TimerOutput()
     plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
+                         extra_dims=extra_dims,
                          timer=to, transpose_method=transpose_method)
 
     isroot && println("\n", plan, "\nMethod: ", plan.transpose_method, "\n")
@@ -210,8 +212,11 @@ function main()
     transpose_methods = (TransposeMethods.IsendIrecv(),
                          TransposeMethods.Alltoallv())
 
-    for pdims in pdims_list, method in transpose_methods
-        benchmark_rfft(comm, pdims, dims, transpose_method=method)
+    extra_dims = ((), (3, ))
+
+    for pdims in pdims_list, edims in extra_dims, method in transpose_methods
+        benchmark_rfft(comm, pdims, dims, extra_dims=edims,
+                       transpose_method=method)
     end
 
     benchmark_pencils(comm, proc_dims, dims, with_permutations=Val(false))

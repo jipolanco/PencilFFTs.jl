@@ -56,27 +56,33 @@ function test_transform_types(size_in)
     nothing
 end
 
-function test_transforms(comm, proc_dims, size_in)
+function test_transforms(comm, proc_dims, size_in; extra_dims=())
     root = 0
     myrank = MPI.Comm_rank(comm)
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
+    plan_kw = (:extra_dims => extra_dims, )
+    E = length(extra_dims)
+    N = length(size_in)
+
+    make_plan(planner, args...; dims=1:N) = x -> planner(x, args..., dims .+ E)
+
     pair_r2r(tr::Transforms.R2R) =
-        tr => (x -> FFTW.plan_r2r(x, Transforms.kind(tr)))
+        tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
 
     pairs = (
-             Transforms.FFT() => FFTW.plan_fft,
-             Transforms.RFFT() => FFTW.plan_rfft,
-             Transforms.BFFT() => FFTW.plan_bfft,
+             Transforms.FFT() => make_plan(FFTW.plan_fft),
+             Transforms.RFFT() => make_plan(FFTW.plan_rfft),
+             Transforms.BFFT() => make_plan(FFTW.plan_bfft),
              pairs_r2r...,
              (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-                => (x -> FFTW.plan_rfft(x, 2:3)),
+                => make_plan(FFTW.plan_rfft, dims=2:3),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
-                => (x -> FFTW.plan_fft(x, (1, 3))),
+                => make_plan(FFTW.plan_fft, dims=(1, 3)),
              (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
-                => (x -> FFTW.plan_fft(x, 1)),
-             Transforms.BRFFT() => FFTW.plan_brfft,  # not yet supported
+                => make_plan(FFTW.plan_fft, dims=1),
+             Transforms.BRFFT() => make_plan(FFTW.plan_brfft),  # not yet supported
             )
 
     @testset "$(p.first) -- $T" for p in pairs, T in (Float32, Float64)
@@ -84,12 +90,15 @@ function test_transforms(comm, proc_dims, size_in)
             # FIXME...
             # In this case, I need to change the order of the transforms
             # (from right to left)
-            @test_broken PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
+            @test_broken PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+                                       plan_kw...)
             continue
         end
 
-        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
-        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T)
+        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+                                plan_kw...)
+        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+                             plan_kw...)
         fftw_planner = p.second
 
         println("\n", "-"^60, "\n\n", plan, "\n")
@@ -150,6 +159,7 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
         end
     end
 
+    test_transforms(comm, pdims, size_in, extra_dims=(3, ))
     test_transforms(comm, pdims, size_in)
 
     nothing
