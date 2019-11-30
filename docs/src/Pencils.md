@@ -34,6 +34,7 @@ range_local
 size
 size_global
 size_local
+spatial_indices
 to_local
 transpose!
 ```

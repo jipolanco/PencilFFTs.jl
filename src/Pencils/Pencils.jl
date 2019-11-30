@@ -20,7 +20,7 @@ export gather
 export get_comm, get_decomposition, get_permutation, get_timer
 export global_view
 export ndims_extra
-export range_local, size_local, size_global
+export range_local, size_local, size_global, spatial_indices
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.

@@ -214,6 +214,8 @@ Get MPI communicator associated to a pencil-distributed array.
 """
 get_comm(x::PencilArray) = get_comm(x.pencil)
 
+const GlobalPencilArray{T,N} = OffsetArray{T,N,A} where {A <: PencilArray}
+
 """
     global_view(x::PencilArray)
 
@@ -225,7 +227,27 @@ function global_view(x::PencilArray)
     offsets = first.(r) .- 1
     xo = OffsetArray(x, offsets)
     @assert parent(xo) === x  # OffsetArray shouldn't create a copy...
-    xo
+    xo :: GlobalPencilArray
+end
+
+"""
+    spatial_indices(x::PencilArray)
+    spatial_indices(x::OffsetArray)
+
+Create a `CartesianIndices` to iterate over the local "spatial" dimensions of a
+pencil-decomposed array.
+
+The "spatial" dimensions are those that may be decomposed (as opposed to the
+"extra" dimensions, which are not considered by this function).
+"""
+spatial_indices(x::PencilArray{T,N,E,Np} where {T,N,E}) where {Np} =
+    CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
+
+function spatial_indices(x::GlobalPencilArray{T,N} where T) where {N}
+    p = parent(x)
+    E = ndims_extra(p)
+    Np = N - E
+    CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
 end
 
 """
