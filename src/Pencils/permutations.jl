@@ -1,11 +1,14 @@
 ## Permutation operations ##
 
 # Permute tuple values.
-permute_indices(t::NTuple, ::Nothing) = t
-permute_indices(t::NTuple{N}, perm::Permutation{N}) where N = map(p -> t[p], perm)
-permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
+@inline permute_indices(t::NTuple, ::Nothing) = t
+@inline permute_indices(t::NTuple, p::Pencil) = permute_indices(t, p.perm)
 
-permute_indices(I::CartesianIndex, perm) =
+# This is the same as Base.genperm.
+@inline permute_indices(t::NTuple{N}, perm::Permutation{N}) where {N} =
+    ntuple(i -> t[perm[i]], Val(N))
+
+@inline permute_indices(I::CartesianIndex, perm) =
     CartesianIndex(permute_indices(Tuple(I), perm))
 
 # Get "relative" permutation needed to get from `x` to `y`, i.e., such
