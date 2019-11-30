@@ -47,7 +47,7 @@ pencil.
 
 ---
 
-    PencilArray(pencil::Pencil, [extra_dims...])
+    PencilArray(pencil::Pencil, [extra_dims=()])
 
 Allocate uninitialised `PencilArray` that can hold data in the local pencil.
 
@@ -58,8 +58,8 @@ array.
 # Example
 Suppose `pencil` has local dimensions `(10, 20, 30)` after permutation. Then:
 ```julia
-PencilArray(pencil)        # array dimensions are (10, 20, 30)
-PencilArray(pencil, 4, 3)  # array dimensions are (4, 3, 10, 20, 30)
+PencilArray(pencil)          # array dimensions are (10, 20, 30)
+PencilArray(pencil, (4, 3))  # array dimensions are (4, 3, 10, 20, 30)
 ```
 """
 struct PencilArray{T, N,
@@ -100,7 +100,7 @@ struct PencilArray{T, N,
     end
 end
 
-PencilArray(pencil::Pencil, extra_dims::Vararg{Int}) =
+PencilArray(pencil::Pencil, extra_dims::Dims=()) =
     PencilArray(pencil, Array{eltype(pencil)}(undef, extra_dims...,
                                               size_local(pencil)...))
 

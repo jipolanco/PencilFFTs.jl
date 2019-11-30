@@ -207,9 +207,9 @@ function main()
 
     # Test arrays with extra dimensions.
     @testset "extra dimensions" begin
-        u1 = PencilArray(pen1, 3, 4)
-        u2 = PencilArray(pen2, 3, 4)
-        u3 = PencilArray(pen3, 3, 4)
+        u1 = PencilArray(pen1, (3, 4))
+        u2 = PencilArray(pen2, (3, 4))
+        u3 = PencilArray(pen3, (3, 4))
         randn!(rng, u1)
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
@@ -262,7 +262,7 @@ function main()
         @inferred Pencils.size_local(pen2)
 
         @inferred PencilArray(pen2)
-        @inferred PencilArray(pen2, 3, 4)
+        @inferred PencilArray(pen2, (3, 4))
 
         @inferred Pencils.permute_indices(Nxyz, (2, 3, 1))
         @inferred Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
