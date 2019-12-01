@@ -6,7 +6,7 @@
 @inline function permute_indices(t::Tuple{Vararg{Any,N}},
                                  ::Val{perm}) where {N, perm}
     perm :: Permutation{N}
-    ntuple(i -> t[perm[i]], Val(N))
+    @inbounds ntuple(i -> t[perm[i]], Val(N))
 end
 @inline permute_indices(::Val{t}, p::Val) where {t} = Val(permute_indices(t, p))
 
