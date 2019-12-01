@@ -67,11 +67,12 @@ struct PencilArray{T, N,
                    Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
                    P <: Pencil,
                    A <: AbstractArray{T,N},
-                   OP <: OptionalPermutation{Np},
+                   Perm,     # optional permutation (Nothing or Val{permutation})
+                   PermInv,  # inverse permutation of `P`
                   } <: AbstractArray{T,N}
     pencil   :: P
-    perm     :: OP
-    perm_inv :: OP
+    perm     :: Perm
+    perm_inv :: PermInv
     data     :: A
     extra_dims :: Dims{E}
 
@@ -94,9 +95,11 @@ struct PencilArray{T, N,
 
         perm = get_permutation(pencil)
         perm_inv = inverse_permutation(perm)
-        OP = typeof(perm)
+        Perm = typeof(perm)
+        PermInv = typeof(perm_inv)
 
-        new{T, N, E, Np, P, A, OP}(pencil, perm, perm_inv, data, extra_dims)
+        new{T, N, E, Np, P, A, Perm, PermInv}(pencil, perm, perm_inv, data,
+                                              extra_dims)
     end
 end
 
@@ -263,7 +266,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             # Apply inverse permutation.
             invperm = relative_permutation(perm, nothing)
             p = append_to_permutation(invperm, Val(length(extra_dims)))
-            permutedims(x.data, p)  # creates copy!
+            permutedims(x.data, extract(p))  # creates copy!
         end
     end
 

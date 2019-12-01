@@ -115,8 +115,8 @@ function main()
     topo = MPITopology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
-    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=(2, 3, 1))
-    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=(3, 2, 1))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Val((2, 3, 1)))
+    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Val((3, 2, 1)))
 
     # Note: the permutation of pen2 was chosen such that the inverse permutation
     # is different.
@@ -127,9 +127,11 @@ function main()
         @test_throws ArgumentError Pencil(
             MPITopology(comm, (Nproc, 1, 1)), Nxyz, (1, 2, 3))
 
-        # Invalid permutation
+        # Invalid permutations
+        @test_throws TypeError Pencil(
+            topo, Nxyz, (1, 2), permute=(2, 3, 1))
         @test_throws ArgumentError Pencil(
-            topo, Nxyz, (1, 2), permute=(0, 3, 15))
+            topo, Nxyz, (1, 2), permute=Val((0, 3, 15)))
 
         # Decomposed dimensions may not be repeated.
         @test_throws ArgumentError Pencil(topo, Nxyz, (2, 2))
@@ -149,19 +151,19 @@ function main()
         @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) ===
             (1, 42, 12, 1, 1)
         @test get_permutation(pen1) === nothing
-        @test get_permutation(pen2) === (2, 3, 1)
+        @test get_permutation(pen2) === Val((2, 3, 1))
 
-        @test Pencils.relative_permutation(pen2, pen3) === (2, 1, 3)
+        @test Pencils.relative_permutation(pen2, pen3) === Val((2, 1, 3))
 
-        let a = (2, 1, 3), b = (3, 2, 1)
-            @test Pencils.permute_indices((:a, :b, :c), (2, 3, 1)) ===
+        let a = Val((2, 1, 3)), b = Val((3, 2, 1))
+            @test Pencils.permute_indices((:a, :b, :c), Val((2, 3, 1))) ===
                 (:b, :c, :a)
             a2b = Pencils.relative_permutation(a, b)
             @test Pencils.permute_indices(a, a2b) === b
 
-            x = (3, 1, 2)
+            x = Val((3, 1, 2))
             x2nothing = Pencils.relative_permutation(x, nothing)
-            @test Pencils.permute_indices(x, x2nothing) === (1, 2, 3)
+            @test Pencils.permute_indices(x, x2nothing) === Val((1, 2, 3))
         end
     end
 
@@ -231,7 +233,7 @@ function main()
         @test compare_distributed_arrays(u1, u2)
 
         # Same decomposed dimension as pen2, but different permutation.
-        let pen = Pencil(pen2, decomp_dims=(2, ), permute=(3, 2, 1))
+        let pen = Pencil(pen2, decomp_dims=(2, ), permute=Val((3, 2, 1)))
             v = PencilArray(pen)
             transpose!(v, u2)
             @test compare_distributed_arrays(u1, v)
@@ -264,9 +266,9 @@ function main()
         @inferred PencilArray(pen2)
         @inferred PencilArray(pen2, (3, 4))
 
-        @inferred Pencils.permute_indices(Nxyz, (2, 3, 1))
-        @inferred Pencils.relative_permutation((1, 2, 3), (2, 3, 1))
-        @inferred Pencils.relative_permutation((1, 2, 3), nothing)
+        @inferred Pencils.permute_indices(Nxyz, Val((2, 3, 1)))
+        @inferred Pencils.relative_permutation(Val((1, 2, 3)), Val((2, 3, 1)))
+        @inferred Pencils.relative_permutation(Val((1, 2, 3)), nothing)
 
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)

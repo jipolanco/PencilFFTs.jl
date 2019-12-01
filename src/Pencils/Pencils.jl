@@ -30,7 +30,6 @@ const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 const Indices{N} = NTuple{N,Int} where N
 
 const Permutation{N} = NTuple{N,Int} where N
-const OptionalPermutation{N} = Union{Nothing, Permutation{N}} where N
 
 # Modules
 include("MPITopologies.jl")

@@ -10,7 +10,8 @@ The `Pencil` describes the decomposition of arrays of element type `T`.
 
     Pencil(topology::MPITopology{M}, size_global::Dims{N},
            decomp_dims::Dims{M}, [element_type=Float64];
-           permute=nothing, timer=TimerOutput())
+           permute::Union{Nothing, Val}=nothing,
+           timer=TimerOutput())
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
@@ -21,10 +22,10 @@ type `T` across a group of MPI processes.
 Data is distributed over the given `M`-dimensional MPI topology (with `M < N`).
 The decomposed dimensions are given by `decomp_dims`.
 
-The optional parameter `perm` should be a tuple defining a permutation of the
-data indices. This may be useful for performance reasons, since it may be
-preferable (e.g. for FFTs) that the data is contiguous along the pencil
-direction.
+The optional parameter `perm` should be a (compile-time) tuple defining a
+permutation of the data indices. Such permutation may be useful for performance
+reasons, since it may be preferable (e.g. for FFTs) that the data is contiguous
+along the pencil direction.
 
 It is also possible to pass a `TimerOutput` to the constructor. See
 [Measuring performance](@ref Pencils.measuring_performance) for details.
@@ -56,7 +57,7 @@ configurations, leading to reduced global memory usage.
 struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
               T <: Number,  # element type (e.g. Float64, Complex{Float64})
-              P <: OptionalPermutation{N},  # optional index permutation
+              P,  # optional index permutation (Nothing or Val{permutation})
              }
     # M-dimensional MPI decomposition info (with M < N).
     topology :: MPITopology{M}
@@ -91,11 +92,11 @@ struct Pencil{N,  # spatial dimensions
 
     function Pencil(topology::MPITopology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M}, ::Type{T}=Float64;
-                    permute::P=nothing,
+                    permute::Union{Nothing, Val}=nothing,
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
-                   ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
-        if !is_valid_permuation(permute)
+                   ) where {N, M, T<:Number}
+        if !is_valid_permutation(permute)
             # This is almost the same error thrown by `permutedims`.
             throw(ArgumentError("invalid permutation of dimensions: $permute"))
         end
@@ -104,6 +105,7 @@ struct Pencil{N,  # spatial dimensions
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
         axes_local = axes_all[topology.coords_local...]
         axes_local_perm = permute_indices(axes_local, permute)
+        P = typeof(permute)
         new{N,M,T,P}(topology, size_global, decomp_dims, axes_all, axes_local,
                      axes_local_perm, permute, send_buf, recv_buf, timer)
     end
@@ -111,9 +113,9 @@ struct Pencil{N,  # spatial dimensions
     function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
                     decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p),
-                    permute::P=get_permutation(p),
+                    permute=get_permutation(p),
                     timer::TimerOutput=get_timer(p),
-                   ) where {N, M, T<:Number, P<:OptionalPermutation{N}}
+                   ) where {N, M, T<:Number}
         Pencil(p.topology, size_global, decomp_dims, T;
                permute=permute, timer=timer,
                send_buf=p.send_buf, recv_buf=p.recv_buf)

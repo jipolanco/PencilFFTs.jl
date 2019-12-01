@@ -81,7 +81,7 @@ function transpose!(
         elseif parent(src) !== parent(dest)
             perm_base = relative_permutation(Pi, Po)
             perm = append_to_permutation(perm_base, Val(length(src.extra_dims)))
-            @timeit_debug timer "permutedims!" permutedims!(uo, ui, perm)
+            @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
         else
             # TODO...
             error("in-place dimension permutations not yet supported!")
@@ -345,7 +345,7 @@ end
 
 function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
                         src::Vector{T}, src_offset::Int,
-                        perm::OptionalPermutation{P}, extra_dims::Dims{E},
+                        perm::Union{Nothing, Val}, extra_dims::Dims{E},
                         timer) where {T,N,P,E}
     @assert P + E == N
 

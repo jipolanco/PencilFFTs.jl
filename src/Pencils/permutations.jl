@@ -3,10 +3,12 @@
 # Permute tuple values.
 @inline permute_indices(t::Tuple, ::Nothing) = t
 @inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
-
-@inline permute_indices(t::Tuple{Vararg{Any,N}},
-                        perm::Permutation{N}) where {N} =
+@inline function permute_indices(t::Tuple{Vararg{Any,N}},
+                                 ::Val{perm}) where {N, perm}
+    perm :: Permutation{N}
     ntuple(i -> t[perm[i]], Val(N))
+end
+@inline permute_indices(::Val{t}, p::Val) where {t} = Val(permute_indices(t, p))
 
 @inline permute_indices(I::CartesianIndex, perm) =
     CartesianIndex(permute_indices(Tuple(I), perm))
@@ -15,46 +17,61 @@
 # that `permute_indices(x, perm) == y`.
 # It is assumed that both tuples have the same elements, possibly in different
 # order.
-function relative_permutation(x::Permutation{N}, y::Permutation{N}) where {N}
-    # This is surely not the most efficient way, but it's still fast enough for
-    # small tuples.
-    perm = map(y) do v
-        findfirst(u -> u == v, x) :: Int
+@generated function relative_permutation(x::Val{p}, y::Val{q}) where {p, q}
+    N = length(p)
+    p :: Permutation{N}
+    q :: Permutation{N}
+    perm = map(q) do v
+        findfirst(==(v), p) :: Int
     end
-    @assert permute_indices(x, perm) === y
-    perm
+    @assert permute_indices(p, Val(perm)) === q
+    :( Val($perm) )
 end
 
-relative_permutation(::Nothing, y::Permutation) = y
+relative_permutation(::Nothing, y::Val) = y
 relative_permutation(::Nothing, ::Nothing) = nothing
 
 # In this case, the result is the inverse permutation of `x`, such that
 # `permute_indices(x, perm) == (1, 2, 3, ...)`.
 # (Same as `invperm`, which is type unstable for tuples.)
-relative_permutation(x::Permutation{N}, ::Nothing) where N =
-    relative_permutation(x, identity_permutation(Val(N)))
+relative_permutation(x::Val{p}, ::Nothing) where {p} =
+    relative_permutation(x, identity_permutation(Val(length(p))))
 
-inverse_permutation(x::OptionalPermutation) = relative_permutation(x, nothing)
+inverse_permutation(x::Union{Nothing, Val}) = relative_permutation(x, nothing)
 
 relative_permutation(p::Pencil, q::Pencil) =
     relative_permutation(p.perm, q.perm)
 
 # Construct the identity permutation: (1, 2, 3, ...)
-identity_permutation(::Val{N}) where N = ntuple(identity, N)
+identity_permutation(::Val{N}) where N = Val(ntuple(identity, N))
 
 is_identity_permutation(::Nothing) = true
-is_identity_permutation(perm::Permutation{N}) where N =
-    perm === identity_permutation(Val(N))
 
-is_valid_permuation(::Nothing) = true
-is_valid_permuation(perm::Permutation) = isperm(perm)
+function is_identity_permutation(::Val{P}) where P
+    N = length(P)
+    P :: Permutation{N}
+    P === identity_permutation(Val(N))
+end
 
-same_permutation(a::P, b::P) where P = a === b
-same_permutation(a::Permutation{N}, ::Nothing) where N =
-    a === identity_permutation(Val(N))
-same_permutation(::Nothing, a::Permutation) = same_permutation(a, nothing)
+is_valid_permutation(::Nothing) = true
+is_valid_permutation(::Val{P}) where {P} = isa(P, Permutation) && isperm(P)
+is_valid_permutation(::Any) = false
+
+same_permutation(::Val{p}, ::Val{p}) where {p} = true
+same_permutation(::Val{p}, ::Val{q}) where {p, q} = (@assert p !== q; false)
+same_permutation(::Val{p}, ::Nothing) where {p} =
+    p === identity_permutation(Val(length(p)))
+same_permutation(::Nothing, p::Val) = same_permutation(p, nothing)
+same_permutation(::Nothing, ::Nothing) = true
 
 # Append `M` non-permuted dimensions to the given permutation.
-# Example: append_to_permutation((2, 3, 1), Val(2)) = (2, 3, 1, 4, 5).
-append_to_permutation(perm::Permutation{N}, ::Val{M}) where {N, M} =
-    (perm..., ntuple(i -> N + i, Val(M))...)
+# Example: append_to_permutation(Val((2, 3, 1)), Val(2)) = Val((2, 3, 1, 4, 5)).
+function append_to_permutation(::Val{p}, ::Val{M}) where {p, M}
+    N = length(p)
+    p :: Permutation{N}
+    Val((p..., ntuple(i -> N + i, Val(M))...))
+end
+
+# This is useful for base functions that don't accept permutations as value
+# types (like `permutedims!`).
+extract(::Val{p}) where {p} = p
