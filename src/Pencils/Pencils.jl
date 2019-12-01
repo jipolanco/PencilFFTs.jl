@@ -38,8 +38,9 @@ using .MPITopologies
 import .MPITopologies: get_comm
 
 # Type definitions
-include("pencil.jl")  # Pencil
-include("arrays.jl")  # PencilArray
+include("pencil.jl")       # Pencil
+include("arrays.jl")       # PencilArray
+include("global_view.jl")  # GlobalPencilArray
 
 include("data_ranges.jl")
 include("mpi_wrappers.jl")
