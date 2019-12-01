@@ -161,6 +161,11 @@ function main()
             a2b = Pencils.relative_permutation(a, b)
             @test Pencils.permute_indices(a, a2b) === b
 
+            let x = (12, 42, 2)
+                print("@btime permute_indices...")
+                @btime Pencils.permute_indices($x, $a)
+            end
+
             x = Val((3, 1, 2))
             x2nothing = Pencils.relative_permutation(x, nothing)
             @test Pencils.permute_indices(x, x2nothing) === Val((1, 2, 3))
