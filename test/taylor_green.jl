@@ -100,11 +100,10 @@ function divergence(uF_local::VectorField{T},
 end
 
 # Compute ω = ∇×u in Fourier space.
-function curl(uF_local::VectorField{T}, gF::FourierGrid) where {T <: Complex}
-    ω_local = similar(uF_local)
-
+function curl!(ωF_local::VectorField{T}, uF_local::VectorField{T},
+               gF::FourierGrid) where {T <: Complex}
     u = global_view(uF_local)
-    ω = global_view(ω_local)
+    ω = global_view(ωF_local)
 
     @inbounds for I in spatial_indices(u)
         K = gF[I]  # (kx, ky, kz)
@@ -114,7 +113,7 @@ function curl(uF_local::VectorField{T}, gF::FourierGrid) where {T <: Complex}
         ω[I, 3] = 1im * (K[1] * v[2] - K[2] * v[1])
     end
 
-    ω_local
+    ωF_local
 end
 
 function main()
@@ -141,13 +140,14 @@ function main()
     taylor_green!(u, g)  # initialise TG velocity field
 
     uF = plan * u  # apply 3D FFT
+    ωF = similar(uF)
 
     if rank == 0
         print("@btime divergence...")
         @btime divergence($uF, $gF)
 
-        print("@btime curl...      ")
-        @btime curl($uF, $gF)
+        print("@btime curl!...     ")
+        @btime curl!($ωF, $uF, $gF)
     end
 
     MPI.Barrier(comm)
@@ -157,7 +157,7 @@ function main()
         @test div2_total ≈ 0 atol=1e-16
     end
 
-    ωF = curl(uF, gF)
+    curl!(ωF, uF, gF)
     ω = plan \ ωF
 
     ω_err = check_vorticity_TG(ω, g, comm)
