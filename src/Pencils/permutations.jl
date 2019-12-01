@@ -4,13 +4,9 @@
 @inline permute_indices(t::Tuple, ::Nothing) = t
 @inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
 
-# This is "safe" because it only works when the length of `t` is N.
-@inline _permute_indices_safe(perm::Permutation{N},
-                              t::Vararg{Any,N}) where {N} =
+@inline permute_indices(t::Tuple{Vararg{Any,N}},
+                        perm::Permutation{N}) where {N} =
     ntuple(i -> t[perm[i]], Val(N))
-
-@inline permute_indices(t::Tuple, perm::Permutation) =
-    _permute_indices_safe(perm, t...)
 
 @inline permute_indices(I::CartesianIndex, perm) =
     CartesianIndex(permute_indices(Tuple(I), perm))
