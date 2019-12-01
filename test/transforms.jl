@@ -58,8 +58,6 @@ end
 
 function test_transforms(comm, proc_dims, size_in; extra_dims=())
     root = 0
-    myrank = MPI.Comm_rank(comm)
-    myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
     plan_kw = (:extra_dims => extra_dims, )
     N = length(size_in)
@@ -128,14 +126,14 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
         MPI.Barrier(comm)
     end
 
-    redirect_stdout(stdout)  # undo redirection
-
     nothing
 end
 
 function test_pencil_plans(size_in::Tuple, pdims::Tuple)
     @assert length(size_in) >= 3
     comm = MPI.COMM_WORLD
+    myrank = MPI.Comm_rank(comm)
+    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
 
@@ -160,6 +158,8 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
 
     test_transforms(comm, pdims, size_in, extra_dims=(3, ))
     test_transforms(comm, pdims, size_in)
+
+    redirect_stdout(stdout)  # undo redirection
 
     nothing
 end
