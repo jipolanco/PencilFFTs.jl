@@ -62,7 +62,6 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
     myrank == root || redirect_stdout(open(DEV_NULL, "w"))
 
     plan_kw = (:extra_dims => extra_dims, )
-    E = length(extra_dims)
     N = length(size_in)
 
     make_plan(planner, args...; dims=1:N) = x -> planner(x, args..., dims)
