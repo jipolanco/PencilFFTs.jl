@@ -12,6 +12,7 @@ using BenchmarkTools
 using InteractiveUtils
 using LinearAlgebra
 using Printf
+using Profile
 using Test
 
 include("include/Grids.jl")
@@ -118,16 +119,12 @@ function curl!(ωF_local::VectorField{T}, uF_local::VectorField{T},
     ωF_local
 end
 
-function mynorm(u)
-    norm2 = zero(real(eltype(u)))
-    @inbounds for v in u
-        norm2 += abs2(v)
-    end
-    sqrt(norm2)
-end
+mynorm(u) = sqrt(sum(abs2, u))
 
 function micro_benchmarks(u, uF, gF)
     ωF = similar(uF)
+
+    @test mynorm(u) ≈ norm(u)
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
