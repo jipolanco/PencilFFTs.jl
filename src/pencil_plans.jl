@@ -300,7 +300,7 @@ function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
     t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
     @assert isperm(t)
     @assert t == (n, (1:n-1)..., (n+1:N)...)
-    t
+    Val(t)
 end
 
 # Case n = 1: no permutation of input data
@@ -310,7 +310,7 @@ _make_permutation_in(::Val{true}, dim::Val{1}, ::Val) = nothing
 function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     # This is the last transform, and I want the index order to be
     # exactly reversed (easier to work with than the alternative above).
-    ntuple(i -> N - i + 1, Val(N))  # (N, N-1, ..., 2, 1)
+    Val(ntuple(i -> N - i + 1, Val(N)))  # (N, N-1, ..., 2, 1)
 end
 
 function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
@@ -324,7 +324,7 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
         # (leftmost) index, then the result of `findfirst` should be 1.
-        findfirst(==(n), perm) :: Int
+        findfirst(==(n), Pencils.extract(perm)) :: Int
     end
 
     # Create temporary arrays with the dimensions required for forward and
