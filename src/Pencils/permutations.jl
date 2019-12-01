@@ -17,15 +17,19 @@ end
 # that `permute_indices(x, perm) == y`.
 # It is assumed that both tuples have the same elements, possibly in different
 # order.
-@generated function relative_permutation(x::Val{p}, y::Val{q}) where {p, q}
+function relative_permutation(x::Val{p}, y::Val{q}) where {p, q}
     N = length(p)
     p :: Permutation{N}
     q :: Permutation{N}
-    perm = map(q) do v
-        findfirst(==(v), p) :: Int
+    if @generated
+        perm = map(v -> findfirst(==(v), p)::Int, q)
+        @assert permute_indices(p, Val(perm)) === q
+        :( Val($perm) )
+    else
+        perm = map(v -> findfirst(==(v), p)::Int, q)
+        @assert permute_indices(p, Val(perm)) === q
+        Val(perm)
     end
-    @assert permute_indices(p, Val(perm)) === q
-    :( Val($perm) )
 end
 
 relative_permutation(::Nothing, y::Val) = y
