@@ -8,6 +8,7 @@ using PencilFFTs
 import FFTW
 import MPI
 
+using BenchmarkTools
 using InteractiveUtils
 using Test
 
@@ -105,9 +106,10 @@ function curl(uF_local::VectorField{T}, gF::FourierGrid) where {T <: Complex}
 
     @inbounds for I in spatial_indices(u)
         K = gF[I]  # (kx, ky, kz)
-        ω[I, 1] = 1im * (K[2] * u[I, 3] - K[3] * u[I, 2])
-        ω[I, 2] = 1im * (K[3] * u[I, 1] - K[1] * u[I, 3])
-        ω[I, 3] = 1im * (K[1] * u[I, 2] - K[2] * u[I, 1])
+        v = (u[I, 1], u[I, 2], u[I, 3])
+        ω[I, 1] = 1im * (K[2] * v[3] - K[3] * v[2])
+        ω[I, 2] = 1im * (K[3] * v[1] - K[1] * v[3])
+        ω[I, 3] = 1im * (K[1] * v[2] - K[2] * v[1])
     end
 
     ω_local
@@ -136,9 +138,13 @@ function main()
 
     uF = plan * u  # apply 3D FFT
 
+    print("@btime divergence...")
+    @btime divergence($uF, $gF, $comm)
     div = divergence(uF, gF, comm)
     @test div ≈ 0 atol=1e-16
 
+    print("@btime curl...      ")
+    @btime curl($uF, $gF)
     ωF = curl(uF, gF)
     ω = plan \ ωF
 
