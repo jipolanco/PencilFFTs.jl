@@ -80,9 +80,9 @@ function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
     end
 end
 
-# Compute total divergence ⟨|∇⋅u|²⟩ in Fourier space.
-function divergence(uF_local::VectorField{T}, gF::FourierGrid,
-                    comm) where {T <: Complex}
+# Compute total divergence ⟨|∇⋅u|²⟩ in Fourier space, in the local process.
+function divergence(uF_local::VectorField{T},
+                    gF::FourierGrid) where {T <: Complex}
     uF = global_view(uF_local)
     div2 = real(zero(T))
 
@@ -96,7 +96,7 @@ function divergence(uF_local::VectorField{T}, gF::FourierGrid,
         div2 += abs2(div)
     end
 
-    MPI.Allreduce(div2, +, comm)
+    div2
 end
 
 # Compute ω = ∇×u in Fourier space.
@@ -142,13 +142,21 @@ function main()
 
     uF = plan * u  # apply 3D FFT
 
-    print("@btime divergence...")
-    @btime divergence($uF, $gF, $comm)
-    div = divergence(uF, gF, comm)
-    @test div ≈ 0 atol=1e-16
+    if rank == 0
+        print("@btime divergence...")
+        @btime divergence($uF, $gF)
 
-    print("@btime curl...      ")
-    @btime curl($uF, $gF)
+        print("@btime curl...      ")
+        @btime curl($uF, $gF)
+    end
+
+    MPI.Barrier(comm)
+
+    let div2 = divergence(uF, gF)
+        div2_total = MPI.Allreduce(div2, +, comm)
+        @test div2_total ≈ 0 atol=1e-16
+    end
+
     ωF = curl(uF, gF)
     ω = plan \ ωF
 
