@@ -10,6 +10,8 @@ import MPI
 
 using BenchmarkTools
 using InteractiveUtils
+using LinearAlgebra
+using Printf
 using Test
 
 include("include/Grids.jl")
@@ -116,6 +118,48 @@ function curl!(ωF_local::VectorField{T}, uF_local::VectorField{T},
     ωF_local
 end
 
+function mynorm(u)
+    norm2 = zero(real(eltype(u)))
+    @inbounds for v in u
+        norm2 += abs2(v)
+    end
+    sqrt(norm2)
+end
+
+function micro_benchmarks(u, uF, gF)
+    ωF = similar(uF)
+
+    BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
+
+    println("Micro-benchmarks:")
+
+    @printf " - %-20s" "norm(u)..."
+    @btime norm($u)
+
+    @printf " - %-20s" "norm(uF)..."
+    @btime norm($uF)
+
+    @printf " - %-20s" "norm(parent(u))..."
+    @btime norm($(parent(u)))
+
+    @printf " - %-20s" "norm(parent(uF))..."
+    @btime norm($(parent(uF)))
+
+    @printf " - %-20s" "mynorm(u)..."
+    @btime mynorm($u)
+
+    @printf " - %-20s" "mynorm(uF)..."
+    @btime mynorm($uF)
+
+    @printf " - %-20s" "divergence..."
+    @btime divergence($uF, $gF)
+
+    @printf " - %-20s" "curl!..."
+    @btime curl!($ωF, $uF, $gF)
+
+    nothing
+end
+
 function main()
     MPI.Init()
 
@@ -142,14 +186,7 @@ function main()
     uF = plan * u  # apply 3D FFT
     ωF = similar(uF)
 
-    if rank == 0
-        print("@btime divergence...")
-        @btime divergence($uF, $gF)
-
-        print("@btime curl!...     ")
-        @btime curl!($ωF, $uF, $gF)
-    end
-
+    rank == 0 && micro_benchmarks(u, uF, gF)
     MPI.Barrier(comm)
 
     let div2 = divergence(uF, gF)
