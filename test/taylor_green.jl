@@ -5,7 +5,11 @@
 
 using PencilFFTs
 
-using MPI
+import FFTW
+import MPI
+
+using InteractiveUtils
+using Test
 
 include("include/Grids.jl")
 using .Grids
@@ -16,54 +20,97 @@ if SAVE_VTK
     using WriteVTK
 end
 
-const DATA_DIMS = (64, 40, 32)
-const GEOMETRY = ((0.0, 2pi), (0.0, 2pi), (0.0, 2pi))
+const DATA_DIMS = (16, 8, 16)
+const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 
 const TG_U0 = 3.0
 const TG_K0 = 2.0
 
-const VectorField{T} = NTuple{3, PencilArray{T,3}} where T
+const VectorField{T} = PencilArray{T,4}
 
 function taylor_green!(u_local::VectorField, g::Grid, u0=TG_U0, k0=TG_K0)
-    u = global_view.(u_local)
+    u = global_view(u_local)
 
-    for I in CartesianIndices(u[1])
+    for I in spatial_indices(u)
         x, y, z = g[I]
-        @inbounds u[1][I] = u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
-        @inbounds u[2][I] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
-        @inbounds u[3][I] = 0
+        @inbounds u[I, 1] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
+        @inbounds u[I, 2] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
+        @inbounds u[I, 3] = 0
     end
 
     u_local
 end
 
-function field_to_vtk(g::Grid, u::VectorField, basename, fieldname)
-    p = pencil(u[1])
-    g_pencil = g[p]  # local geometry
-    vtk_grid(basename, (g_pencil[1], g_pencil[2], g_pencil[3])) do vtk
-        # This will only work if the data is not permuted!
-        @assert get_permutation(p) === nothing
-        vtk_point_data(vtk, u, fieldname)
-    end
-end
+# Verify vorticity of Taylor-Green flow.
+function check_vorticity_TG(ω_local::VectorField, g::Grid, comm,
+                            u0=TG_U0, k0=TG_K0)
+    ω = global_view(ω_local)
+    diff2 = zero(eltype(ω))
 
-function divergence(uF_local::VectorField{T}, gk::FourierGrid, comm) where T
-    uF = global_view.(uF_local)
-
-    div = zero(T)
-
-    for K in CartesianIndices(uF[1])
-        # kx, ky, kz = gk[K]
-        # div += (kx * uF[1][K] + ky * uF[2][K] + kz * uF[3][K]) * 1im
-        k = Tuple(K)
-        for n in eachindex(k)
-            div += 1im * k[n] * uF[n][K]
+    for I in spatial_indices(ω)
+        x, y, z = g[I]
+        ω_TG = (
+            -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
+            -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),
+            2u0 * k0 * sin(k0 * x) * sin(k0 * y) * cos(k0 * z),
+        )
+        for n = 1:3
+            diff2 += (ω[I, n] - ω_TG[n])^2
         end
     end
 
-    div_global = MPI.Allreduce(Ref(div), +, comm)
+    MPI.Allreduce(diff2, +, comm)
+end
 
-    div_global[]
+function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
+    isempty(fields) && return
+    p = pencil(first(fields).second)
+    g_pencil = g[p]  # local geometry
+    xyz = ntuple(n -> g_pencil[n], 3)
+    vtk_grid(basename, xyz) do vtk
+        for p in fields
+            name = p.first
+            u = p.second
+            v = ntuple(n -> @view(u[:, :, :, n]), 3)
+            vtk_point_data(vtk, v, name)
+        end
+    end
+end
+
+# Compute total divergence ⟨|∇⋅u|²⟩ in Fourier space.
+function divergence(uF_local::VectorField{T}, gF::FourierGrid,
+                    comm) where {T <: Complex}
+    uF = global_view(uF_local)
+    div2 = real(zero(T))
+
+    @inbounds for I in spatial_indices(uF)
+        K = gF[I]  # (kx, ky, kz)
+        div = zero(T)
+        for n in eachindex(K)
+            v = 1im * K[n] * uF[I, n]
+            div += v
+        end
+        div2 += abs2(div)
+    end
+
+    MPI.Allreduce(div2, +, comm)
+end
+
+# Compute ω = ∇×u in Fourier space.
+function curl(uF_local::VectorField{T}, gF::FourierGrid) where {T <: Complex}
+    ω_local = similar(uF_local)
+
+    u = global_view(uF_local)
+    ω = global_view(ω_local)
+
+    @inbounds for I in spatial_indices(u)
+        K = gF[I]  # (kx, ky, kz)
+        ω[I, 1] = 1im * (K[2] * u[I, 3] - K[3] * u[I, 2])
+        ω[I, 2] = 1im * (K[3] * u[I, 1] - K[1] * u[I, 3])
+        ω[I, 3] = 1im * (K[1] * u[I, 2] - K[2] * u[I, 1])
+    end
+
+    ω_local
 end
 
 function main()
@@ -79,17 +126,28 @@ function main()
         pdims[1], pdims[2]
     end
 
-    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm)
-    u = ntuple(_ -> allocate_input(plan), Val(3))  # allocate vector field
+    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm,
+                         extra_dims=(3, ), permute_dims=Val(true))
+    u = allocate_input(plan)  # allocate vector field
 
     g = Grid(GEOMETRY, size_in)
+    gF = FourierGrid(GEOMETRY, size_in)
     taylor_green!(u, g)  # initialise TG velocity field
 
-    uF = plan .* u  # apply 3D FFT
-    # div = divergence()
+    uF = plan * u  # apply 3D FFT
+
+    div = divergence(uF, gF, comm)
+    @test div ≈ 0 atol=1e-16
+
+    ωF = curl(uF, gF)
+    ω = plan \ ωF
+
+    ω_err = check_vorticity_TG(ω, g, comm)
+    @test ω_err ≈ 0 atol=1e-16
 
     if SAVE_VTK
-        field_to_vtk(g, u, "TG_proc_$(rank + 1)of$(Nproc)", "u")
+        fields_to_vtk(g, "TG_proc_$(rank + 1)of$(Nproc)",
+                      "u" => u, "ω" => ω)
     end
 
     MPI.Finalize()

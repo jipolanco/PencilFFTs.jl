@@ -1,10 +1,10 @@
 module Grids
 
-export Grid
+export Grid, FourierGrid
 
 using PencilFFTs.Pencils
 
-# using AbstractFFTs: fftfreq, rfftfreq
+using AbstractFFTs: Frequencies, fftfreq, rfftfreq
 
 # N-dimensional grid.
 abstract type AbstractGrid{N} end
@@ -23,10 +23,18 @@ end
 # Grid of Fourier wavenumbers for N-dimensional r2c FFTs.
 struct FourierGrid{N} <: AbstractGrid{N}
     dims :: Dims{N}
-    r :: NTuple{N, Vector{Float64}}
-    # function FourierGrid()
-    #     # TODO...
-    # end
+    r :: NTuple{N, Frequencies{Float64}}
+    function FourierGrid(limits::NTuple{N, NTuple{2}}, dims_in::Dims{N}) where N
+        r = ntuple(Val(N)) do n
+            l = limits[n]
+            L = last(l) - first(l)  # box size
+            M = dims_in[n]
+            fs = 2pi * M / L
+            n == 1 ? rfftfreq(M, fs) : fftfreq(M, fs)
+        end
+        dims = length.(r)
+        new{N}(dims, r)
+    end
 end
 
 Base.size(g::AbstractGrid) = g.dims
