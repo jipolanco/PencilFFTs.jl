@@ -9,11 +9,9 @@ pencil.
 !!! note "Index permutations"
 
     If the `Pencil` has an associated index permutation, then the input array
-    must have its dimensions permuted accordingly. In any case, the resulting
-    `PencilArray` is accessed with non-permuted indices.
-
-    Note that the original array can be recovered using [`parent`](@ref), and
-    must be accessed using permuted indices.
+    must have its dimensions permuted accordingly.
+    The resulting `PencilArray` must be accessed with permuted indices, just
+    like its parent array.
 
     ##### Example
 
@@ -23,8 +21,8 @@ pencil.
     ```julia
     data = zeros(20, 30, 10)       # parent array (with permuted dimensions)
     u = PencilArray(pencil, data)  # wrapper with dimensions (10, 20, 30)
-    u[15, 25, 5]                   # BoundsError (15 > 10 and 25 > 20)
-    u[5, 15, 25]                   # correct
+    u[5, 15, 25]                   # BoundsError (25 > 10)
+    u[15, 25, 5]                   # correct
     parent(u)[15, 25, 5]           # correct
     ```
 
@@ -56,23 +54,19 @@ These dimensions are added to the rightmost (slowest) indices of the resulting
 array.
 
 # Example
-Suppose `pencil` has local dimensions `(10, 20, 30)` after permutation. Then:
+Suppose `pencil` has local dimensions `(20, 10, 30)` after permutation. Then:
 ```julia
-PencilArray(pencil)          # array dimensions are (10, 20, 30)
-PencilArray(pencil, (4, 3))  # array dimensions are (10, 20, 30, 4, 3)
+PencilArray(pencil)          # array dimensions are (20, 10, 30)
+PencilArray(pencil, (4, 3))  # array dimensions are (20, 10, 30, 4, 3)
 ```
 """
 struct PencilArray{T, N,
-                   E,   # number of "extra" dimensions (= N - Np)
-                   Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
                    P <: Pencil,
                    A <: AbstractArray{T,N},
-                   Perm,     # optional permutation (Nothing or Val{permutation})
-                   PermInv,  # inverse permutation of `P`
+                   E,   # number of "extra" dimensions (= N - Np)
+                   Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
                   } <: AbstractArray{T,N}
     pencil   :: P
-    perm     :: Perm
-    perm_inv :: PermInv
     data     :: A
     extra_dims :: Dims{E}
 
@@ -93,13 +87,7 @@ struct PencilArray{T, N,
                 "Local dimensions of pencil: $(size_local(pencil))."))
         end
 
-        perm = get_permutation(pencil)
-        perm_inv = inverse_permutation(perm)
-        Perm = typeof(perm)
-        PermInv = typeof(perm_inv)
-
-        new{T, N, E, Np, P, A, Perm, PermInv}(pencil, perm, perm_inv, data,
-                                              extra_dims)
+        new{T, N, P, A, E, Np}(pencil, data, extra_dims)
     end
 end
 
@@ -107,56 +95,18 @@ PencilArray(pencil::Pencil, extra_dims::Dims=()) =
     PencilArray(pencil, Array{eltype(pencil)}(undef, size_local(pencil)...,
                                               extra_dims...))
 
-function Base.size(x::PencilArray)
-    s = _permute_indices(x, size(parent(x))...; perm=x.perm_inv)
-    @assert s === (size_local(x.pencil, permute=false)..., x.extra_dims...)
-    s
-end
+Base.size(x::PencilArray) = size(parent(x))
 
 # Use same index style as the parent array.
-Base.IndexStyle(::Type{<:PencilArray{T,N,E,Np,P,A}}
-                where {T,N,E,Np,P}) where {A} = IndexStyle(A)
+Base.IndexStyle(::Type{<:PencilArray{T,N,P,A}} where {T,N,P}) where {A} =
+    IndexStyle(A)
 
-@propagate_inbounds @inline Base.getindex(x::PencilArray, inds...) =
-    x.data[_make_indices(x, inds)...]
-@propagate_inbounds @inline Base.setindex!(x::PencilArray, v, inds...) =
-    x.data[_make_indices(x, inds)...] = v
+@propagate_inbounds Base.getindex(x::PencilArray, inds...) = x.data[inds...]
+@propagate_inbounds Base.setindex!(x::PencilArray, v, inds...) =
+    x.data[inds...] = v
 
-@inline _make_indices(x::PencilArray, I::Tuple) =
-    _permute_indices(x, _splat_indices(I...)...)
-
-@inline _make_indices(x::PencilArray, I) =
-    throw(ArgumentError("unsupported index: $I"))
-
-# Linear indexing
-@inline _make_indices(::PencilArray,
-                      i::Tuple{Union{Integer, AbstractArray}}) =
-    (Base.to_index(i...), )
-
-# Permute "permutable" indices of array, i.e., excluding the last E dimensions.
-function _permute_indices(
-        x::PencilArray{T,N,E,Np} where T,
-        I::Vararg{Any,N};
-        perm=x.perm,
-       ) where {N,E,Np}
-    a = ntuple(d -> I[d + Np], Val(E))
-    b = ntuple(d -> I[d], Val(Np))
-    c = permute_indices(b, perm)
-    (c..., a...)
-end
-
-@inline _splat_indices(i::CartesianIndex, inds...) =
-    (Tuple(i)..., _splat_indices(inds...)...)
-@inline _splat_indices(i, inds...) = (i, _splat_indices(inds...)...)
-@inline _splat_indices() = ()
-
-function Base.similar(x::PencilArray{T,N} where T, ::Type{S},
-                      dims_non_permuted::Dims{N}) where {S,N}
-    dims_parent = _permute_indices(x, dims_non_permuted...;
-                                   perm=x.perm)
-    @assert dims_non_permuted !== size(x) || dims_parent === size(parent(x))
-    PencilArray(x.pencil, similar(x.data, S, dims_parent))
-end
+Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
+    PencilArray(x.pencil, similar(x.data, S, dims))
 
 """
     pencil(x::PencilArray)
@@ -169,13 +119,6 @@ pencil(x::PencilArray) = x.pencil
     parent(x::PencilArray)
 
 Returns array wrapped by a `PencilArray`.
-
-!!! note "Index permutations"
-
-    If the underlying pencil configuration has an associated permutation, then
-    the parent array must be accessed with permuted indices.
-
-    See [`PencilArray`](@ref) for more details.
 """
 Base.parent(x::PencilArray) = x.data
 
@@ -218,6 +161,15 @@ Get MPI communicator associated to a pencil-distributed array.
 get_comm(x::PencilArray) = get_comm(x.pencil)
 
 """
+    get_permutation(x::PencilArray)
+
+Get index permutation associated to the given `PencilArray`.
+
+Returns `nothing` if there is no associated permutation.
+"""
+get_permutation(x::PencilArray) = get_permutation(pencil(x))
+
+"""
     spatial_indices(x::PencilArray)
     spatial_indices(x::GlobalPencilArray)
 
@@ -227,8 +179,10 @@ pencil-decomposed array.
 The "spatial" dimensions are those that may be decomposed (as opposed to the
 "extra" dimensions, which are not considered by this function).
 """
-spatial_indices(x::PencilArray{T,N,E,Np} where {T,N,E}) where {Np} =
+function spatial_indices(x::PencilArray)
+    Np = ndims(x) - ndims_extra(x)
     CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
+end
 
 """
     gather(x::PencilArray, [root::Integer=0])
