@@ -1,49 +1,100 @@
-# Pencils module
+# [MPI-distributed data](@id Pencils_module)
 
 ```@meta
 CurrentModule = PencilFFTs.Pencils
 ```
 
+## Introduction
+
+The distribution of global data among MPI processes is managed by the [`Pencils`](@ref) module.
+This module may be used independently of the FFT functionality.
+
+The [`Pencils`](@ref) module defines types that describe [a MPI Cartesian
+topology](@ref sec:mpi_topology) and [the decomposition of data over MPI
+processes](@ref sec:pencil_configs).
+Also, [array wrappers](@ref Array-wrappers) allow to conveniently (and
+efficiently) deal with the MPI-decomposed data.
+
 ```@docs
 Pencils
 ```
 
-## Types
+## [MPI Cartesian topology](@id sec:mpi_topology)
+
+The [`MPITopology`](@ref) type defines the MPI Cartesian topology of the
+decomposition.
+In other words, it contains information about the number of decomposed
+dimensions, and the number of processes in each of these dimensions.
+
+At the lower level, [`MPITopology`](@ref) uses
+[`MPI_Cart_create`](https://www.mpich.org/static/docs/latest/www3/MPI_Cart_create.html)
+to define a Cartesian MPI communicator.
 
 ```@docs
 MPITopology
+size(::MPITopology)
+```
+
+## [Pencil configurations](@id sec:pencil_configs)
+
+The [`Pencil`](@ref) type describes a given MPI decomposition configuration of
+multidimensional data.
+
+```@docs
 Pencil
+```
+
+### Functions
+
+```@docs
+size_global(::Pencil)
+eltype(::Pencil)
+size_local(::Pencil)
+to_local(::Pencil)
+```
+
+## Array wrappers
+
+**TODO** add description and functions for arrays
+
+```@docs
 PencilArray
 ```
 
-## Functions
+### Functions
 
 ```@docs
-eltype
-extra_dims
-gather
-get_comm
-get_decomposition
-get_permutation
-global_view
-length
-ndims
-ndims_extra
-ndims_space
-parent
-pencil
-range_local
-size
-size_global
-size_local
-spatial_indices
-to_local
+extra_dims(::PencilArray)
+get_comm(::PencilArray)
+size_global(::PencilArray)
+```
+
+## Global MPI operations
+
+One of the most time-consuming parts of a large-scale computation involving
+multidimensional FFTs, is the global data transpositions between different MPI
+decomposition configurations.
+In `Pencils`, this is performed by the [`transpose!`](@ref) function, which
+takes two `PencilArray`s, typically associated to two different configurations.
+The implementation is highly optimised, and performs comparably to similar
+implementations in lower-level languages **(benchmarks??)**.
+
+Also provided is a [`gather`](@ref) function that creates a single global array
+from decomposed data.
+This can be useful for tests (in fact, it is used in the `Pencils` tests to
+verify the correctness of the transpositions), but shouldn't be used with large
+datasets.
+It is generally useful for small problems where the global size of the data can
+easily fit the locally available memory.
+
+```@docs
 transpose!
+gather
 ```
 
 ## [Measuring performance](@id Pencils.measuring_performance)
 
-It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutput](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)` after loading `PencilFFTs`. For more details see the [TimerOutput docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
+It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)` after loading `PencilFFTs`. For more details see the [TimerOutputs docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
 
@@ -75,4 +126,29 @@ pencil = Pencil(..., timer=to)
 # [do stuff with `pencil`...]
 
 print_timer(to)
+```
+
+## Advanced
+
+### Functions
+
+```@docs
+get_comm
+get_decomposition
+get_permutation
+global_view
+length
+ndims
+ndims_extra
+ndims_space
+parent
+pencil
+range_local
+spatial_indices
+```
+
+## Index
+
+```@index
+Pages   = ["Pencils.md"]
 ```

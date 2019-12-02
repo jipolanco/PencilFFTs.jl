@@ -1,4 +1,4 @@
-# PencilFFTs module
+# Distributed FFTs
 
 ```@meta
 CurrentModule = PencilFFTs

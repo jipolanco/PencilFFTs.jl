@@ -1,4 +1,4 @@
-# Transforms module
+# Available transforms
 
 ```@meta
 CurrentModule = PencilFFTs.Transforms

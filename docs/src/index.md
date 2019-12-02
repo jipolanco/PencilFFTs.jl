@@ -125,13 +125,14 @@ Also note that, at this moment, in-place transforms are not supported.
 ## Implementation details
 
 The implementation of this package is modular.
-Distributed FFTs are built on top of the [`Pencils`](@ref) module that handles
+Distributed FFTs are built on top of the [`Pencils`](@ref Pencils_module)
+module that handles
 data decomposition among MPI processes, including the definition of relevant
 data structures (e.g. [`PencilArray`](@ref)) and global data transpositions
 (see [`transpose!`](@ref)).
 As such, the data decomposition functionality may be used independently of the
 FFTs.
-See the [`Pencils`](@ref) module for more details.
+See the [`Pencils`](@ref Pencils_module) module for more details.
 
 ## Similar projects
 
