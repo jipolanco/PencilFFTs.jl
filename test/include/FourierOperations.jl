@@ -1,6 +1,6 @@
 module FourierOperations
 
-export divergence, curl!, norm2
+export divergence, curl!, sqnorm
 
 # TODO
 # - Can I make this module independent of Pencils?
@@ -72,11 +72,11 @@ index_r2c(::Nothing) = 1
 index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
 
 """
-    norm2(u::AbstractArray{<:Complex})
+    sqnorm(u::AbstractArray{<:Complex})
 
 Compute squared norm of array in Fourier space, in the local process.
 """
-function norm2(u::PencilArray{T}) where {T <: Complex}
+function sqnorm(u::PencilArray{T}) where {T <: Complex}
     s = zero(real(T))
     g = global_view(u)
 
@@ -94,6 +94,6 @@ function norm2(u::PencilArray{T}) where {T <: Complex}
 end
 
 # Add a variant for real arrays, for completeness.
-norm2(u::AbstractArray{T} where {T <: Real}) = sum(abs2, u)
+sqnorm(u::AbstractArray{T} where {T <: Real}) = sum(abs2, u)
 
 end

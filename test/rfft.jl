@@ -26,8 +26,8 @@ function test_global_average(u, uF, plan::PencilFFTPlan)
     comm = get_comm(plan)
     scale = get_scale_factor(plan)
 
-    sum_u2_local = norm2(u)
-    sum_uF2_local = norm2(uF)
+    sum_u2_local = sqnorm(u)
+    sum_uF2_local = sqnorm(uF)
 
     Ngrid = prod(size_global(pencil(u)))
 
@@ -48,32 +48,40 @@ end
 function micro_benchmarks(u, uF, gF)
     ωF = similar(uF)
 
-    @test norm2(u) ≈ norm(u)^2
+    @test sqnorm(u) ≈ norm(u)^2
+
+    # These are not the same because `FourierOperations.sqnorm` takes Hermitian
+    # symmetry into account, so the result can be roughly twice as large.
+    @test 1 <= sqnorm(uF) / norm(uF)^2 <= 2
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
     println("Micro-benchmarks:")
 
+    # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
     @printf " - %-20s" "norm(u)..."
     @btime norm($u)
 
     @printf " - %-20s" "norm(uF)..."
     @btime norm($uF)
 
+    # These are much faster because parent(u) is a regular Array, and Julia
+    # calls BLAS in this case (LinearAlgebra.BLAS.nrm2).
     @printf " - %-20s" "norm(parent(u))..."
     @btime norm($(parent(u)))
 
     @printf " - %-20s" "norm(parent(uF))..."
     @btime norm($(parent(uF)))
 
-    @printf " - %-20s" "norm2(u)..."
-    @btime norm2($u)
+    # Interestingly, this is even faster than BLAS!
+    @printf " - %-20s" "sqnorm(u)..."
+    @btime sqnorm($u)
 
-    @printf " - %-20s" "norm2(parent(u))..."
-    @btime norm2($(parent(u)))
+    @printf " - %-20s" "sqnorm(parent(u))..."
+    @btime sqnorm($(parent(u)))
 
-    @printf " - %-20s" "norm2(uF)..."
-    @btime norm2($uF)
+    @printf " - %-20s" "sqnorm(uF)..."
+    @btime sqnorm($uF)
 
     @printf " - %-20s" "divergence..."
     @btime divergence($uF, $gF)
