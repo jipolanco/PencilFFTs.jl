@@ -5,18 +5,16 @@
 
 using PencilFFTs
 
-import FFTW
 import MPI
 
 using BenchmarkTools
-using InteractiveUtils
 using LinearAlgebra
 using Printf
 using Profile
 using Test
 
-include("include/Grids.jl")
-using .Grids
+include("include/FourierOperations.jl")
+using .FourierOperations
 
 const SAVE_VTK = false
 
@@ -83,48 +81,34 @@ function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
     end
 end
 
-# Compute total divergence ⟨|∇⋅u|²⟩ in Fourier space, in the local process.
-function divergence(uF_local::VectorField{T},
-                    gF::FourierGrid) where {T <: Complex}
-    uF = global_view(uF_local)
-    div2 = real(zero(T))
+# Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
+function test_global_average(u, uF, plan::PencilFFTPlan)
+    comm = get_comm(plan)
+    scale = get_scale_factor(plan)
 
-    @inbounds for I in spatial_indices(uF)
-        K = gF[I]  # (kx, ky, kz)
-        div = zero(T)
-        for n in eachindex(K)
-            v = 1im * K[n] * uF[I, n]
-            div += v
-        end
-        div2 += abs2(div)
-    end
+    sum_u2_local = norm2(u)
+    sum_uF2_local = norm2(uF)
 
-    div2
+    Ngrid = prod(size(u)[1:3])
+    @test 3Ngrid == length(u)
+
+    avg_u2 = MPI.Allreduce(sum_u2_local, +, comm) / Ngrid
+
+    # To get a physically meaningful quantity, the squared sum in Fourier space
+    # must be normalised by `scale`, or equivalently, uF should be normalised by
+    # `sqrt(scale)`.
+    @test scale == Ngrid
+    avg_uF2 = MPI.Allreduce(sum_uF2_local, +, comm) / (Ngrid * scale)
+
+    @test avg_u2 ≈ avg_uF2
+
+    nothing
 end
-
-# Compute ω = ∇×u in Fourier space.
-function curl!(ωF_local::VectorField{T}, uF_local::VectorField{T},
-               gF::FourierGrid) where {T <: Complex}
-    u = global_view(uF_local)
-    ω = global_view(ωF_local)
-
-    @inbounds for I in spatial_indices(u)
-        K = gF[I]  # (kx, ky, kz)
-        v = (u[I, 1], u[I, 2], u[I, 3])
-        ω[I, 1] = 1im * (K[2] * v[3] - K[3] * v[2])
-        ω[I, 2] = 1im * (K[3] * v[1] - K[1] * v[3])
-        ω[I, 3] = 1im * (K[1] * v[2] - K[2] * v[1])
-    end
-
-    ωF_local
-end
-
-mynorm(u) = sqrt(sum(abs2, u))
 
 function micro_benchmarks(u, uF, gF)
     ωF = similar(uF)
 
-    @test mynorm(u) ≈ norm(u)
+    @test norm2(u) ≈ norm(u)^2
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
@@ -142,11 +126,14 @@ function micro_benchmarks(u, uF, gF)
     @printf " - %-20s" "norm(parent(uF))..."
     @btime norm($(parent(uF)))
 
-    @printf " - %-20s" "mynorm(u)..."
-    @btime mynorm($u)
+    @printf " - %-20s" "norm2(u)..."
+    @btime norm2($u)
 
-    @printf " - %-20s" "mynorm(uF)..."
-    @btime mynorm($uF)
+    @printf " - %-20s" "norm2(parent(u))..."
+    @btime norm2($(parent(u)))
+
+    @printf " - %-20s" "norm2(uF)..."
+    @btime norm2($uF)
 
     @printf " - %-20s" "divergence..."
     @btime divergence($uF, $gF)
@@ -180,15 +167,17 @@ function main()
     taylor_green!(u, g)  # initialise TG velocity field
 
     uF = plan * u  # apply 3D FFT
+
+    test_global_average(u, uF, plan)
+
     gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     ωF = similar(uF)
-
     rank == 0 && micro_benchmarks(u, uF, gF)
     MPI.Barrier(comm)
 
     let div2 = divergence(uF, gF)
-        div2_total = MPI.Allreduce(div2, +, comm)
-        @test div2_total ≈ 0 atol=1e-16
+        div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
+        @test div2_mean ≈ 0 atol=1e-16
     end
 
     curl!(ωF, uF, gF)

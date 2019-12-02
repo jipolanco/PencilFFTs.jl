@@ -56,7 +56,14 @@ struct FourierGrid{N, Perm} <: AbstractGrid{N, Perm}
     end
 end
 
+Base.ndims(g::AbstractGrid{N}) where {N} = N
 Base.size(g::AbstractGrid) = g.dims
+
+function Base.iterate(g::AbstractGrid, state::Int=1)
+    state_new = state == ndims(g) ? nothing : state + 1
+    g[state], state_new
+end
+Base.iterate(::AbstractGrid, ::Nothing) = nothing
 
 @propagate_inbounds Base.getindex(g::AbstractGrid, i::Integer) = g.r[i]
 
