@@ -176,11 +176,11 @@ function main()
                          extra_dims=(3, ), permute_dims=Val(true))
     u = allocate_input(plan)  # allocate vector field
 
-    g = Grid(GEOMETRY, size_in)
-    gF = FourierGrid(GEOMETRY, size_in)
+    g = Grid(GEOMETRY, size_in, get_permutation(u))
     taylor_green!(u, g)  # initialise TG velocity field
 
     uF = plan * u  # apply 3D FFT
+    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     ωF = similar(uF)
 
     rank == 0 && micro_benchmarks(u, uF, gF)

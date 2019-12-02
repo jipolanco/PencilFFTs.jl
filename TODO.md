@@ -1,15 +1,11 @@
 # TODO
 
-- Support extra dimensions in transforms
-
-- Static permutations
+- Add method to access `PencilArray` using non-permuted indices.
+  Maybe define a `PermutedIndex` type, similar to `CartesianIndex`?
 
 - Avoid transpositions when using `NoTransform`
 
 - Reduce array allocations (buffers)
-
-- Vector (or tensor) transforms
-  * use fastest or slowest indices for components?
 
 - Add benchmarks: compare with P3DFFT, ...
 
