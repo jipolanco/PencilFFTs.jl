@@ -363,6 +363,13 @@ Get MPI communicator associated to a `PencilFFTPlan`.
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
 
 """
+    get_scale_factor(p::PencilFFTPlan) :: Int
+
+Get scale factor associated to a `PencilFFTPlan`.
+"""
+get_scale_factor(p::PencilFFTPlan) = p.scale_factor :: Int
+
+"""
     get_timer(p::PencilFFTPlan)
 
 Get `TimerOutput` attached to a `PencilFFTPlan`.

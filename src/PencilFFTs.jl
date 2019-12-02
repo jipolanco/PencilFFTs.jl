@@ -18,7 +18,7 @@ import .Transforms: AbstractTransform, FFTReal
 import .TransposeMethods: AbstractTransposeMethod
 
 export PencilFFTPlan
-export allocate_input, allocate_output
+export allocate_input, allocate_output, get_scale_factor
 
 # Functions to be extended for PencilFFTs types.
 import .Pencils: get_comm, get_timer

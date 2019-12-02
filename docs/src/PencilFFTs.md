@@ -15,6 +15,7 @@ PencilFFTPlan
 ```@docs
 allocate_input
 allocate_output
+get_scale_factor
 get_timer
 ```
 
