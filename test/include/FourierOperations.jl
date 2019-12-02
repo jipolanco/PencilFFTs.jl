@@ -59,6 +59,19 @@ function curl!(ωF_local::AbstractArray{T,N},
 end
 
 """
+    index_r2c(u::PencilArray)
+
+Return index associated to dimension of real-to-complex transform.
+
+This is assumed to be the first *logical* dimension of the array.
+Since indices in the array may be permuted, the actual dimension may be other
+than the first.
+"""
+index_r2c(u::PencilArray) = index_r2c(get_permutation(u))
+index_r2c(::Nothing) = 1
+index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
+
+"""
     norm2(u::AbstractArray{<:Complex})
 
 Compute squared norm of array in Fourier space, in the local process.
@@ -67,22 +80,12 @@ function norm2(u::PencilArray{T}) where {T <: Complex}
     s = zero(real(T))
     g = global_view(u)
 
-    # We account for Hermitian symmetry implied by the r2c transform along the
-    # first *logical* dimension. Due to the index permutation in `u`, the r2c
-    # dimension is not necessarily the first one in `u`.
-    # TODO I should make this easier...
-    index_r2c = let perm = get_permutation(u)
-        if perm === nothing
-            1
-        else
-            findfirst(==(1), Pencils.extract(perm)) :: Int
-        end
-    end
+    ind = index_r2c(u)
 
     for I in CartesianIndices(g)
         # Account for Hermitian symmetry implied by r2c transform along the
         # first logical dimension.
-        i_r2c = Tuple(I)[index_r2c]
+        i_r2c = Tuple(I)[ind]
         factor = i_r2c == 1 ? 1 : 2
         s += factor * abs2(g[I])
     end
