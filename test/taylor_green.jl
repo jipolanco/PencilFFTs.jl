@@ -7,10 +7,6 @@ using PencilFFTs
 
 import MPI
 
-using BenchmarkTools
-using LinearAlgebra
-using Printf
-using Profile
 using Test
 
 include("include/FourierOperations.jl")
@@ -81,69 +77,6 @@ function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
     end
 end
 
-# Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
-function test_global_average(u, uF, plan::PencilFFTPlan)
-    comm = get_comm(plan)
-    scale = get_scale_factor(plan)
-
-    sum_u2_local = norm2(u)
-    sum_uF2_local = norm2(uF)
-
-    Ngrid = prod(size(u)[1:3])
-    @test 3Ngrid == length(u)
-
-    avg_u2 = MPI.Allreduce(sum_u2_local, +, comm) / Ngrid
-
-    # To get a physically meaningful quantity, the squared sum in Fourier space
-    # must be normalised by `scale`, or equivalently, uF should be normalised by
-    # `sqrt(scale)`.
-    @test scale == Ngrid
-    avg_uF2 = MPI.Allreduce(sum_uF2_local, +, comm) / (Ngrid * scale)
-
-    @test avg_u2 ≈ avg_uF2
-
-    nothing
-end
-
-function micro_benchmarks(u, uF, gF)
-    ωF = similar(uF)
-
-    @test norm2(u) ≈ norm(u)^2
-
-    BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
-
-    println("Micro-benchmarks:")
-
-    @printf " - %-20s" "norm(u)..."
-    @btime norm($u)
-
-    @printf " - %-20s" "norm(uF)..."
-    @btime norm($uF)
-
-    @printf " - %-20s" "norm(parent(u))..."
-    @btime norm($(parent(u)))
-
-    @printf " - %-20s" "norm(parent(uF))..."
-    @btime norm($(parent(uF)))
-
-    @printf " - %-20s" "norm2(u)..."
-    @btime norm2($u)
-
-    @printf " - %-20s" "norm2(parent(u))..."
-    @btime norm2($(parent(u)))
-
-    @printf " - %-20s" "norm2(uF)..."
-    @btime norm2($uF)
-
-    @printf " - %-20s" "divergence..."
-    @btime divergence($uF, $gF)
-
-    @printf " - %-20s" "curl!..."
-    @btime curl!($ωF, $uF, $gF)
-
-    nothing
-end
-
 function main()
     MPI.Init()
 
@@ -168,12 +101,8 @@ function main()
 
     uF = plan * u  # apply 3D FFT
 
-    test_global_average(u, uF, plan)
-
     gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     ωF = similar(uF)
-    rank == 0 && micro_benchmarks(u, uF, gF)
-    MPI.Barrier(comm)
 
     let div2 = divergence(uF, gF)
         div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
