@@ -129,18 +129,47 @@ Number of "extra" dimensions associated to `PencilArray`.
 
 These are the dimensions that are not associated to the domain geometry.
 For instance, they may correspond to vector or tensor components.
+
+These dimensions correspond to the rightmost indices of the array.
+
+The total number of dimensions of a `PencilArray` is given by:
+
+    ndims(x) == ndims_space(x) + ndims_extra(x)
+
 """
 ndims_extra(x::PencilArray) = length(x.extra_dims)
 
 """
-    size_global(x::PencilArray)
+    ndims_space(x::PencilArray)
+
+Number of dimensions associated to the domain geometry.
+
+These dimensions correspond to the leftmost indices of the array.
+
+The total number of dimensions of a `PencilArray` is given by:
+
+    ndims(x) == ndims_space(x) + ndims_extra(x)
+
+"""
+ndims_space(x::PencilArray) = ndims(x) - ndims_extra(x)
+
+"""
+    extra_dims(x::PencilArray)
+
+Return tuple with size of "extra" dimensions of `PencilArray`.
+"""
+extra_dims(x::PencilArray) = x.extra_dims
+
+"""
+    size_global(x::PencilArray; permute=false)
 
 Global dimensions associated to the given array.
 
-Unlike `size`, the returned dimensions are *not* permuted according to the
-associated pencil configuration.
+Unlike `size`, by default the returned dimensions are *not* permuted according
+to the associated pencil configuration.
 """
-size_global(x::PencilArray) = (size_global(x.pencil)..., x.extra_dims...)
+size_global(x::PencilArray; permute=false) =
+    (size_global(x.pencil, permute=permute)..., x.extra_dims...)
 
 """
     range_local(x::PencilArray; permute=true)
@@ -180,7 +209,7 @@ The "spatial" dimensions are those that may be decomposed (as opposed to the
 "extra" dimensions, which are not considered by this function).
 """
 function spatial_indices(x::PencilArray)
-    Np = ndims(x) - ndims_extra(x)
+    Np = ndims_space(x)
     CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
 end
 

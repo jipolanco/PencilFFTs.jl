@@ -20,6 +20,7 @@ PencilArray
 
 ```@docs
 eltype
+extra_dims
 gather
 get_comm
 get_decomposition
@@ -28,6 +29,7 @@ global_view
 length
 ndims
 ndims_extra
+ndims_space
 parent
 pencil
 range_local

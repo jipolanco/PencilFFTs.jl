@@ -224,15 +224,16 @@ size_local(p::Pencil; permute::Bool=true) =
     length.(range_local(p, permute=permute))
 
 """
-    size_global(p::Pencil)
+    size_global(p::Pencil; permute=false)
 
 Global dimensions of the Cartesian grid associated to the given domain
 decomposition.
 
-Unlike `size_local`, the returned dimensions are *not* permuted to match the
-dimensions of the local data.
+Unlike `size_local`, by default the returned dimensions are *not* permuted to
+match the dimensions of the local data.
 """
-size_global(p::Pencil) = p.size_global
+size_global(p::Pencil; permute::Bool=false) =
+    permute ? permute_indices(p.size_global, p.perm) : p.size_global
 
 """
     to_local(p::Pencil, global_inds; permute=true)

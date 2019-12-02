@@ -19,7 +19,7 @@ export pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
 export global_view
-export ndims_extra
+export ndims_extra, ndims_space, extra_dims
 export range_local, size_local, size_global, spatial_indices
 export transpose!
 
