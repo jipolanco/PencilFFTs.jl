@@ -45,7 +45,7 @@ Create plan for N-dimensional transform.
 `transforms` should be a tuple of length `N` specifying the transforms to be
 applied along each dimension. Each element must be a subtype of
 [`Transforms.AbstractTransform`](@ref). For all the possible transforms, see
-[`Transform types`](@ref Transforms). Alternatively, `transforms` may be a
+[Transform types](@ref). Alternatively, `transforms` may be a
 single transform that will be automatically expanded into `N` equivalent
 transforms. This is illustrated in the example below.
 

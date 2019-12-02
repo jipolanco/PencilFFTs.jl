@@ -24,15 +24,17 @@ BRFFT
 R2R
 ```
 
-## Custom plans
+## Advanced
+
+What follows is used internally by `PencilFFTs`.
+
+### Custom plans
 
 ```@docs
 IdentityPlan
 ```
 
-## Functions
-
-The following functions are used internally by `PencilFFTs`.
+### Functions
 
 ```@docs
 plan

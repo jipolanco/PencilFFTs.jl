@@ -35,8 +35,8 @@ It is also possible to pass a `TimerOutput` to the constructor. See
 Decompose a 3D geometry of global dimensions ``N_x × N_y × N_z = 4×8×12`` along
 the second (``y``) and third (``z``) dimensions.
 ```julia
-Pencil(topology, (4, 8, 12), (2, 3))             # data is in (x, y, z) order
-Pencil(topology, (4, 8, 12), (2, 3), (3, 2, 1))  # data is in (z, y, x) order
+Pencil(topology, (4, 8, 12), (2, 3))                          # data is in (x, y, z) order
+Pencil(topology, (4, 8, 12), (2, 3), permute=Val((3, 2, 1)))  # data is in (z, y, x) order
 ```
 In the second case, the actual data is stored in `(z, y, x)` order within
 each MPI process.
