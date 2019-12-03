@@ -141,7 +141,8 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
 
   if (rank == 0)
     std::cout << "Average time over " << NUM_REPETITIONS
-              << " iterations: " << (t / NUM_REPETITIONS) << " s" << std::endl;
+              << " iterations: " << (t / NUM_REPETITIONS) * 1000 << " ms"
+              << std::endl;
 
 #ifdef TIMERS
   p3dfft::timers.print(grid_i.mpi_comm_glob);

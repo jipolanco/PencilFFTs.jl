@@ -71,16 +71,22 @@ message(STATUS "Using FFTW3 include dir: ${FFTW3_INCDIR}")
 # Install P3DFFT++ as external project.
 set(p3dfft_git_commit_hash b25205d5695abd0dd637fe607c36a8a5c99c7a08)
 set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
+
+set(P3DFFT_CONFIG_FLAGS "--enable-fftwestimate"
+    CACHE STRING "P3DFFT configuration flags")
+set(P3DFFT_CXX_FLAGS "-O3 -DNDEBUG"
+    CACHE STRING "P3DFFT build flags")
+
 set(p3dfft_config_flags
+    "${P3DFFT_CONFIG_FLAGS}"
     "--enable-fftw"
-    "--enable-fftwestimate"
     "--with-fftw-lib=${FFTW3_LIBDIR}"
     "--with-fftw-inc=${FFTW3_INCDIR}"
     "--prefix=${p3dfft_install_prefix}"
     )
 set(p3dfft_config_vars
     "CXX=${MPI_CXX_COMPILER}"
-    "CXXFLAGS=-O3 -DNDEBUG")
+    "CXXFLAGS=${P3DFFT_CXX_FLAGS}")
 set(p3dfft_interface_definitions "HAVE_CONFIG_H")
 
 option(P3DFFT_ENABLE_TIMERS "Enable P3DFFT timers" ON)
