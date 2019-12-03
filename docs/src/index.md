@@ -6,6 +6,8 @@ CurrentModule = PencilFFTs
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
+## Introduction
+
 This package provides functionality to distribute multidimensional arrays among
 MPI processes, and to perform multidimensional FFTs (and related transforms) on
 them.
@@ -28,7 +30,7 @@ The package is implemented in an efficient generic way that allows to decompose
 any `N`-dimensional geometry along `M < N` dimensions (for the pencil
 decomposition described above, `N = 3` and `M = 2`). Moreover, the transforms
 applied along each dimension can be arbitrarily chosen among those supported by
-`FFTW`, including complex-to-complex, real-to-complex, and (very soon)
+`FFTW`, including complex-to-complex, real-to-complex and
 real-to-real transforms.
 
 ## Getting started
@@ -69,7 +71,7 @@ See the [`PencilFFTPlan`](@ref) constructor for details on the accepted
 options, and the [`Transforms`](@ref) module for the possible transforms.
 It is also possible to enable fine-grained performance measurements via the
 [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package, as
-described in [Measuring performance](@ref Pencils.measuring_performance).
+described in [Measuring performance](@ref PencilFFTs.measuring_performance).
 
 ### Allocating data
 
@@ -122,17 +124,16 @@ error) when applying a forward followed by a backward transform.
 
 Also note that, at this moment, in-place transforms are not supported.
 
-## Implementation details
+## Working with MPI-distributed data
 
 The implementation of this package is modular.
 Distributed FFTs are built on top of the [`Pencils`](@ref Pencils_module)
 module that handles
 data decomposition among MPI processes, including the definition of relevant
-data structures (e.g. [`PencilArray`](@ref)) and global data transpositions
-(see [`transpose!`](@ref)).
-As such, the data decomposition functionality may be used independently of the
+data structures and global data transpositions.
+The data decomposition functionality may be used independently of the
 FFTs.
-See the [`Pencils`](@ref Pencils_module) module for more details.
+See the [`Pencils`](@ref Pencils_module) module documentation for more details.
 
 ## Similar projects
 

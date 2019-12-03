@@ -4,12 +4,10 @@
 CurrentModule = PencilFFTs.Pencils
 ```
 
-## Introduction
-
 The distribution of global data among MPI processes is managed by the [`Pencils`](@ref) module.
 This module may be used independently of the FFT functionality.
 
-The [`Pencils`](@ref) module defines types that describe [a MPI Cartesian
+The [`Pencils`](@ref) module defines types that describe [an MPI Cartesian
 topology](@ref sec:mpi_topology) and [the decomposition of data over MPI
 processes](@ref sec:pencil_configs).
 Also, [array wrappers](@ref Array-wrappers) allow to conveniently (and
@@ -19,7 +17,7 @@ efficiently) deal with the MPI-decomposed data.
 Pencils
 ```
 
-## [MPI Cartesian topology](@id sec:mpi_topology)
+## [MPI topology](@id sec:mpi_topology)
 
 The [`MPITopology`](@ref) type defines the MPI Cartesian topology of the
 decomposition.
@@ -32,6 +30,9 @@ to define a Cartesian MPI communicator.
 
 ```@docs
 MPITopology
+get_comm(::MPITopology)
+length(::MPITopology)
+ndims(::MPITopology)
 size(::MPITopology)
 ```
 
@@ -47,15 +48,20 @@ Pencil
 ### Functions
 
 ```@docs
-size_global(::Pencil)
 eltype(::Pencil)
+get_comm(::Pencil)
+get_decomposition(::Pencil)
+get_permutation(::Pencil)
+ndims(::Pencil)
+range_local(::Pencil{N}) where N
+size_global(::Pencil)
 size_local(::Pencil)
 to_local(::Pencil)
 ```
 
 ## Array wrappers
 
-**TODO** add description and functions for arrays
+**TODO** add description
 
 ```@docs
 PencilArray
@@ -66,7 +72,16 @@ PencilArray
 ```@docs
 extra_dims(::PencilArray)
 get_comm(::PencilArray)
+get_permutation(::PencilArray)
+global_view(::PencilArray)
+ndims_extra(::PencilArray)
+ndims_space(::PencilArray)
+parent(::PencilArray)
+pencil(::PencilArray)
+range_local(::PencilArray)
+size(::PencilArray)
 size_global(::PencilArray)
+spatial_indices(::PencilArray)
 ```
 
 ## Global MPI operations
@@ -128,27 +143,25 @@ pencil = Pencil(..., timer=to)
 print_timer(to)
 ```
 
-## Advanced
+## Index
+
+### Modules
+
+```@index
+Pages = ["Pencils.md"]
+Order = [:module]
+```
+
+### Types
+
+```@index
+Pages = ["Pencils.md"]
+Order = [:type]
+```
 
 ### Functions
 
-```@docs
-get_comm
-get_decomposition
-get_permutation
-global_view
-length
-ndims
-ndims_extra
-ndims_space
-parent
-pencil
-range_local
-spatial_indices
-```
-
-## Index
-
 ```@index
-Pages   = ["Pencils.md"]
+Pages = ["Pencils.md"]
+Order = [:function]
 ```

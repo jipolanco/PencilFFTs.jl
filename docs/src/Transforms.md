@@ -24,7 +24,7 @@ BRFFT
 R2R
 ```
 
-## Advanced
+## Internal documentation
 
 What follows is used internally by `PencilFFTs`.
 

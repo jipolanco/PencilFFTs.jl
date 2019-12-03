@@ -95,6 +95,11 @@ PencilArray(pencil::Pencil, extra_dims::Dims=()) =
     PencilArray(pencil, Array{eltype(pencil)}(undef, size_local(pencil)...,
                                               extra_dims...))
 
+"""
+    size(x::PencilArray)
+
+Return local dimensions of a `PencilArray`.
+"""
 Base.size(x::PencilArray) = size(parent(x))
 
 # Use same index style as the parent array.
@@ -111,14 +116,14 @@ Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
 """
     pencil(x::PencilArray)
 
-Returns decomposition configuration associated to the `PencilArray`.
+Return decomposition configuration associated to the `PencilArray`.
 """
 pencil(x::PencilArray) = x.pencil
 
 """
     parent(x::PencilArray)
 
-Returns array wrapped by a `PencilArray`.
+Return array wrapped by a `PencilArray`.
 """
 Base.parent(x::PencilArray) = x.data
 

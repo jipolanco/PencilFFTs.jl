@@ -34,7 +34,8 @@ topology = MPITopology(comm, (4, 2))
 
     MPITopology{N}(comm_cart::MPI.Comm) where N
 
-Create topology information from MPI communicator with Cartesian topology.
+Create topology information from MPI communicator with Cartesian topology
+(typically constructed using `MPI.Cart_create`).
 The topology must have dimension `N`.
 
 """

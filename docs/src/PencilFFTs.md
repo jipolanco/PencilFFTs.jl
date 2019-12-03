@@ -13,10 +13,11 @@ PencilFFTPlan
 ## Functions
 
 ```@docs
-allocate_input
-allocate_output
-get_scale_factor
-get_timer
+allocate_input(::PencilFFTPlan)
+allocate_output(::PencilFFTPlan)
+get_comm(::PencilFFTPlan)
+get_scale_factor(::PencilFFTPlan)
+get_timer(::PencilFFTPlan)
 ```
 
 ## [Measuring performance](@id PencilFFTs.measuring_performance)
@@ -56,7 +57,7 @@ plan = PencilFFTPlan(..., timer=to)
 print_timer(to)
 ```
 
-## Devdocs
+## Internal documentation
 
 ```@docs
 GlobalFFTParams
