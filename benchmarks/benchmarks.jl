@@ -43,6 +43,9 @@ function parse_commandline()
         "--full", "-f"
             help = "perform full set of benchmarks (takes a lot more time!)"
             action = :store_true
+        "--output", "-o"
+            help = "append benchmark results to the given file"
+            default = nothing
     end
 
     parse_args(s)
@@ -158,15 +161,20 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
                         iterations=1,
                         transpose_method=TransposeMethods.IsendIrecv(),
+                        permute_dims=Val(true),
                        )
     isroot = MPI.Comm_rank(comm) == 0
 
     to = TimerOutput()
     plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
                          extra_dims=extra_dims,
+                         permute_dims=permute_dims,
                          timer=to, transpose_method=transpose_method)
 
-    isroot && println("\n", plan, "\nMethod: ", plan.transpose_method, "\n")
+    if isroot
+        println("\n", plan, "\nMethod: ", plan.transpose_method)
+        println("Permutations: $permute_dims\n")
+    end
 
     u = allocate_input(plan)
     v = allocate_output(plan)
@@ -201,7 +209,7 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
         println(to, SEPARATOR)
     end
 
-    nothing
+    τ
 end
 
 function parse_dimensions(arg::String) :: Dims{3}
@@ -228,6 +236,7 @@ function main()
     dims = parse_dimensions(args["dimensions"])
     iterations = args["repetitions"] :: Int
     full_benchmarks = args["full"] :: Bool
+    outfile = args["output"] :: Union{Nothing,String}
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
@@ -246,6 +255,7 @@ function main()
 
     transpose_methods = (TransposeMethods.IsendIrecv(),
                          TransposeMethods.Alltoallv())
+    permutes = (Val(true), Val(false))
 
     if full_benchmarks
         extra_dims = ((), (3, ))
@@ -260,11 +270,64 @@ function main()
         pdims_list = (proc_dims, )
     end
 
+    timings = zeros(2, 2)
+
     kwargs = (:iterations => iterations, )
 
-    for pdims in pdims_list, edims in extra_dims, method in transpose_methods
-        benchmark_rfft(comm, pdims, dims; extra_dims=edims,
-                       transpose_method=method, kwargs...)
+    for pdims in pdims_list,
+            edims in extra_dims,
+            method in transpose_methods,
+            permute in permutes
+        t_ms = benchmark_rfft(comm, pdims, dims; extra_dims=edims,
+                              permute_dims=permute, transpose_method=method,
+                              kwargs...)
+        i = Int(permute === Val(false)) + 1  # 1/2 <-> with/without permutation
+        j = Int(method === TransposeMethods.Alltoallv()) + 1  # 1/2 <-> IsendIrecv/Alltoallv
+        timings[i, j] = t_ms
+    end
+
+    columns = (
+        ("(1) Nx",          dims[1]),
+        ("(2) Ny",          dims[2]),
+        ("(3) Nz",          dims[3]),
+        ("(4) num_procs",   Nproc),
+        ("(5) P1",          proc_dims[1]),
+        ("(6) P2",          proc_dims[2]),
+        ("(7) repetitions", iterations),
+        ("(8) PI", timings[1, 1]),
+        ("(9) PA",  timings[1, 2]),
+        ("(10) NI", timings[2, 1]),
+        ("(11) NA", timings[2, 2]),
+    )
+
+    header =
+    """# The last four columns show the times in milliseconds using 2×2 combinations
+    # of parameters.
+    #
+    # The first letter indicates whether dimension permutations are performed:
+    #
+    #     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
+    #     N = no permutations
+    #
+    # The second letter indicates the MPI transposition method:
+    #
+    #     I = Isend/Irecv (default)
+    #     A = Alltoallv
+    #
+    """
+
+    if !full_benchmarks && outfile !== nothing && myrank == 0
+        @info "Writing to $outfile"
+        newfile = !isfile(outfile)
+        open(outfile, "a") do io
+            if newfile
+                print(io, header, "#")
+                map(x -> print(io, "  ", x[1]), columns)
+                println(io)
+            end
+            map(x -> print(io, "  ", x[2]), columns)
+            println(io)
+        end
     end
 
     if full_benchmarks
