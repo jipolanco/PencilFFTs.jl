@@ -69,7 +69,7 @@ message(STATUS "Using FFTW3 library dir: ${FFTW3_LIBDIR}")
 message(STATUS "Using FFTW3 include dir: ${FFTW3_INCDIR}")
 
 # Install P3DFFT++ as external project.
-set(p3dfft_git_commit_hash 1ac34efd1ac6fcb989e26e89d2661f2f7306dd03)
+set(p3dfft_git_commit_hash b25205d5695abd0dd637fe607c36a8a5c99c7a08)
 set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
 set(p3dfft_config_flags
     "--enable-fftw"
