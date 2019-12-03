@@ -10,7 +10,6 @@ const TEST_FILES = (
     "rfft.jl",
     "pencils.jl",
     "transforms.jl",
-    "benchmarks.jl",
 )
 
 function main()

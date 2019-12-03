@@ -7,9 +7,9 @@ using MPI
 
 using InteractiveUtils
 using LinearAlgebra
+using Printf
 using Profile
 using Random
-using Test
 using TimerOutputs
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
@@ -18,6 +18,8 @@ TimerOutputs.enable_debug_timings(Pencils)
 const PROFILE = false
 const PROFILE_OUTPUT = "profile.txt"
 const PROFILE_DEPTH = 8
+
+const FULL_BENCHMARKS = false
 
 const MEASURE_GATHER = false
 
@@ -114,7 +116,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
         MEASURE_GATHER && gather(u[2])
     end
 
-    @test u[1] == u_orig
+    @assert u[1] == u_orig
 
     if myrank == 0
         println("\n",
@@ -169,16 +171,28 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
     mul!(v, plan, u)
     ldiv!(uprime, plan, v)
 
-    @test u ≈ uprime
+    @assert u ≈ uprime
 
     reset_timer!(to)
+
+    τ = MPI.Wtime()
 
     for it = 1:iterations
         mul!(v, plan, u)
         ldiv!(u, plan, v)
     end
 
-    isroot && println(to, SEPARATOR)
+    τ = (MPI.Wtime() - τ) / iterations * 1000  # in milliseconds
+
+    events = (to["PencilFFTs mul!"], to["PencilFFTs ldiv!"])
+    @assert all(TimerOutputs.ncalls.(events) .== iterations)
+    t_avg = sum(TimerOutputs.time.(events)) / iterations / 1e6  # in milliseconds
+
+    if isroot
+        @printf "Average time: %.8g ms (MPI_Wtime)\n" τ
+        @printf "              %.8g ms (TimerOutputs)\n\n" t_avg
+        println(to, SEPARATOR)
+    end
 
     nothing
 end
@@ -202,28 +216,34 @@ function main()
         pdims[1], pdims[2]
     end
 
-    pdims_list = (
-                  (Nproc, ),  # slab (1D) decomposition
-                  (Nproc, 1),
-                  (1, Nproc),
-                  proc_dims,
-                 )
-
     transpose_methods = (TransposeMethods.IsendIrecv(),
                          TransposeMethods.Alltoallv())
 
-    extra_dims = ((), (3, ))
+    if FULL_BENCHMARKS
+        extra_dims = ((), (3, ))
+        pdims_list = (
+                      (Nproc, ),  # slab (1D) decomposition
+                      (Nproc, 1),
+                      (1, Nproc),
+                      proc_dims,
+                     )
+    else
+        extra_dims = ((), )
+        pdims_list = (proc_dims, )
+    end
 
     for pdims in pdims_list, edims in extra_dims, method in transpose_methods
         benchmark_rfft(comm, pdims, dims, extra_dims=edims,
                        transpose_method=method)
     end
 
-    benchmark_pencils(comm, proc_dims, dims, with_permutations=Val(false))
-    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
-                      iterations=ITERATIONS >> 1)
-    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
-                      iterations=ITERATIONS >> 1, with_permutations=Val(false))
+    if FULL_BENCHMARKS
+        benchmark_pencils(comm, proc_dims, dims, with_permutations=Val(false))
+        benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
+                          iterations=ITERATIONS >> 1)
+        benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
+                          iterations=ITERATIONS >> 1, with_permutations=Val(false))
+    end
 
     MPI.Finalize()
 end
