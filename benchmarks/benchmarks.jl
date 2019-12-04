@@ -40,6 +40,7 @@ function parse_commandline()
         "--repetitions", "-r"
             help = "number of repetitions per benchmark"
             default = 100
+            arg_type = Int
         "--full", "-f"
             help = "perform full set of benchmarks (takes a lot more time!)"
             action = :store_true
