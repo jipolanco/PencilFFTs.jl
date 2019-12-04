@@ -1,0 +1,20 @@
+# The last four columns show the times in milliseconds using 2×2 combinations
+# of parameters.
+#
+# The first letter indicates whether dimension permutations are performed:
+#
+#     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
+#     N = no permutations
+#
+# The second letter indicates the MPI transposition method:
+#
+#     I = Isend/Irecv (default)
+#     A = Alltoallv
+#
+#  (1) Nx  (2) Ny  (3) Nz  (4) num_procs  (5) P1  (6) P2  (7) repetitions  (8) PI  (9) PA  (10) NI  (11) NA
+  512  512  512  128  16  8  100  140.22241344908252  165.7800183573272  166.31922109867446  173.11306603252888
+  512  512  512  256  16  16  100  78.81561967777088  95.71823060163297  88.27719539753161  99.54042713507079
+  512  512  512  512  32  16  100  42.67202369053848  49.5224276476074  47.125382371013984  55.69201442645863
+  512  512  512  1024  32  32  100  20.980632975697517  23.45876664388925  22.015045480802655  24.1173082171008
+  512  512  512  2048  64  32  100  13.773438717471436  12.853428989183158  14.329565489897504  13.030836032703519
+  512  512  512  4096  64  64  100  8.357895447406918  9.172407981241122  8.495721271028742  9.448418819811195
