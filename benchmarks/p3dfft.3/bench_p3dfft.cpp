@@ -12,6 +12,9 @@
 
 constexpr char USAGE[] = "./bench_p3dfft N [repetitions] [output_file]";
 
+using Real = double;
+using Complex = p3dfft::complex_double;
+
 template <int N> using Dims = std::array<int, N>;
 
 constexpr int DEFAULT_REPETITIONS = 100;
@@ -93,29 +96,12 @@ double compare(const std::vector<double> &x, const std::vector<double> &y) {
   return diff2;
 }
 
-double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o, int repetitions) {
-  using Real = double;
-  using Complex = p3dfft::complex_double;
+double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o,
+                 std::vector<double> &ui, std::vector<double> &ui_final,
+                 std::vector<Complex> &uo, int repetitions) {
   auto comm = grid_i.mpi_comm_glob;
   int rank;
   MPI_Comm_rank(comm, &rank);
-
-  // For some weird reason, creating these copies fixes a "free(): invalid
-  // pointer" error.
-  //
-  // I'm not sure where the error comes from, but:
-  //
-  // - The error dissapeared when the inverse transforms were commented out
-  //   (trans_b.exec(...)).
-  //
-  // - Apparently the error occurs when the destructor of the `uo` vector (a
-  //   std::vector<Complex>) is called. Maybe the pointer is also deleted by
-  //   p3dfft??.
-  //
-  // P3DFFT has a few problems with memory management...
-  //
-  auto grid_i_copy = p3dfft::grid(grid_i);
-  auto grid_o_copy = p3dfft::grid(grid_o);
 
   // Transform types
   std::array<int, 3> transform_ids_fw = {
@@ -126,10 +112,6 @@ double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o, int repetitions) {
   p3dfft::trans_type3D transforms_bw(transform_ids_bw.data());
   p3dfft::transform3D<Real, Complex> trans_f(grid_i, grid_o, &transforms_fw);
   p3dfft::transform3D<Complex, Real> trans_b(grid_o, grid_i, &transforms_bw);
-
-  auto ui = allocate_data<double>(grid_i);
-  auto ui_final = ui;
-  auto uo = allocate_data<Complex>(grid_o);
 
   init_wave(ui, grid_i);
 
@@ -274,11 +256,22 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   p3dfft::grid grid_o(gdims_o.data(), dim_conj_sym, pgrid_o.data(),
                       proc_order_i.data(), mem_order_o.data(), comm);
 
-  double t_ms = transform(grid_i, grid_o, opt.repetitions);
+  // Sometimes there is a weird "free(): invalid pointer" error when the vectors
+  // are destroyed. Maybe P3DFFT thinks it owns the pointers and deletes them??
+  // We make sure that these vectors are destroyed *after* the results are
+  // written to a file. This way we are sure that the results are written, even
+  // if the program crashes later.
+  auto ui = allocate_data<double>(grid_i);
+  auto ui_final = ui;
+  auto uo = allocate_data<Complex>(grid_o);
+
+  double t_ms = transform(grid_i, grid_o, ui, ui_final, uo, opt.repetitions);
 
   // Write results
   if (myrank == 0)
     BenchResults{opt, t_ms, pdims}.write_to_file();
+
+  MPI_Barrier(comm);  // vectors are destroyed after this barrier!
 }
 
 int main(int argc, char *argv[]) {
