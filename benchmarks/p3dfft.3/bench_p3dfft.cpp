@@ -100,6 +100,23 @@ double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o, int repetitions) {
   int rank;
   MPI_Comm_rank(comm, &rank);
 
+  // For some weird reason, creating these copies fixes a "free(): invalid
+  // pointer" error.
+  //
+  // I'm not sure where the error comes from, but:
+  //
+  // - The error dissapeared when the inverse transforms were commented out
+  //   (trans_b.exec(...)).
+  //
+  // - Apparently the error occurs when the destructor of the `uo` vector (a
+  //   std::vector<Complex>) is called. Maybe the pointer is also deleted by
+  //   p3dfft??.
+  //
+  // P3DFFT has a few problems with memory management...
+  //
+  auto grid_i_copy = p3dfft::grid(grid_i);
+  auto grid_o_copy = p3dfft::grid(grid_o);
+
   // Transform types
   std::array<int, 3> transform_ids_fw = {
       p3dfft::R2CFFT_D, p3dfft::CFFT_FORWARD_D, p3dfft::CFFT_FORWARD_D};
