@@ -12,4 +12,4 @@ The benchmarks were run using Intel MPI 2019.0.4 and FFTW 3.3.9 (version
 bundled by FFTW.jl).
 
 Date: 4 December 2019 (PencilFFTs commit
-[`3f238172`](3f238172a62036104f535d7bb22933096458f9a8)).
+[`3f238172a`](https://github.com/jipolanco/PencilFFTs.jl/commit/3f238172a62036104f535d7bb22933096458f9a8)).
