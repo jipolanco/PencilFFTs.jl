@@ -193,10 +193,7 @@ function transpose_impl!(
         send_buf_ptr = pointer(send_buf)
         recv_buf_ptr = pointer(recv_buf)
 
-        # Note: we keep a vector of MPI.MPI_Request (a C object) instead of the
-        # MPI.Request wrapper, to avoid allocating a vector each time Waitany
-        # and Waitall are called. See MPI_Waitany!.
-        send_req = Vector{MPI.MPI_Request}(undef, Nproc)
+        send_req = Vector{MPI.Request}(undef, Nproc)
         recv_req = similar(send_req)
     end
 
@@ -226,7 +223,7 @@ function transpose_impl!(
                 # Don't send data to myself via Alltoallv.
                 send_counts[n] = recv_counts[n] = zero(Cint)
             else
-                send_req[n] = recv_req[n] = MPI.REQUEST_NULL.val
+                send_req[n] = recv_req[n] = MPI.REQUEST_NULL
                 index_local_req = n
             end
         else
@@ -247,12 +244,10 @@ function transpose_impl!(
                 # Note: data is sent and received with the permutation associated to Pi.
                 tag = 42
 
-                # We take the 'val' of the returned MPI.Request, discarding the
-                # 'buffer' field.
                 send_req[n] =
-                    MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm).val
+                    MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm)
                 recv_req[n] =
-                    MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm).val
+                    MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm)
 
                 send_buf_ptr += length_send_n * sizeof(T)
                 recv_buf_ptr += length_recv_n * sizeof(T)
@@ -279,7 +274,7 @@ function transpose_impl!(
                 n = index_local_req  # copy local data first
             else
                 @timeit_debug timer "wait receive" n, status =
-                    MPI_Waitany!(recv_req)
+                    MPI.Waitany!(recv_req)
             end
 
             # Non-permuted global indices of received data.
@@ -301,7 +296,7 @@ function transpose_impl!(
 
     # Wait for all our data to be sent before returning.
     if !use_alltoallv
-        @timeit_debug timer "wait send" MPI_Waitall!(send_req)
+        @timeit_debug timer "wait send" MPI.Waitall!(send_req)
     end
 
     out

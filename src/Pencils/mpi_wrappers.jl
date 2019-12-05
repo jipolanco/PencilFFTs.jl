@@ -64,35 +64,3 @@ function MPI_Cart_sub(comm::MPI.Comm,
     cremain_dims = Cint.(remain_dims[:])
     MPI_Cart_sub(comm, cremain_dims)
 end
-
-## These extend MPI.jl/src/pointtopoint.jl
-## (But I'm not sure if they should be added to MPI.jl...)
-
-# Alternative wrapper to Waitany that takes a Vector{MPI.MPI_Request} instead of
-# a Vector{MPI.Request} (the former is a C integer, while the latter is a MPI.jl
-# wrapper that contains more information). This avoids the allocation of a
-# vector every time Waitany! is called.
-function MPI_Waitany!(reqvals::Vector{MPI.MPI_Request})
-    count = length(reqvals)
-    ind = Ref{Cint}()
-    stat_ref = Ref{MPI.Status}()
-    # int MPI_Waitany(int count, MPI_Request array_of_requests[], int *index,
-    #                 MPI_Status *status)
-    MPI.@mpichk ccall((:MPI_Waitany, MPI.libmpi), Cint,
-                      (Cint, Ptr{MPI.MPI_Request}, Ptr{Cint}, Ptr{MPI.Status}),
-                      count, reqvals, ind, stat_ref)
-    index = Int(ind[]) + 1
-    (index, stat_ref[])
-end
-
-# Same for Waitall.
-function MPI_Waitall!(reqvals::Vector{MPI.MPI_Request})
-    count = length(reqvals)
-    stats = Array{MPI.Status}(undef, count)
-    # int MPI_Waitall(int count, MPI_Request array_of_requests[],
-    #                 MPI_Status array_of_statuses[])
-    MPI.@mpichk ccall((:MPI_Waitall, MPI.libmpi), Cint,
-                      (Cint, Ptr{MPI.MPI_Request}, Ptr{MPI.Status}),
-                      count, reqvals, stats)
-    stats
-end
