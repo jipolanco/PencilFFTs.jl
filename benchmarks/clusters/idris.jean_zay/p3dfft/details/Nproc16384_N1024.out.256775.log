@@ -1,0 +1,18 @@
+Number of processes:   16384
+Dimensions:            1024×1024×1024
+Number of repetitions: 100
+Output file:           p3dfft_N1024.dat
+
+Dimensions: (1024, 1024, 1024)
+Processes:  (128, 128)
+L2 error: 2.49638e-23
+Average time over 100 iterations: 33.5628 ms
+TIMERS (avg/min/max): 
+Reorder_trans (0.125716 0.111004 0.164696)
+Reorder_out   (0.000000 0.000000 0.000000)
+Reorder_in    (0.000000 0.000000 0.000000)
+Trans_exec    (0.076674 0.043053 0.109839)
+Packsend      (0.000000 0.000000 0.000000)
+Packsend_trans(0.152284 0.117801 0.188382)
+Unpackrecv    (0.046569 0.040291 0.069353)
+Alltoall      (2.993742 2.832301 3.110900)
