@@ -29,4 +29,4 @@ libraries implemented in lower-level languages.
 This is seen in the below comparison with [P3DFFT++](https://www.p3dfft.net/)
 (see [the benchmark section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) on the docs for details).
 
-![Strong scaling of PencilFFTs](docs/src/img/benchmark_idris.svg)
+![Strong scaling of PencilFFTs](benchmarks/clusters/idris.jean_zay/timing_comparison.svg)
