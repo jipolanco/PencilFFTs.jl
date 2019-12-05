@@ -9,6 +9,8 @@ automatically determined by `MPI_Dims_create`.
 In our tests, MPI tends to create a balanced decomposition with `P1 ≈ P2`.
 For instance, a total of 1024 processes is divided into `P1 = P2 = 32`.
 
+![Strong scaling of PencilFFTs](timing_comparison.svg)
+
 ## Machine
 
 Tests run on the [Jean-Zay cluster](http://www.idris.fr/jean-zay/jean-zay-presentation.html)
