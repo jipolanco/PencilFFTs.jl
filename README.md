@@ -32,5 +32,5 @@ This is seen in the below comparison with [P3DFFT++](https://www.p3dfft.net/)
 (see [the benchmark section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) on the docs for details).
 
 <p align="center">
-<img alt="Strong scaling of PencilFFTs" src="benchmarks/clusters/idris.jean_zay/timing_comparison.svg">
+<img alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
 </p>
