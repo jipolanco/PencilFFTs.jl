@@ -137,6 +137,9 @@ See the [`Pencils`](@ref Pencils_module) module documentation for more details.
 
 ## Similar projects
 
+- [PFFT](https://www-user.tu-chemnitz.de/~potts/workgroup/pippig/software.php.en#pfft)
+  is a very general parallel FFT library written in C.
+
 - [P3DFFT](https://www.p3dfft.net) implements parallel 3D FFTs using pencil
   decomposition in Fortran and C++.
 

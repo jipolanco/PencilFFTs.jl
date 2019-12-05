@@ -20,9 +20,9 @@ makedocs(
         "PencilFFTs.md",
         "Transforms.md",
         "Pencils.md",
+        "benchmarks.md",
     ],
     doctest = true,
-    # repo = "https://gitlab.oca.eu/jpolanco/pencilffts.jl/blob/{commit}{path}#{line}",
     # checkdocs = :exports,
     linkcheck = true,
 )

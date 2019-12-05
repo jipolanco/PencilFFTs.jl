@@ -25,7 +25,7 @@ Some relevant specifications:
 
 ## Software
 
-The benchmarks were run using Julia 1.3, Intel MPI 2019.0.4 and FFTW 3.3.9
+The benchmarks were performed using Julia 1.3, Intel MPI 2019.0.4 and FFTW 3.3.9
 (version bundled by FFTW.jl).
 
 ## Version

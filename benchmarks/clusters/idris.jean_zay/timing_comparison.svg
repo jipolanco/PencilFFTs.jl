@@ -523,44 +523,44 @@ L 455.25668 3.00024
    </g>
    <g id="legend_1">
     <g id="patch_7">
-     <path d="M 333.231368 75.80024 
+     <path d="M 331.275743 75.80024 
 L 445.45668 75.80024 
 Q 448.25668 75.80024 448.25668 73.00024 
 L 448.25668 12.80024 
 Q 448.25668 10.00024 445.45668 10.00024 
-L 333.231368 10.00024 
-Q 330.431368 10.00024 330.431368 12.80024 
-L 330.431368 73.00024 
-Q 330.431368 75.80024 333.231368 75.80024 
+L 331.275743 10.00024 
+Q 328.475743 10.00024 328.475743 12.80024 
+L 328.475743 73.00024 
+Q 328.475743 75.80024 331.275743 75.80024 
 z
 " style="fill:#ffffff;stroke:#cccccc;stroke-linejoin:miter;"/>
     </g>
     <g id="line2d_40">
-     <path d="M 337.431368 22.18024 
-L 365.431368 22.18024 
+     <path d="M 335.475743 22.18024 
+L 363.475743 22.18024 
 " style="fill:none;stroke:#1f77b4;stroke-linecap:square;stroke-width:2;"/>
     </g>
     <g id="line2d_41"/>
     <g id="text_14">
-     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 376.631368, 27.08024)" x="376.631368" y="27.08024">PencilFFTs</text>
+     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 374.675743, 27.08024)" x="374.675743" y="27.08024">PencilFFTs</text>
     </g>
     <g id="line2d_42">
-     <path d="M 337.431368 41.78024 
-L 365.431368 41.78024 
+     <path d="M 335.475743 41.78024 
+L 363.475743 41.78024 
 " style="fill:none;stroke:#ff7f0e;stroke-linecap:square;stroke-width:2;"/>
     </g>
     <g id="line2d_43"/>
     <g id="text_15">
-     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 376.631368, 46.68024)" x="376.631368" y="46.68024">P3DFFT</text>
+     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 374.675743, 46.68024)" x="374.675743" y="46.68024">P3DFFT++</text>
     </g>
     <g id="line2d_44">
-     <path d="M 337.431368 61.38024 
-L 365.431368 61.38024 
+     <path d="M 335.475743 61.38024 
+L 363.475743 61.38024 
 " style="fill:none;stroke:#000000;stroke-dasharray:2,3.3;stroke-dashoffset:0;stroke-width:2;"/>
     </g>
     <g id="line2d_45"/>
     <g id="text_16">
-     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 376.631368, 66.28024)" x="376.631368" y="66.28024">Ideal</text>
+     <text style="font-family:Lato;font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;" transform="rotate(-0, 374.675743, 66.28024)" x="374.675743" y="66.28024">Ideal</text>
     </g>
    </g>
    <g id="legend_2">

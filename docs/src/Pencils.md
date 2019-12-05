@@ -91,8 +91,8 @@ multidimensional FFTs, is the global data transpositions between different MPI
 decomposition configurations.
 In `Pencils`, this is performed by the [`transpose!`](@ref) function, which
 takes two `PencilArray`s, typically associated to two different configurations.
-The implementation is highly optimised, and performs comparably to similar
-implementations in lower-level languages **(benchmarks??)**.
+The implementation performs comparably to similar implementations in
+lower-level languages (see [Benchmarks](@ref)).
 
 Also provided is a [`gather`](@ref) function that creates a single global array
 from decomposed data.

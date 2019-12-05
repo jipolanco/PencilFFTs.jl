@@ -17,13 +17,13 @@ class Benchmark(NamedTuple):
 BENCH_PENCILS = Benchmark('PencilFFTs', 'results/jean_zay_N{N}.dat',
                           plot_style=dict(color='C0'))
 
-BENCH_P3DFFT = Benchmark('P3DFFT', 'p3dfft/results/p3dfft_N{N}.dat',
+BENCH_P3DFFT = Benchmark('P3DFFT++', 'p3dfft/results/p3dfft_N{N}.dat',
                          plot_style=dict(color='C1'))
 
 
 RESOLUTIONS = (512, 1024)
 
-PARAMS_PI = 0  # with dimension permtuations + Isend/Irecv
+PARAMS_PI = 0  # with dimension permutations + Isend/Irecv
 PARAMS_PA = 1
 PARAMS_NI = 2
 PARAMS_NA = 3  # no dimension permutations + Alltoallv
@@ -36,11 +36,16 @@ PARAMS_ALL = (
     PARAMS_NA,
 )
 
+STYLE_PERM = dict(color='C0')
+STYLE_NOPERM = dict(color='C3')
+STYLE_ISEND = dict(ls='-')
+STYLE_ALLTO = dict(ls='--')
+
 STYLE_PARAMS = (
-    dict(color='C0'),
-    dict(color='C1'),
-    dict(color='C2'),
-    dict(color='C3'),
+    dict(**STYLE_PERM, **STYLE_ISEND),
+    dict(**STYLE_PERM, **STYLE_ALLTO),
+    dict(**STYLE_NOPERM, **STYLE_ISEND),
+    dict(**STYLE_NOPERM, **STYLE_ALLTO),
 )
 
 STYLE_RESOLUTION = {
@@ -53,6 +58,9 @@ STYLE_IDEAL = dict(color='black', ls=':', label='ideal')
 
 def plot_from_file(ax: plt.Axes, bench: Benchmark, resolution: int,
                    speedup=False, params=PARAMS_ALL, plot_kw=None):
+    ax.set_xscale('log', basex=2)
+    ax.set_yscale('log', basey=(2 if speedup else 10))
+
     is_pencilffts = bench is BENCH_PENCILS
     filename = bench.filename_fmt.format(N=resolution)
     data = np.loadtxt(filename)
@@ -70,8 +78,6 @@ def plot_from_file(ax: plt.Axes, bench: Benchmark, resolution: int,
         times[:, :] = times[0, :] / times[:, :]
         times_ideal[:, :] = times_ideal[0, :] / times_ideal[:, :]
 
-    lines = []
-
     for n in range(Ntimes):
         kw = bench.plot_style.copy()
         if is_pencilffts:
@@ -81,12 +87,32 @@ def plot_from_file(ax: plt.Axes, bench: Benchmark, resolution: int,
                 kw.update(STYLE_PARAMS[n])
         if plot_kw is not None:
             kw.update(plot_kw)
-        lines += ax.plot(procs, times[:, n], **kw)
+        ax.plot(procs, times[:, n], **kw)
 
     if is_pencilffts:
-        lines += ax.plot(procs, times_ideal[:, 0], **STYLE_IDEAL)
+        ax.plot(procs, times_ideal[:, 0], **STYLE_IDEAL)
 
-    return lines
+
+def compare_params(ax: plt.Axes, resolution, bench=BENCH_PENCILS,
+                   params=PARAMS_ALL, plot_kw=None):
+    filename = bench.filename_fmt.format(N=resolution)
+    data = np.loadtxt(filename)
+    Nxyz = data[:, 0:3]
+    N = Nxyz[0, 0]
+    assert np.all(Nxyz == N)  # they're all the same
+    procs = data[:, 3]
+    # proc_dims = data[:, 4:6]
+    times = data[:, 7:]
+    Ntimes = times.shape[1]
+
+    # Compare with the first column (default params)
+    times /= times[:, 0:1]
+
+    for n in params:
+        kw = STYLE_PARAMS[n].copy()
+        if plot_kw is not None:
+            kw.update(plot_kw)
+        ax.plot(procs, times[:, n], **kw)
 
 
 def add_legend(ax: plt.Axes, styles, labels, **kwargs):
@@ -103,12 +129,15 @@ def legend_benchmarks(ax: plt.Axes, bench):
     add_legend(ax, styles, labels, loc='upper right')
 
 
-def legend_resolution(ax: plt.Axes, resolutions):
+def legend_params(ax: plt.Axes, params):
+    styles = map(lambda p: STYLE_PARAMS[p], params)
+
+
+def legend_resolution(ax: plt.Axes, resolutions, loc='lower left'):
     styles = [dict(color='black', ls='-', **STYLE_RESOLUTION[n])
               for n in resolutions]
     labels = resolutions
-    add_legend(ax, styles, labels, loc='lower left',
-               title='Resolution')
+    add_legend(ax, styles, labels, loc=loc, title='Resolution')
 
 
 def plot_comparison(ax: plt.Axes, N, legend=False, **kwargs):
@@ -121,27 +150,41 @@ def plot_comparison(ax: plt.Axes, N, legend=False, **kwargs):
         legend_benchmarks(ax, bench)
 
 
-def plot_timings(ax: plt.Axes, resolutions, comparison=True, speedup=False):
+def plot_params(ax: plt.Axes, N, legend=False, **kwargs):
     ax.set_xscale('log', basex=2)
-    ax.set_yscale('log', basey=(2 if speedup else 10))
+    st = STYLE_RESOLUTION[N]
+    params = (PARAMS_PI, PARAMS_PA)
+    compare_params(ax, N, BENCH_PENCILS, params, plot_kw=st)
 
+
+def plot_timings(ax: plt.Axes, resolutions, plot_func=plot_comparison,
+                 speedup=False):
     for n, N in enumerate(resolutions):
-        if comparison:
-            plot_comparison(ax, N, speedup=speedup, legend=(n == 0))
+        plot_func(ax, N, speedup=speedup, legend=(n == 0))
 
-    legend_resolution(ax, resolutions)
+    if speedup:
+        ylab = 'Speedup'
+        loc = 'upper left'
+    else:
+        ylab = 'Time (milliseconds)'
+        loc = 'lower left'
+
+    legend_resolution(ax, resolutions, loc)
     ax.set_xlabel('MPI processes')
 
     # Show '1024' instead of '2^10'
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_major_formatter(mpl.ticker.ScalarFormatter())
 
-    ylab = 'Speedup' if speedup else 'Time (milliseconds)'
     ax.set_ylabel(ylab)
 
 
 fig, ax = plt.subplots()
-plot_timings(ax, RESOLUTIONS, comparison=True)
+plot_timings(ax, RESOLUTIONS, plot_comparison)
 fig.savefig('timing_comparison.svg')
+
+fig, ax = plt.subplots()
+plot_timings(ax, RESOLUTIONS, plot_params)
+# fig.savefig('timing_params.svg')
 
 plt.show()

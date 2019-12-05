@@ -24,13 +24,9 @@ configuration to the other and perform FFTs along the other dimensions.
 
 ![Pencil decomposition of 3D domains.](docs/src/img/pencils.svg)
 
-See the [package documentation](https://jipolanco.github.io/PencilFFTs.jl/stable/)
-for more details.
+The performance of PencilFFTs is on par with widely adopted MPI-based FFT
+libraries implemented in lower-level languages.
+This is seen in the below comparison with [P3DFFT++](https://www.p3dfft.net/)
+(see [the benchmark section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) on the docs for details).
 
-## Similar projects
-
-- [P3DFFT](https://www.p3dfft.net) implements parallel 3D FFTs using pencil
-  decomposition in Fortran and C++.
-
-- [2DECOMP&FFT](http://www.2decomp.org) is another parallel 3D FFT library
-  using pencil decomposition written in Fortran.
+![Strong scaling of PencilFFTs](docs/src/img/benchmark_idris.svg)
