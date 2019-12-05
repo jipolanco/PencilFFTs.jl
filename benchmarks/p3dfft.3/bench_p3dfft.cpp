@@ -3,15 +3,21 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <fstream>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 // File based on p3dfft.3/sample/C++/test3D_r2c.C
 
+constexpr char USAGE[] = "./bench_p3dfft N [repetitions] [output_file]";
+
+using Real = double;
+using Complex = p3dfft::complex_double;
+
 template <int N> using Dims = std::array<int, N>;
 
-constexpr Dims<3> DIMS_DEFAULT = {128, 128, 128};
-constexpr int NUM_REPETITIONS = 10;
+constexpr int DEFAULT_REPETITIONS = 100;
 
 template <class T, size_t N>
 auto print(T &io, const Dims<N> &dims) -> decltype(io) {
@@ -90,9 +96,9 @@ double compare(const std::vector<double> &x, const std::vector<double> &y) {
   return diff2;
 }
 
-void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
-  using Real = double;
-  using Complex = p3dfft::complex_double;
+double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o,
+                 std::vector<double> &ui, std::vector<double> &ui_final,
+                 std::vector<Complex> &uo, int repetitions) {
   auto comm = grid_i.mpi_comm_glob;
   int rank;
   MPI_Comm_rank(comm, &rank);
@@ -106,10 +112,6 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
   p3dfft::trans_type3D transforms_bw(transform_ids_bw.data());
   p3dfft::transform3D<Real, Complex> trans_f(grid_i, grid_o, &transforms_fw);
   p3dfft::transform3D<Complex, Real> trans_b(grid_o, grid_i, &transforms_bw);
-
-  auto ui = allocate_data<double>(grid_i);
-  auto ui_final = ui;
-  auto uo = allocate_data<Complex>(grid_o);
 
   init_wave(ui, grid_i);
 
@@ -132,57 +134,91 @@ void transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o) {
 #endif
 
   double t = -MPI_Wtime();
-  for (int n = 0; n < NUM_REPETITIONS; ++n) {
+  for (int n = 0; n < repetitions; ++n) {
     trans_f.exec(ui.data(), uo.data(), false);
     normalise(uo, grid_i.gdims);
     trans_b.exec(uo.data(), ui_final.data(), true);
   }
   t += MPI_Wtime();
+  t *= 1000 / repetitions;  // time in ms
 
   if (rank == 0)
-    std::cout << "Average time over " << NUM_REPETITIONS
-              << " iterations: " << (t / NUM_REPETITIONS) << " s" << std::endl;
+    std::cout << "Average time over " << repetitions << " iterations: " << t
+              << " ms" << std::endl;
 
 #ifdef TIMERS
   p3dfft::timers.print(grid_i.mpi_comm_glob);
 #endif
+
+  return t;
 }
 
 struct BenchOptions {
   Dims<3> dims;
+  int repetitions;
+  std::unique_ptr<std::string> output;
 
-  BenchOptions(int argc, char *const argv[]) : dims(DIMS_DEFAULT) {
-    std::vector<std::string> args;
-    while (argc--) args.push_back(*argv++);
-
-    // Parse "-N" option.
-    auto it = std::find(args.begin(), args.end(), "-N");
-    if (it < args.end() - 1) {
-      auto val_str = *(it + 1);
-      int N = std::stoi(val_str);
-      dims = {N, N, N};
+  BenchOptions(int argc, char *const argv[]) {
+    if (argc < 2) {
+      throw std::runtime_error("Error: wrong number of arguments.");
     }
+
+    int N = std::stoi(argv[1]);
+    dims = {N, N, N};
+
+    repetitions = argc >= 3 ? std::stoi(argv[2]) : DEFAULT_REPETITIONS;
+
+    if (argc >= 4)
+      output = std::unique_ptr<std::string>(new std::string(argv[3]));
   }
 };
 
-int main(int argc, char *argv[]) {
-  MPI_Init(&argc, &argv);
+struct BenchResults {
+  const BenchOptions &opt;
+  double time_avg;
+  Dims<2> proc_dims;
 
-  auto opt = BenchOptions(argc, argv);
+  void write_to_file() const {
+    if (!opt.output) return;
+    auto &filename = *opt.output;
+    bool file_existed = std::ifstream(filename.c_str()).good();
 
-  p3dfft::setup();
+    std::ofstream io(filename, std::ios::app);
 
-  auto comm = MPI_COMM_WORLD;
+    if (!file_existed)  // write header
+      io << "# (1) Nx  (2) Ny  (3) Nz  (4) num_procs  "
+         << "(5) P1  (6) P2  (7) repetitions  (8) time_ms\n";
 
+    auto sep = "  ";
+    for (auto d : opt.dims) io << sep << d;
+
+    auto num_procs = proc_dims[0] * proc_dims[1];
+    io << sep << num_procs;
+    for (auto n : proc_dims) io << sep << n;
+
+    io << sep << opt.repetitions << sep << time_avg << "\n";
+  }
+};
+
+void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   int myrank, Nproc;
   MPI_Comm_rank(comm, &myrank);
   MPI_Comm_size(comm, &Nproc);
 
   if (Nproc == 1) {
-    std::cerr << "Error: P3DFFT will fail without any warning if run with 1 "
-                 "process!\n";
-    MPI_Finalize();
-    return 1;
+    throw std::runtime_error(
+        "Error: P3DFFT will fail without any warning if run with 1 process!");
+  }
+
+  if (myrank == 0) {
+    auto dims = opt.dims;
+    std::cout << "Number of processes:   " << Nproc << std::endl;
+    std::cout << "Dimensions:            " << dims[0] << "×" << dims[1] << "×"
+              << dims[2] << std::endl;
+    std::cout << "Number of repetitions: " << opt.repetitions << std::endl;
+    if (opt.output)
+      std::cout << "Output file:           " << *(opt.output) << std::endl;
+    std::cout << std::endl;
   }
 
   // Data dimensions.
@@ -220,10 +256,43 @@ int main(int argc, char *argv[]) {
   p3dfft::grid grid_o(gdims_o.data(), dim_conj_sym, pgrid_o.data(),
                       proc_order_i.data(), mem_order_o.data(), comm);
 
-  transform(grid_i, grid_o);
+  // Sometimes there is a weird "free(): invalid pointer" error when the vectors
+  // are destroyed. Maybe P3DFFT thinks it owns the pointers and deletes them??
+  // We make sure that these vectors are destroyed *after* the results are
+  // written to a file. This way we are sure that the results are written, even
+  // if the program crashes later.
+  auto ui = allocate_data<double>(grid_i);
+  auto ui_final = ui;
+  auto uo = allocate_data<Complex>(grid_o);
+
+  double t_ms = transform(grid_i, grid_o, ui, ui_final, uo, opt.repetitions);
+
+  // Write results
+  if (myrank == 0)
+    BenchResults{opt, t_ms, pdims}.write_to_file();
+
+  MPI_Barrier(comm);  // vectors are destroyed after this barrier!
+}
+
+int main(int argc, char *argv[]) {
+  MPI_Init(&argc, &argv);
+  p3dfft::setup();
+
+  auto comm = MPI_COMM_WORLD;
+  int myrank;
+  MPI_Comm_rank(comm, &myrank);
+
+  try {
+    auto opt = BenchOptions(argc, argv);
+    run_benchmark(opt, comm);
+  } catch (std::exception &e) {
+    if (myrank == 0) {
+      std::cerr << e.what() << "\n";
+      std::cerr << "Usage: " << USAGE << "\n";
+    }
+  }
 
   p3dfft::cleanup();
-
   MPI_Finalize();
   return 0;
 }

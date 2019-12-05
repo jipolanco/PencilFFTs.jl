@@ -5,12 +5,13 @@ using PencilFFTs.Pencils
 
 using MPI
 
-using InteractiveUtils
+using ArgParse
+using TimerOutputs
+
 using LinearAlgebra
+using Printf
 using Profile
 using Random
-using Test
-using TimerOutputs
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(Pencils)
@@ -21,22 +22,34 @@ const PROFILE_DEPTH = 8
 
 const MEASURE_GATHER = false
 
-const DIMS_DEFAULT = (128, 192, 64)
-const ITERATIONS = 20
+const DIMS_DEFAULT = "128,192,64"
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 const SEPARATOR = string("\n\n", "*"^80)
 
-function parse_dims() :: Dims{3}
-    i = findfirst(s -> s == "-N", ARGS)
-    i === nothing && return DIMS_DEFAULT
-    N = try
-        parse(Int, ARGS[i + 1])
-    catch e
-        error("Could not parse `-N` option.")
+function parse_commandline()
+    s = ArgParseSettings()
+
+    @add_arg_table s begin
+        "--dimensions", "-N"
+            help = """
+            comma-separated list of 3D dataset dimensions.
+            A single integer may also be provided."""
+            default = DIMS_DEFAULT
+        "--repetitions", "-r"
+            help = "number of repetitions per benchmark"
+            default = 100
+            arg_type = Int
+        "--full", "-f"
+            help = "perform full set of benchmarks (takes a lot more time!)"
+            action = :store_true
+        "--output", "-o"
+            help = "append benchmark results to the given file"
+            default = nothing
     end
-    (N, N, N)
+
+    parse_args(s)
 end
 
 # Slab decomposition
@@ -74,7 +87,7 @@ function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{false}
 end
 
 function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
-                           iterations=ITERATIONS,
+                           iterations=1,
                            with_permutations::Val=Val(true),
                            extra_dims::Tuple=(),
                            transpose_method=TransposeMethods.IsendIrecv(),
@@ -114,7 +127,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
         MEASURE_GATHER && gather(u[2])
     end
 
-    @test u[1] == u_orig
+    @assert u[1] == u_orig
 
     if myrank == 0
         println("\n",
@@ -147,17 +160,22 @@ end
 
 function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
-                        iterations=ITERATIONS,
+                        iterations=1,
                         transpose_method=TransposeMethods.IsendIrecv(),
+                        permute_dims=Val(true),
                        )
     isroot = MPI.Comm_rank(comm) == 0
 
     to = TimerOutput()
     plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
                          extra_dims=extra_dims,
+                         permute_dims=permute_dims,
                          timer=to, transpose_method=transpose_method)
 
-    isroot && println("\n", plan, "\nMethod: ", plan.transpose_method, "\n")
+    if isroot
+        println("\n", plan, "\nMethod: ", plan.transpose_method)
+        println("Permutations: $permute_dims\n")
+    end
 
     u = allocate_input(plan)
     v = allocate_output(plan)
@@ -169,24 +187,57 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
     mul!(v, plan, u)
     ldiv!(uprime, plan, v)
 
-    @test u ≈ uprime
+    @assert u ≈ uprime
 
     reset_timer!(to)
+
+    τ = MPI.Wtime()
 
     for it = 1:iterations
         mul!(v, plan, u)
         ldiv!(u, plan, v)
     end
 
-    isroot && println(to, SEPARATOR)
+    τ = (MPI.Wtime() - τ) / iterations * 1000  # in milliseconds
 
-    nothing
+    events = (to["PencilFFTs mul!"], to["PencilFFTs ldiv!"])
+    @assert all(TimerOutputs.ncalls.(events) .== iterations)
+    t_avg = sum(TimerOutputs.time.(events)) / iterations / 1e6  # in milliseconds
+
+    if isroot
+        @printf "Average time: %.8f ms (MPI_Wtime) over %d repetitions\n" τ iterations
+        @printf "              %.8f ms (TimerOutputs)\n\n" t_avg
+        println(to, SEPARATOR)
+    end
+
+    τ
+end
+
+function parse_dimensions(arg::String) :: Dims{3}
+    ints = try
+        sp = split(arg, ',')
+        parse.(Int, sp)
+    catch e
+        error("Could not parse dimensions from '$arg'")
+    end
+    if length(ints) == 1
+        N = ints[1]
+        (N, N, N)
+    elseif length(ints) == 3
+        ntuple(n -> ints[n], Val(3))
+    else
+        error("Incorrect number of dimensions in '$ints'")
+    end
 end
 
 function main()
     MPI.Init()
 
-    dims = parse_dims()
+    args = parse_commandline()
+    dims = parse_dimensions(args["dimensions"])
+    iterations = args["repetitions"] :: Int
+    full_benchmarks = args["full"] :: Bool
+    outfile = args["output"] :: Union{Nothing,String}
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
@@ -194,6 +245,7 @@ function main()
 
     if myrank == 0
         @info "Global dimensions: $dims"
+        @info "Repetitions:       $iterations"
     end
 
     # Let MPI_Dims_create choose the decomposition.
@@ -202,28 +254,90 @@ function main()
         pdims[1], pdims[2]
     end
 
-    pdims_list = (
-                  (Nproc, ),  # slab (1D) decomposition
-                  (Nproc, 1),
-                  (1, Nproc),
-                  proc_dims,
-                 )
-
     transpose_methods = (TransposeMethods.IsendIrecv(),
                          TransposeMethods.Alltoallv())
+    permutes = (Val(true), Val(false))
 
-    extra_dims = ((), (3, ))
-
-    for pdims in pdims_list, edims in extra_dims, method in transpose_methods
-        benchmark_rfft(comm, pdims, dims, extra_dims=edims,
-                       transpose_method=method)
+    if full_benchmarks
+        extra_dims = ((), (3, ))
+        pdims_list = (
+                      (Nproc, ),  # slab (1D) decomposition
+                      (Nproc, 1),
+                      (1, Nproc),
+                      proc_dims,
+                     )
+    else
+        extra_dims = ((), )
+        pdims_list = (proc_dims, )
     end
 
-    benchmark_pencils(comm, proc_dims, dims, with_permutations=Val(false))
-    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
-                      iterations=ITERATIONS >> 1)
-    benchmark_pencils(comm, proc_dims, dims, extra_dims=(2, ),
-                      iterations=ITERATIONS >> 1, with_permutations=Val(false))
+    timings = zeros(2, 2)
+
+    kwargs = (:iterations => iterations, )
+
+    for pdims in pdims_list,
+            edims in extra_dims,
+            method in transpose_methods,
+            permute in permutes
+        t_ms = benchmark_rfft(comm, pdims, dims; extra_dims=edims,
+                              permute_dims=permute, transpose_method=method,
+                              kwargs...)
+        i = Int(permute === Val(false)) + 1  # 1/2 <-> with/without permutation
+        j = Int(method === TransposeMethods.Alltoallv()) + 1  # 1/2 <-> IsendIrecv/Alltoallv
+        timings[i, j] = t_ms
+    end
+
+    columns = (
+        ("(1) Nx",          dims[1]),
+        ("(2) Ny",          dims[2]),
+        ("(3) Nz",          dims[3]),
+        ("(4) num_procs",   Nproc),
+        ("(5) P1",          proc_dims[1]),
+        ("(6) P2",          proc_dims[2]),
+        ("(7) repetitions", iterations),
+        ("(8) PI", timings[1, 1]),
+        ("(9) PA",  timings[1, 2]),
+        ("(10) NI", timings[2, 1]),
+        ("(11) NA", timings[2, 2]),
+    )
+
+    header =
+    """# The last four columns show the times in milliseconds using 2×2 combinations
+    # of parameters.
+    #
+    # The first letter indicates whether dimension permutations are performed:
+    #
+    #     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
+    #     N = no permutations
+    #
+    # The second letter indicates the MPI transposition method:
+    #
+    #     I = Isend/Irecv (default)
+    #     A = Alltoallv
+    #
+    """
+
+    if !full_benchmarks && outfile !== nothing && myrank == 0
+        @info "Writing to $outfile"
+        newfile = !isfile(outfile)
+        open(outfile, "a") do io
+            if newfile
+                print(io, header, "#")
+                map(x -> print(io, "  ", x[1]), columns)
+                println(io)
+            end
+            map(x -> print(io, "  ", x[2]), columns)
+            println(io)
+        end
+    end
+
+    if full_benchmarks
+        benchmark_pencils(comm, proc_dims, dims; with_permutations=Val(false),
+                          kwargs...)
+        benchmark_pencils(comm, proc_dims, dims; extra_dims=(2, ), kwargs...)
+        benchmark_pencils(comm, proc_dims, dims; extra_dims=(2, ),
+                          with_permutations=Val(false), kwargs...)
+    end
 
     MPI.Finalize()
 end
