@@ -32,7 +32,7 @@ configuration to the other and perform FFTs along the other dimensions.
 The performance of PencilFFTs is on par with widely adopted MPI-based FFT
 libraries implemented in lower-level languages.
 This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/) library
-(see [the benchmark section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) on the docs for details).
+(see [the benchmarks section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) in the docs for details).
 
 <p align="center">
   <br/>

@@ -1,6 +1,6 @@
 # Benchmarks
 
-The performance of PencilFFTs.jl is on par with other open-source parallel FFT
+The performance of PencilFFTs.jl is comparable to other open-source parallel FFT
 libraries implemented in lower-level languages.
 We show below comparisons with the C++ implementation of
 [P3DFFT](https://www.p3dfft.net/), possibly the most popular of these
@@ -11,10 +11,9 @@ French computing centre
 ([description in
 English](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)).
 
-The figure shows [strong
+The figure below shows [strong
 scaling](https://en.wikipedia.org/wiki/Scalability#Weak_versus_strong_scaling)
-benchmarks of 3D real-to-complex FFTs using 2D ("pencil") decomposition
-schemes.
+benchmarks of 3D real-to-complex FFTs using 2D ("pencil") decomposition.
 The benchmarks were run for input arrays of dimensions
 $N_x × N_y × N_z = 512^3$ and $1024^3$.
 Each timing is averaged over 100 repetitions.
@@ -25,7 +24,7 @@ Each timing is averaged over 100 repetitions.
 </div>
 ```
 
-The performance and scalability of PencilFFTs are comparable to those displayed
+The performance and scalability of PencilFFTs are similar to those displayed
 by P3DFFT.
 In some cases, in particular when using a large number of processes,
 PencilFFTs is slightly faster.
@@ -39,17 +38,17 @@ Note that PencilFFTs can optionally use `MPI_Alltoallv` instead of
 point-to-point communications (see the docs for [`PencilFFTPlan`](@ref) and
 [`transpose!`](@ref)).
 We have verified that the implementation with `MPI_Isend/MPI_Irecv` generally
-performs better than the one based on `MPI_Alltoallv`.
-Performance gains can be of the order of 10%.
+outperforms the one based on `MPI_Alltoallv`.
+Observed performance gains can be of the order of 10%.
 
 #### Benchmark details
 
-The benchmarks were performed using Julia 1.3, Intel MPI 2019.0.4 and
+The benchmarks were performed with Julia 1.3, Intel MPI 2019.0.4 and
 FFTW 3.3.9 (version bundled with FFTW.jl).
-We use the more recent C++ implementation of P3DFFT (a.k.a. P3DFFT++),
-which was linked to the same FFTW binaries used by Julia.
-The benchmarks were run has Intel Cascade Lake 6248 processors with 2×20 cores
-per node.
+We use the C++ implementation of P3DFFT (a.k.a. P3DFFT++).
+The P3DFFT library was linked to the same FFTW binaries used by Julia.
+The cluster where the benchmarks were run has Intel Cascade Lake 6248
+processors with 2×20 cores per node.
 
 The number of MPI processes along each decomposed dimension, $P_1$ and $P_2$,
 was automatically determined by a call to `MPI_Dims_create`.
