@@ -12,7 +12,8 @@ DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
 makedocs(
     sitename = "PencilFFTs.jl",
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true"
+        prettyurls = get(ENV, "CI", nothing) == "true",
+        assets = ["assets/custom.css"],  # load src/assets/custom.css in <head>
     ),
     modules = [PencilFFTs],
     pages = [

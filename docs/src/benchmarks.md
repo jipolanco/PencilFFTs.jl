@@ -19,7 +19,11 @@ The benchmarks were run for input arrays of dimensions
 $N_x × N_y × N_z = 512^3$ and $1024^3$.
 Each timing is averaged over 100 repetitions.
 
-![Strong scaling of PencilFFTs](img/benchmark_idris.svg)
+```@raw html
+<div class="figure">
+  <img src="img/benchmark_idris.svg" alt="Strong scaling of PencilFFTs">
+</div>
+```
 
 The performance and scalability of PencilFFTs are comparable to those displayed
 by P3DFFT.

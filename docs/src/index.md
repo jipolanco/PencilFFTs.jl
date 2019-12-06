@@ -24,7 +24,11 @@ a time (along the non-decomposed direction, using a serial FFT implementation).
 Global data transpositions are then needed to switch from one pencil
 configuration to the other and perform FFTs along the other dimensions.
 
-![Pencil decomposition of 3D domains.](img/pencils.svg)
+```@raw html
+<div class="figure">
+  <img src="img/pencils.svg" alt="Pencil decomposition of 3D domains">
+</div>
+```
 
 The package is implemented in an efficient generic way that allows to decompose
 any `N`-dimensional geometry along `M < N` dimensions (for the pencil
