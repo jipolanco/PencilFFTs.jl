@@ -23,14 +23,18 @@ Global data transpositions are then needed to switch from one pencil
 configuration to the other and perform FFTs along the other dimensions.
 
 <p align="center">
-<img alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
+  <br/>
+  <img alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
 </p>
+
+## Performance
 
 The performance of PencilFFTs is on par with widely adopted MPI-based FFT
 libraries implemented in lower-level languages.
-This is seen in the below comparison with [P3DFFT++](https://www.p3dfft.net/)
+This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/) library
 (see [the benchmark section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) on the docs for details).
 
 <p align="center">
-<img alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
+  <br/>
+  <img alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
 </p>
