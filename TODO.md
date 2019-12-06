@@ -7,8 +7,6 @@
 
 - Reduce array allocations (buffers)
 
-- Add benchmarks: compare with P3DFFT, ...
-
 - Disallow (or support?) initialising BRFFT plan. Instead, RFFT plan should be
   created and applied backwards.
 
