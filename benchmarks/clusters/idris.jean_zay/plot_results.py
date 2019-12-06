@@ -136,7 +136,7 @@ def legend_params(ax: plt.Axes, params):
 def legend_resolution(ax: plt.Axes, resolutions, loc='lower left'):
     styles = [dict(color='black', ls='-', **STYLE_RESOLUTION[n])
               for n in resolutions]
-    labels = resolutions
+    labels = map(lambda N: f'{N}³', resolutions)
     add_legend(ax, styles, labels, loc=loc, title='Resolution')
 
 
