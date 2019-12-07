@@ -172,7 +172,6 @@ function main()
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
-    pdims_1d = (Nproc, )  # slab (1D) decomposition
 
     # Let MPI_Dims_create choose the 2D decomposition.
     pdims_2d = let pdims = zeros(Int, 2)
@@ -180,7 +179,6 @@ function main()
         pdims[1], pdims[2]
     end
 
-    test_pencil_plans(size_in, pdims_1d)
     test_pencil_plans(size_in, pdims_2d)
 
     MPI.Finalize()
