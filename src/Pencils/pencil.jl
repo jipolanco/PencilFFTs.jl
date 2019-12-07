@@ -150,11 +150,12 @@ function Base.show(io::IO, p::Pencil)
 end
 
 """
+    eltype(Pencil)
     eltype(p::Pencil)
 
-Element type associated to the given pencil.
+Element type associated to the given pencil type.
 """
-Base.eltype(::Pencil{N, M, T} where {N, M}) where T = T
+Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T} = T
 
 """
     get_timer(p::Pencil)
