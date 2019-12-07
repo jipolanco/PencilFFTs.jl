@@ -19,8 +19,6 @@ const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
-const VectorField{T} = PencilArray{T,4}
-
 # Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
 function test_global_average(u, uF, plan::PencilFFTPlan)
     comm = get_comm(plan)
@@ -29,7 +27,7 @@ function test_global_average(u, uF, plan::PencilFFTPlan)
     sum_u2_local = sqnorm(u)
     sum_uF2_local = sqnorm(uF)
 
-    Ngrid = prod(size_global(pencil(u)))
+    Ngrid = prod(size_global(pencil(u[1])))
 
     avg_u2 = MPI.Allreduce(sum_u2_local, +, comm) / Ngrid
 
@@ -45,40 +43,43 @@ function test_global_average(u, uF, plan::PencilFFTPlan)
     nothing
 end
 
-function micro_benchmarks(u, uF, gF)
-    ωF = similar(uF)
+# Squared 2-norm of a tuple of arrays using LinearAlgebra.norm.
+norm2(x::Tuple) = sum(norm.(x).^2)
 
-    @test sqnorm(u) ≈ norm(u)^2
+function micro_benchmarks(u, uF, gF)
+    ωF = similar.(uF)
+
+    @test sqnorm(u) ≈ norm2(u)
 
     # These are not the same because `FourierOperations.sqnorm` takes Hermitian
     # symmetry into account, so the result can be roughly twice as large.
-    @test 1 <= sqnorm(uF) / norm(uF)^2 <= 2
+    @test 1 <= sqnorm(uF) / norm2(uF) <= 2
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
     println("Micro-benchmarks:")
 
     # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
-    @printf " - %-20s" "norm(u)..."
-    @btime norm($u)
+    @printf " - %-20s" "norm2(u)..."
+    @btime norm2($u)
 
-    @printf " - %-20s" "norm(uF)..."
-    @btime norm($uF)
+    @printf " - %-20s" "norm2(uF)..."
+    @btime norm2($uF)
 
     # These are much faster because parent(u) is a regular Array, and Julia
     # calls BLAS in this case (LinearAlgebra.BLAS.nrm2).
-    @printf " - %-20s" "norm(parent(u))..."
-    @btime norm($(parent(u)))
+    @printf " - %-20s" "norm2(parent(u))..."
+    @btime norm2($(parent.(u)))
 
-    @printf " - %-20s" "norm(parent(uF))..."
-    @btime norm($(parent(uF)))
+    @printf " - %-20s" "norm2(parent(uF))..."
+    @btime norm2($(parent.(uF)))
 
     # Interestingly, this is even faster than BLAS!
     @printf " - %-20s" "sqnorm(u)..."
     @btime sqnorm($u)
 
     @printf " - %-20s" "sqnorm(parent(u))..."
-    @btime sqnorm($(parent(u)))
+    @btime sqnorm($(parent.(u)))
 
     @printf " - %-20s" "sqnorm(uF)..."
     @btime sqnorm($uF)
@@ -92,8 +93,7 @@ function micro_benchmarks(u, uF, gF)
     nothing
 end
 
-function init_random_field!(u::PencilArray{T}) where {T <: Complex}
-    rng = MersenneTwister(42)
+function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
     fill!(u, zero(T))
 
     u_g = global_view(u)
@@ -103,7 +103,6 @@ function init_random_field!(u::PencilArray{T}) where {T <: Complex}
     ind_space = CartesianIndices(dims_global)
     ind_space_local = CartesianIndices(range_local(pencil(u), permute=false))
     @assert ndims(ind_space_local) == ndims(ind_space)
-    ind_extra = CartesianIndices(extra_dims(u))
 
     scale = sqrt(2 * prod(dims_global))  # to get order-1 average values
 
@@ -112,7 +111,7 @@ function init_random_field!(u::PencilArray{T}) where {T <: Complex}
 
     # Loop over global dimensions, so that all processes generate the same
     # random numbers.
-    for E in ind_extra, I in ind_space
+    for I in ind_space
         val = scale * randn(rng, T)
 
         I0 = Tuple(I) .- 1
@@ -132,7 +131,7 @@ function init_random_field!(u::PencilArray{T}) where {T <: Complex}
         # below (for Hermitian symmetry).
         if I ∈ ind_space_local
             Ip = Pencils.permute_indices(I, perm)
-            u_g[Ip, E] += val
+            u_g[Ip] += val
         end
 
         # If kx != 0, we're done.
@@ -147,7 +146,7 @@ function init_random_field!(u::PencilArray{T}) where {T <: Complex}
         J = CartesianIndex(J0 .+ 1)
         if J ∈ ind_space_local
             Jp = Pencils.permute_indices(J, perm)
-            u_g[Jp, E] += conj(val)
+            u_g[Jp] += conj(val)
         end
     end
 
@@ -169,17 +168,18 @@ function main()
         pdims[1], pdims[2]
     end
 
-    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm,
-                         extra_dims=(3, ))
+    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm)
 
     # Allocate and initialise vector field in Fourier space.
-    uF = allocate_output(plan)
-    init_random_field!(uF)
+    uF = allocate_output(plan, Val(3))
+    rng = MersenneTwister(42)
+    init_random_field!.(uF, (rng, ))
 
-    u = plan \ uF
+    u = allocate_input(plan, Val(3))
+    ldiv!.(u, plan, uF)
     test_global_average(u, uF, plan)
 
-    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
+    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
     rank == 0 && micro_benchmarks(u, uF, gF)
     MPI.Barrier(comm)
 

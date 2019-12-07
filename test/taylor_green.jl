@@ -11,6 +11,7 @@ using Test
 
 include("include/FourierOperations.jl")
 using .FourierOperations
+import .FourierOperations: VectorField
 
 const SAVE_VTK = false
 
@@ -26,16 +27,15 @@ const TG_K0 = 2.0
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
-const VectorField{T} = PencilArray{T,4}
-
 function taylor_green!(u_local::VectorField, g::Grid, u0=TG_U0, k0=TG_K0)
-    u = global_view(u_local)
+    u = global_view.(u_local)
 
-    for I in spatial_indices(u)
+    @inbounds for I in CartesianIndices(u[1])
         x, y, z = g[I]
-        @inbounds u[I, 1] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
-        @inbounds u[I, 2] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
-        @inbounds u[I, 3] = 0
+        l = LinearIndices(u[1])[I]
+        u[1][l] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
+        u[2][l] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
+        u[3][l] = 0
     end
 
     u_local
@@ -44,18 +44,19 @@ end
 # Verify vorticity of Taylor-Green flow.
 function check_vorticity_TG(ω_local::VectorField, g::Grid, comm,
                             u0=TG_U0, k0=TG_K0)
-    ω = global_view(ω_local)
-    diff2 = zero(eltype(ω))
+    ω = global_view.(ω_local)
+    diff2 = zero(eltype(ω[1]))
 
-    for I in spatial_indices(ω)
+    for I in CartesianIndices(ω[1])
         x, y, z = g[I]
         ω_TG = (
             -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
             -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),
             2u0 * k0 * sin(k0 * x) * sin(k0 * y) * cos(k0 * z),
         )
+        l = LinearIndices(ω[1])[I]
         for n = 1:3
-            diff2 += (ω[I, n] - ω_TG[n])^2
+            diff2 += (ω[n][l] - ω_TG[n])^2
         end
     end
 
@@ -64,15 +65,14 @@ end
 
 function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
     isempty(fields) && return
-    p = pencil(first(fields).second)
+    p = pencil(first(first(fields).second))
     g_pencil = g[p]  # local geometry
     xyz = ntuple(n -> g_pencil[n], 3)
     vtk_grid(basename, xyz) do vtk
         for p in fields
             name = p.first
             u = p.second
-            v = ntuple(n -> @view(u[:, :, :, n]), 3)
-            vtk_point_data(vtk, v, name)
+            vtk_point_data(vtk, u, name)
         end
     end
 end
@@ -93,16 +93,16 @@ function main()
     end
 
     plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm,
-                         extra_dims=(3, ), permute_dims=Val(true))
-    u = allocate_input(plan)  # allocate vector field
+                         permute_dims=Val(true))
+    u = allocate_input(plan, Val(3))  # allocate vector field
 
-    g = Grid(GEOMETRY, size_in, get_permutation(u))
+    g = Grid(GEOMETRY, size_in, get_permutation(u[1]))
     taylor_green!(u, g)  # initialise TG velocity field
 
-    uF = plan * u  # apply 3D FFT
+    uF = plan .* u  # apply 3D FFT
 
-    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
-    ωF = similar(uF)
+    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
+    ωF = similar.(uF)
 
     let div2 = divergence(uF, gF)
         div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
@@ -110,7 +110,7 @@ function main()
     end
 
     curl!(ωF, uF, gF)
-    ω = plan \ ωF
+    ω = plan .\ ωF
 
     ω_err = check_vorticity_TG(ω, g, comm)
     @test ω_err ≈ 0 atol=1e-16
