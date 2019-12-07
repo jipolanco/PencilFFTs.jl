@@ -96,10 +96,7 @@ struct Pencil{N,  # spatial dimensions
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
                    ) where {N, M, T<:Number}
-        if !is_valid_permutation(permute)
-            # This is almost the same error thrown by `permutedims`.
-            throw(ArgumentError("invalid permutation of dimensions: $permute"))
-        end
+        check_permutation(permute)
         _check_selected_dimensions(N, decomp_dims)
         decomp_dims = _sort_dimensions(decomp_dims)
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
