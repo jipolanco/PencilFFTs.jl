@@ -27,6 +27,7 @@ const TG_K0 = 2.0
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
+# Initialise TG flow (global view version).
 function taylor_green!(u_local::VectorField, g::Grid, u0=TG_U0, k0=TG_K0)
     u = global_view.(u_local)
 
@@ -41,22 +42,31 @@ function taylor_green!(u_local::VectorField, g::Grid, u0=TG_U0, k0=TG_K0)
     u_local
 end
 
-# Verify vorticity of Taylor-Green flow.
-function check_vorticity_TG(ω_local::VectorField, g::Grid, comm,
-                            u0=TG_U0, k0=TG_K0)
-    ω = global_view.(ω_local)
-    diff2 = zero(eltype(ω[1]))
+# Initialise TG flow (local grid version).
+function taylor_green!(u::VectorField, g::LocalPhysicalGrid, u0=TG_U0, k0=TG_K0)
+    @inbounds for i in eachindex(g, u...)::Base.OneTo  # linear indexing!
+        x, y, z = g[i]
+        u[1][i] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
+        u[2][i] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
+        u[3][i] = 0
+    end
+    u
+end
 
-    for I in CartesianIndices(ω[1])
+# Verify vorticity of Taylor-Green flow.
+function check_vorticity_TG(ω::VectorField{T}, g::LocalPhysicalGrid, comm,
+                            u0=TG_U0, k0=TG_K0) where {T}
+    diff2 = zero(T)
+
+    for I in eachindex(g) :: Base.OneTo
         x, y, z = g[I]
         ω_TG = (
             -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
             -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),
             2u0 * k0 * sin(k0 * x) * sin(k0 * y) * cos(k0 * z),
         )
-        l = LinearIndices(ω[1])[I]
         for n = 1:3
-            diff2 += (ω[n][l] - ω_TG[n])^2
+            diff2 += (ω[n][I] - ω_TG[n])^2
         end
     end
 
@@ -96,27 +106,29 @@ function main()
                          permute_dims=Val(true))
     u = allocate_input(plan, Val(3))  # allocate vector field
 
-    g = Grid(GEOMETRY, size_in, get_permutation(u[1]))
-    taylor_green!(u, g)  # initialise TG velocity field
+    g_global = Grid(GEOMETRY, size_in, get_permutation(u[1]))
+    g_local = LocalGrid(g_global, u[1])
+    taylor_green!(u, g_local)   # initialise TG velocity field
 
     uF = plan .* u  # apply 3D FFT
 
-    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
+    gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
+    gF_local = LocalGrid(gF_global, uF[1])
     ωF = similar.(uF)
 
-    let div2 = divergence(uF, gF)
+    let div2 = divergence(uF, gF_local)
         div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
         @test div2_mean ≈ 0 atol=1e-16
     end
 
-    curl!(ωF, uF, gF)
+    curl!(ωF, uF, gF_local)
     ω = plan .\ ωF
 
-    ω_err = check_vorticity_TG(ω, g, comm)
+    ω_err = check_vorticity_TG(ω, g_local, comm)
     @test ω_err ≈ 0 atol=1e-16
 
     if SAVE_VTK
-        fields_to_vtk(g, "TG_proc_$(rank + 1)of$(Nproc)",
+        fields_to_vtk(g_global, "TG_proc_$(rank + 1)of$(Nproc)",
                       "u" => u, "ω" => ω)
     end
 

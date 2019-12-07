@@ -39,6 +39,22 @@ function divergence(uF_local::VectorField{T},
     div2
 end
 
+# Local grid variant (faster -- with linear indexing!)
+function divergence(uF::VectorField{T},
+                    grid::LocalFourierGrid) where {T <: Complex}
+    div2 = real(zero(T))
+    @inbounds for i in eachindex(grid, uF...)::Base.OneTo
+        k = grid[i]  # (kx, ky, kz)
+        div = zero(T)
+        for n in eachindex(k)
+            v = 1im * k[n] * uF[n][i]
+            div += v
+        end
+        div2 += abs2(div)
+    end
+    div2
+end
+
 """
     curl!(ω, u, grid::FourierGrid)
 
@@ -63,6 +79,19 @@ function curl!(ωF_local::VectorField{T},
     end
 
     ωF_local
+end
+
+function curl!(ω::VectorField{T},
+               u::VectorField{T},
+               grid::LocalFourierGrid) where {T <: Complex}
+    @inbounds for I in eachindex(grid) :: Base.OneTo
+        k = grid[I]  # (kx, ky, kz)
+        v = (u[1][I], u[2][I], u[3][I])
+        ω[1][I] = 1im * (k[2] * v[3] - k[3] * v[2])
+        ω[2][I] = 1im * (k[3] * v[1] - k[1] * v[3])
+        ω[3][I] = 1im * (k[1] * v[2] - k[2] * v[1])
+    end
+    ω
 end
 
 """

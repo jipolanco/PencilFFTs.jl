@@ -46,18 +46,25 @@ end
 # Squared 2-norm of a tuple of arrays using LinearAlgebra.norm.
 norm2(x::Tuple) = sum(norm.(x).^2)
 
-function micro_benchmarks(u, uF, gF)
+function micro_benchmarks(u, uF, gF_global::FourierGrid)
     ωF = similar.(uF)
-
-    @test sqnorm(u) ≈ norm2(u)
-
-    # These are not the same because `FourierOperations.sqnorm` takes Hermitian
-    # symmetry into account, so the result can be roughly twice as large.
-    @test 1 <= sqnorm(uF) / norm2(uF) <= 2
+    gF_local = LocalGrid(gF_global, uF[1])
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
     println("Micro-benchmarks:")
+
+    @printf " - %-20s" "divergence global_view..."
+    @btime divergence($uF, $gF_global)
+
+    @printf " - %-20s" "divergence local..."
+    @btime divergence($uF, $gF_local)
+
+    @printf " - %-20s" "curl! global_view..."
+    @btime curl!($ωF, $uF, $gF_global)
+
+    @printf " - %-20s" "curl! local..."
+    @btime curl!($ωF, $uF, $gF_local)
 
     # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
     @printf " - %-20s" "norm2(u)..."
@@ -83,12 +90,6 @@ function micro_benchmarks(u, uF, gF)
 
     @printf " - %-20s" "sqnorm(uF)..."
     @btime sqnorm($uF)
-
-    @printf " - %-20s" "divergence..."
-    @btime divergence($uF, $gF)
-
-    @printf " - %-20s" "curl!..."
-    @btime curl!($ωF, $uF, $gF)
 
     nothing
 end
@@ -161,8 +162,6 @@ function main()
     Nproc = MPI.Comm_size(comm)
     rank = MPI.Comm_rank(comm)
 
-    rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
-
     pdims_2d = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
         pdims[1], pdims[2]
@@ -178,6 +177,12 @@ function main()
     u = allocate_input(plan, Val(3))
     ldiv!.(u, plan, uF)
     test_global_average(u, uF, plan)
+
+    @test sqnorm(u) ≈ norm2(u)
+
+    # These are not the same because `FourierOperations.sqnorm` takes Hermitian
+    # symmetry into account, so the result can be roughly twice as large.
+    @test 1 < sqnorm(uF) / norm2(uF) <= 2 + 1e-8
 
     gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
     rank == 0 && micro_benchmarks(u, uF, gF)
