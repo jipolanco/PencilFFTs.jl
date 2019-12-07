@@ -1,7 +1,5 @@
 const GlobalPencilArray{T,N} = OffsetArray{T,N,A} where {A <: PencilArray}
 
-# Base.IndexStyle(::Type{<:GlobalPencilArray}) = IndexCartesian()
-
 """
     global_view(x::PencilArray)
 

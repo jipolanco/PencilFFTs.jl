@@ -26,11 +26,6 @@ export transpose!
 # Describes the portion of an array held by a given MPI process.
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
 
-# Describes indices in an array as a tuple.
-const Indices{N} = NTuple{N,Int} where N
-
-const Permutation{N} = NTuple{N,Int} where N
-
 # Modules
 include("MPITopologies.jl")
 using .MPITopologies

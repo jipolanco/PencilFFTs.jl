@@ -1,5 +1,7 @@
 ## Permutation operations ##
 
+const Permutation{N} = NTuple{N,Int} where N
+
 # Permute tuple values.
 @inline permute_indices(t::Tuple, ::Nothing) = t
 @inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)

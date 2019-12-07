@@ -262,7 +262,6 @@ function main()
         @inferred Pencils.MPITopology{2}(comm_cart)
         @inferred MPITopologies.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
-        @inferred Pencils.to_local(pen2, (1, 2, 3))
         @inferred Pencils.to_local(pen2, (1:2, 1:2, 1:2))
 
         @inferred Pencils.size_local(pen2)
