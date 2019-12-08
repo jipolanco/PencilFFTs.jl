@@ -263,7 +263,6 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     Po_prev = plan_prev.pencil_out
 
     # (i) Determine permutation of pencil data.
-    # TODO fully compute the permutation at compile time?
     perm = _make_permutation_in(permute_dims, dim, Val(N))
 
     # (ii) Determine decomposed dimensions from the previous
