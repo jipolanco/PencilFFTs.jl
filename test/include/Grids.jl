@@ -128,7 +128,8 @@ struct LocalGrid{T,
     end
 end
 
-LocalGrid(grid::AbstractGrid, u::PencilArray) = LocalGrid(grid, pencil(u))
+LocalGrid(grid::AbstractGrid,
+          u::Pencils.MaybePencilArrayCollection) = LocalGrid(grid, pencil(u))
 LocalGrid(grid::AbstractGrid, p::Pencil) =
     LocalGrid(grid, range_local(p, permute=true))
 

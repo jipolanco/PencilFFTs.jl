@@ -27,7 +27,7 @@ function test_global_average(u, uF, plan::PencilFFTPlan)
     sum_u2_local = sqnorm(u)
     sum_uF2_local = sqnorm(uF)
 
-    Ngrid = prod(size_global(pencil(u[1])))
+    Ngrid = prod(size_global(pencil(u)))
 
     avg_u2 = MPI.Allreduce(sum_u2_local, +, comm) / Ngrid
 
@@ -48,7 +48,7 @@ norm2(x::Tuple) = sum(norm.(x).^2)
 
 function micro_benchmarks(u, uF, gF_global::FourierGrid)
     ωF = similar.(uF)
-    gF_local = LocalGrid(gF_global, uF[1])
+    gF_local = LocalGrid(gF_global, uF)
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
@@ -188,7 +188,7 @@ function main()
     # symmetry into account, so the result can be roughly twice as large.
     @test 1 < sqnorm(uF) / norm2(uF) <= 2 + 1e-8
 
-    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF[1]))
+    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     rank == 0 && micro_benchmarks(u, uF, gF)
     MPI.Barrier(comm)
 
