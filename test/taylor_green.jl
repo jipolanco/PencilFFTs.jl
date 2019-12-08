@@ -44,12 +44,14 @@ end
 
 # Initialise TG flow (local grid version).
 function taylor_green!(u::VectorField, g::LocalPhysicalGrid, u0=TG_U0, k0=TG_K0)
-    @inbounds for i in eachindex(g, u...)::Base.OneTo  # linear indexing!
-        x, y, z = g[i]
+    @assert size(u[1]) === size(g)
+
+    @inbounds for (i, (x, y, z)) in enumerate(g)
         u[1][i] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
         u[2][i] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
         u[3][i] = 0
     end
+
     u
 end
 
@@ -58,26 +60,30 @@ function check_vorticity_TG(ω::VectorField{T}, g::LocalPhysicalGrid, comm,
                             u0=TG_U0, k0=TG_K0) where {T}
     diff2 = zero(T)
 
-    for I in eachindex(g) :: Base.OneTo
-        x, y, z = g[I]
+    @inbounds for (i, (x, y, z)) in enumerate(g)
         ω_TG = (
             -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
             -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),
             2u0 * k0 * sin(k0 * x) * sin(k0 * y) * cos(k0 * z),
         )
         for n = 1:3
-            diff2 += (ω[n][I] - ω_TG[n])^2
+            diff2 += (ω[n][i] - ω_TG[n])^2
         end
     end
 
     MPI.Allreduce(diff2, +, comm)
 end
 
-function fields_to_vtk(g::Grid, basename, fields::Vararg{Pair})
+function fields_to_vtk(g::LocalGrid, basename, fields::Vararg{Pair})
     isempty(fields) && return
-    p = pencil(first(first(fields).second))
-    g_pencil = g[p]  # local geometry
-    xyz = ntuple(n -> g_pencil[n], 3)
+
+    # This works but it's heavier, since g.data is a dense array:
+    # xyz = g.data
+    # It would generate a structured grid (.vts) file, instead of rectilinear
+    # (.vtr).
+
+    xyz = ntuple(n -> g.grid[n][g.range[n]], Val(3))
+
     vtk_grid(basename, xyz) do vtk
         for p in fields
             name = p.first
@@ -128,7 +134,7 @@ function main()
     @test ω_err ≈ 0 atol=1e-16
 
     if SAVE_VTK
-        fields_to_vtk(g_global, "TG_proc_$(rank + 1)of$(Nproc)",
+        fields_to_vtk(g_local, "TG_proc_$(rank + 1)of$(Nproc)",
                       "u" => u, "ω" => ω)
     end
 

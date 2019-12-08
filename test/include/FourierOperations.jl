@@ -43,8 +43,7 @@ end
 function divergence(uF::VectorField{T},
                     grid::LocalFourierGrid) where {T <: Complex}
     div2 = real(zero(T))
-    @inbounds for i in eachindex(grid, uF...)::Base.OneTo
-        k = grid[i]  # (kx, ky, kz)
+    @inbounds for (i, k) in enumerate(grid)
         div = zero(T)
         for n in eachindex(k)
             v = 1im * k[n] * uF[n][i]
@@ -66,9 +65,6 @@ function curl!(ωF_local::VectorField{T},
     u = global_view.(uF_local)
     ω = global_view.(ωF_local)
 
-    # TODO improve Grid to be more consistent with array indices.
-    # It should have similar axes, and ideally linear indexing.
-
     @inbounds for I in CartesianIndices(u[1])
         k = grid[I]  # (kx, ky, kz)
         l = LinearIndices(u[1])[I]
@@ -84,12 +80,11 @@ end
 function curl!(ω::VectorField{T},
                u::VectorField{T},
                grid::LocalFourierGrid) where {T <: Complex}
-    @inbounds for I in eachindex(grid) :: Base.OneTo
-        k = grid[I]  # (kx, ky, kz)
-        v = (u[1][I], u[2][I], u[3][I])
-        ω[1][I] = 1im * (k[2] * v[3] - k[3] * v[2])
-        ω[2][I] = 1im * (k[3] * v[1] - k[1] * v[3])
-        ω[3][I] = 1im * (k[1] * v[2] - k[2] * v[1])
+    @inbounds for (i, k) in enumerate(grid)
+        v = (u[1][i], u[2][i], u[3][i])
+        ω[1][i] = 1im * (k[2] * v[3] - k[3] * v[2])
+        ω[2][i] = 1im * (k[3] * v[1] - k[1] * v[3])
+        ω[3][i] = 1im * (k[1] * v[2] - k[2] * v[1])
     end
     ω
 end

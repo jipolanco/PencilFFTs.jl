@@ -63,8 +63,12 @@ function micro_benchmarks(u, uF, gF_global::FourierGrid)
     @printf " - %-20s" "curl! global_view..."
     @btime curl!($ωF, $uF, $gF_global)
 
+    ωF_copy = copy.(ωF)
+
     @printf " - %-20s" "curl! local..."
     @btime curl!($ωF, $uF, $gF_local)
+
+    @test all(ωF .≈ ωF_copy)
 
     # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
     @printf " - %-20s" "norm2(u)..."
