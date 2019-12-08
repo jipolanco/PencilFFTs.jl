@@ -14,7 +14,7 @@ using Test
 include("include/FourierOperations.jl")
 using .FourierOperations
 
-const DATA_DIMS = (16, 16, 16)
+const DATA_DIMS = (42, 24, 16)
 const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
