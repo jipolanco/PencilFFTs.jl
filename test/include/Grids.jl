@@ -16,8 +16,8 @@ abstract type AbstractGrid{T, N, Perm} end
 # For example, if the permutation is (2, 3, 1), the PhysicalGrid is accessed with
 # indices (i_2, i_3, i_1), and returns values (x_1, x_2, x_3).
 struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
-    dims  :: Dims{N}
-    r     :: NTuple{N, LinRange{T}}  # non-permuted coordinates
+    dims  :: Dims{N}                 # permuted dimensions (N1, N2, N3)
+    r     :: NTuple{N, LinRange{T}}  # non-permuted coordinates (x, y, z)
     iperm :: Perm  # inverse permutation (i_2, i_3, i_1) -> (i_1, i_2, i_3)
 
     # limits: non-permuted geometry limits ((xbegin_1, xend_1), (xbegin_2, xend_2), ...)
@@ -26,9 +26,11 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     function PhysicalGrid(limits::NTuple{N, NTuple{2}}, dims_in::Dims{N},
                   perm, ::Type{T}=Float64) where {T, N}
         r = map(limits, dims_in) do l, d
+            # Note: we store one extra value at the end (not included in
+            # `dims`), to include the right limit.
             LinRange{T}(first(l), last(l), d + 1)
         end
-        dims = length.(r)
+        dims = Pencils.permute_indices(dims_in, perm)
         iperm = Pencils.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
@@ -51,7 +53,7 @@ struct FourierGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             fs::T = 2pi * M / L
             n == 1 ? rfftfreq(M, fs)::F : fftfreq(M, fs)::F
         end
-        dims = length.(r)
+        dims = Pencils.permute_indices(dims_in, perm)
         iperm = Pencils.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
@@ -61,6 +63,8 @@ end
 Base.eltype(::Type{<:AbstractGrid{T}}) where {T} = T
 Base.ndims(g::AbstractGrid{T, N}) where {T, N} = N
 Base.size(g::AbstractGrid) = g.dims
+Base.axes(g::AbstractGrid) = Base.OneTo.(size(g))
+Base.CartesianIndices(g::AbstractGrid) = CartesianIndices(axes(g))
 
 function Base.iterate(g::AbstractGrid, state::Int=1)
     state_new = state == ndims(g) ? nothing : state + 1
@@ -115,10 +119,15 @@ struct LocalGrid{T,
     # passed to AbstractGrid).
     function LocalGrid(grid::AbstractGrid{T,N},
                        range::NTuple{N,UnitRange{Int}}) where {T, N}
-        # TODO verify that `range` is a subrange of `grid`
+        ind = CartesianIndices(range)
+        # Verify that `range` is a subrange of `grid`.
+        if !(ind ⊆ CartesianIndices(grid))
+            throw(ArgumentError("given range $range is not a subrange " *
+                                "of grid with axes = $(axes(grid))"))
+        end
         dims = length.(range)
         data = ntuple(n -> Array{T}(undef, dims), Val(N))
-        for (i, I) in enumerate(CartesianIndices(range))
+        for (i, I) in enumerate(ind)
             g = grid[I]
             for n = 1:N
                 data[n][i] = g[n]
