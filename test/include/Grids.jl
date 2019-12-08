@@ -1,6 +1,6 @@
 module Grids
 
-export Grid, FourierGrid
+export PhysicalGrid, FourierGrid
 export LocalGrid, LocalPhysicalGrid, LocalFourierGrid
 import Base: @propagate_inbounds
 
@@ -11,12 +11,11 @@ using AbstractFFTs: Frequencies, fftfreq, rfftfreq
 # N-dimensional grid.
 abstract type AbstractGrid{T, N, Perm} end
 
-# Note: the Grid is accessed with permuted indices, and returns non-permuted
+# Note: the PhysicalGrid is accessed with permuted indices, and returns non-permuted
 # values.
-# For example, if the permutation is (2, 3, 1), the Grid is accessed with
+# For example, if the permutation is (2, 3, 1), the PhysicalGrid is accessed with
 # indices (i_2, i_3, i_1), and returns values (x_1, x_2, x_3).
-# TODO rename to PhysicalGrid?
-struct Grid{T, N, Perm} <: AbstractGrid{T, N, Perm}
+struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     dims  :: Dims{N}
     r     :: NTuple{N, LinRange{T}}  # non-permuted coordinates
     iperm :: Perm  # inverse permutation (i_2, i_3, i_1) -> (i_1, i_2, i_3)
@@ -24,7 +23,7 @@ struct Grid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     # limits: non-permuted geometry limits ((xbegin_1, xend_1), (xbegin_2, xend_2), ...)
     # dims_in: non-permuted global dimensions
     # perm: index permutation
-    function Grid(limits::NTuple{N, NTuple{2}}, dims_in::Dims{N},
+    function PhysicalGrid(limits::NTuple{N, NTuple{2}}, dims_in::Dims{N},
                   perm, ::Type{T}=Float64) where {T, N}
         r = map(limits, dims_in) do l, d
             LinRange{T}(first(l), last(l), d + 1)
@@ -138,7 +137,7 @@ Base.size(g::LocalGrid) = g.dims
 Base.IndexStyle(::Type{<:LocalGrid}) = IndexLinear()
 
 const LocalFourierGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: FourierGrid}
-const LocalPhysicalGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: Grid}
+const LocalPhysicalGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: PhysicalGrid}
 
 @propagate_inbounds function Base.getindex(g::LocalGrid, inds...)
     # Since all the arrays in `data` have the same indices, we explicitly

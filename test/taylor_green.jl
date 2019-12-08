@@ -28,7 +28,7 @@ const TG_K0 = 2.0
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 # Initialise TG flow (global view version).
-function taylor_green!(u_local::VectorField, g::Grid, u0=TG_U0, k0=TG_K0)
+function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
     u = global_view.(u_local)
 
     @inbounds for I in CartesianIndices(u[1])
@@ -112,7 +112,7 @@ function main()
                          permute_dims=Val(true))
     u = allocate_input(plan, Val(3))  # allocate vector field
 
-    g_global = Grid(GEOMETRY, size_in, get_permutation(u[1]))
+    g_global = PhysicalGrid(GEOMETRY, size_in, get_permutation(u[1]))
     g_local = LocalGrid(g_global, u[1])
     taylor_green!(u, g_local)   # initialise TG velocity field
 
