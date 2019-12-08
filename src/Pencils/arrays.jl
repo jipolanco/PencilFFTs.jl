@@ -187,7 +187,6 @@ The total number of dimensions of a `PencilArray` is given by:
 
 """
 ndims_extra(x::MaybePencilArrayCollection) = length(extra_dims(x))
-ndims_extra(x::PencilArrayCollection) = _apply(ndims_extra, x)
 
 """
     ndims_space(x::PencilArray)
