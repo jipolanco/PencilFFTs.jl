@@ -96,6 +96,48 @@ PencilArray(pencil::Pencil, extra_dims::Dims=()) =
                                               extra_dims...))
 
 """
+    PencilArrayCollection
+
+`UnionAll` type describing a collection of [`PencilArray`](@ref)s.
+
+Such a collection can be a tuple or an array of `PencilArray`s.
+
+Collections are **by assumption** homogeneous: each array has the same
+properties, and in particular, is associated to the same [`Pencil`](@ref)
+configuration.
+
+For convenience, certain operations defined for `PencilArray` are also defined
+for `PencilArrayCollection`, and return the same value as for a single
+`PencilArray`.
+Some examples are [`pencil`](@ref), [`range_local`](@ref) and
+[`get_comm`](@ref).
+
+Also note that functions from `Base`, such as `size` or `ndims`, are **not**
+overloaded for `PencilArrayCollection`, since they already have a definition
+for tuples and arrays (and redefining them would be type piracy...).
+"""
+const PencilArrayCollection =
+    Union{Tuple{Vararg{A}}, AbstractArray{A}} where {A <: PencilArray}
+
+"""
+    MaybePencilArrayCollection
+
+`UnionAll` type representing either a [`PencilArray`](@ref) or a collection of
+[`PencilArray`](@ref)s.
+
+See also [`PencilArrayCollection`](@ref).
+"""
+const MaybePencilArrayCollection = Union{PencilArray, PencilArrayCollection}
+
+function _apply(f::Function, x::PencilArrayCollection, args...; kwargs...)
+    a = first(x)
+    if !all(b -> pencil(a) === pencil(b), x)
+        throw(ArgumentError("PencilArrayCollection is not homogeneous"))
+    end
+    f(a, args...; kwargs...)
+end
+
+"""
     size(x::PencilArray)
 
 Return local dimensions of a `PencilArray`.
@@ -116,9 +158,10 @@ Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
 """
     pencil(x::PencilArray)
 
-Return decomposition configuration associated to the `PencilArray`.
+Return decomposition configuration associated to a `PencilArray`.
 """
 pencil(x::PencilArray) = x.pencil
+pencil(x::PencilArrayCollection) = _apply(pencil, x)
 
 """
     parent(x::PencilArray)
@@ -129,6 +172,7 @@ Base.parent(x::PencilArray) = x.data
 
 """
     ndims_extra(x::PencilArray)
+    ndims_extra(x::PencilArrayCollection)
 
 Number of "extra" dimensions associated to `PencilArray`.
 
@@ -142,10 +186,12 @@ The total number of dimensions of a `PencilArray` is given by:
     ndims(x) == ndims_space(x) + ndims_extra(x)
 
 """
-ndims_extra(x::PencilArray) = length(x.extra_dims)
+ndims_extra(x::MaybePencilArrayCollection) = length(extra_dims(x))
+ndims_extra(x::PencilArrayCollection) = _apply(ndims_extra, x)
 
 """
     ndims_space(x::PencilArray)
+    ndims_space(x::PencilArrayCollection)
 
 Number of dimensions associated to the domain geometry.
 
@@ -157,54 +203,62 @@ The total number of dimensions of a `PencilArray` is given by:
 
 """
 ndims_space(x::PencilArray) = ndims(x) - ndims_extra(x)
+ndims_space(x::PencilArrayCollection) = _apply(ndims_space, x)
 
 """
     extra_dims(x::PencilArray)
+    extra_dims(x::PencilArrayCollection)
 
 Return tuple with size of "extra" dimensions of `PencilArray`.
 """
 extra_dims(x::PencilArray) = x.extra_dims
+extra_dims(x::PencilArrayCollection) = _apply(extra_dims, x)
 
 """
     size_global(x::PencilArray; permute=false)
+    size_global(x::PencilArrayCollection; permute=false)
 
 Global dimensions associated to the given array.
 
 Unlike `size`, by default the returned dimensions are *not* permuted according
 to the associated pencil configuration.
 """
-size_global(x::PencilArray; permute=false) =
-    (size_global(x.pencil, permute=permute)..., x.extra_dims...)
+size_global(x::MaybePencilArrayCollection; permute=false) =
+    (size_global(pencil(x), permute=permute)..., extra_dims(x)...)
 
 """
     range_local(x::PencilArray; permute=true)
+    range_local(x::PencilArrayCollection; permute=true)
 
 Local data range held by the PencilArray.
 
 By default the dimensions are permuted to match the order of indices in the
 array.
 """
-range_local(x::PencilArray; permute=true) =
-    (range_local(pencil(x), permute=permute)..., Base.OneTo.(x.extra_dims)...)
+range_local(x::MaybePencilArrayCollection; permute=true) =
+    (range_local(pencil(x), permute=permute)..., Base.OneTo.(extra_dims(x))...)
 
 """
     get_comm(x::PencilArray)
+    get_comm(x::PencilArrayCollection)
 
 Get MPI communicator associated to a pencil-distributed array.
 """
-get_comm(x::PencilArray) = get_comm(x.pencil)
+get_comm(x::MaybePencilArrayCollection) = get_comm(pencil(x))
 
 """
     get_permutation(x::PencilArray)
+    get_permutation(x::PencilArrayCollection)
 
 Get index permutation associated to the given `PencilArray`.
 
 Returns `nothing` if there is no associated permutation.
 """
-get_permutation(x::PencilArray) = get_permutation(pencil(x))
+get_permutation(x::MaybePencilArrayCollection) = get_permutation(pencil(x))
 
 """
     spatial_indices(x::PencilArray)
+    spatial_indices(x::PencilArrayCollection)
     spatial_indices(x::GlobalPencilArray)
 
 Create a `CartesianIndices` to iterate over the local "spatial" dimensions of a
@@ -217,6 +271,7 @@ function spatial_indices(x::PencilArray)
     Np = ndims_space(x)
     CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
 end
+spatial_indices(x::PencilArrayCollection) = _apply(spatial_indices, x)
 
 """
     gather(x::PencilArray, [root::Integer=0])

@@ -27,4 +27,4 @@
 
 - functions to exchange ghost data between pencils
 
-- parallel HDF5 I/O (optional?)
+- parallel HDF5 I/O (optional?) -> use Requires

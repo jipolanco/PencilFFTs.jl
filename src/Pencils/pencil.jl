@@ -96,10 +96,7 @@ struct Pencil{N,  # spatial dimensions
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
                    ) where {N, M, T<:Number}
-        if !is_valid_permutation(permute)
-            # This is almost the same error thrown by `permutedims`.
-            throw(ArgumentError("invalid permutation of dimensions: $permute"))
-        end
+        check_permutation(permute)
         _check_selected_dimensions(N, decomp_dims)
         decomp_dims = _sort_dimensions(decomp_dims)
         axes_all = get_axes_matrix(decomp_dims, topology.dims, size_global)
@@ -153,11 +150,12 @@ function Base.show(io::IO, p::Pencil)
 end
 
 """
+    eltype(Pencil)
     eltype(p::Pencil)
 
-Element type associated to the given pencil.
+Element type associated to the given pencil type.
 """
-Base.eltype(::Pencil{N, M, T} where {N, M}) where T = T
+Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T} = T
 
 """
     get_timer(p::Pencil)
@@ -243,12 +241,6 @@ Convert non-permuted global indices to local indices.
 Indices are permuted by default using the permutation associated to the pencil
 configuration `p`.
 """
-function to_local(p::Pencil{N}, global_inds::Indices{N};
-                  permute=true) where N
-    ind = global_inds .- first.(p.axes_local) .+ 1
-    permute ? permute_indices(ind, p.perm) : ind
-end
-
 function to_local(p::Pencil{N}, global_inds::ArrayRegion{N};
                   permute=true) where N
     ind = map(global_inds, p.axes_local) do rg, rl

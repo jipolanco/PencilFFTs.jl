@@ -15,6 +15,7 @@ import Base: @propagate_inbounds
 import LinearAlgebra
 
 export Pencil, PencilArray, MPITopology
+export PencilArrayCollection
 export pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
@@ -25,11 +26,6 @@ export transpose!
 
 # Describes the portion of an array held by a given MPI process.
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
-
-# Describes indices in an array as a tuple.
-const Indices{N} = NTuple{N,Int} where N
-
-const Permutation{N} = NTuple{N,Int} where N
 
 # Modules
 include("MPITopologies.jl")

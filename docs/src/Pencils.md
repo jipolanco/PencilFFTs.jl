@@ -56,15 +56,18 @@ ndims(::Pencil)
 range_local(::Pencil{N}) where N
 size_global(::Pencil)
 size_local(::Pencil)
-to_local(::Pencil)
 ```
 
 ## Array wrappers
 
 **TODO** add description
 
+### Types
+
 ```@docs
 PencilArray
+PencilArrayCollection
+MaybePencilArrayCollection
 ```
 
 ### Functions
@@ -141,6 +144,12 @@ pencil = Pencil(..., timer=to)
 # [do stuff with `pencil`...]
 
 print_timer(to)
+```
+
+### Internal documentation
+
+```@docs
+to_local(::Pencil)
 ```
 
 ## Index

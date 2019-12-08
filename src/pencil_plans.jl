@@ -263,7 +263,6 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     Po_prev = plan_prev.pencil_out
 
     # (i) Determine permutation of pencil data.
-    # TODO fully compute the permutation at compile time?
     perm = _make_permutation_in(permute_dims, dim, Val(N))
 
     # (ii) Determine decomposed dimensions from the previous
@@ -378,21 +377,37 @@ See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
 get_timer(p::PencilFFTPlan) = p.timer
 
-# TODO add `destroyable` option? -> create PencilArray from temporary buffer
 """
-    allocate_input(p::PencilFFTPlan)
+    allocate_input(p::PencilFFTPlan)         :: PencilArray
+    allocate_input(p::PencilFFTPlan, N)      :: Vector{PencilArray}
+    allocate_input(p::PencilFFTPlan, Val(N)) :: NTuple{N, PencilArray}
 
-Allocate uninitialised distributed array that can hold input data for the given
-plan.
+Allocate uninitialised [`PencilArray`](@ref) that can hold input data for the
+given plan.
+
+The second and third forms respectively allocate a vector and a tuple of `N`
+`PencilArray`s.
 """
 allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in,
                                                p.extra_dims)
+allocate_input(p::PencilFFTPlan, N) = _allocate_many(allocate_input, p, N)
 
 """
-    allocate_output(p::PencilFFTPlan)
+    allocate_output(p::PencilFFTPlan)         :: PencilArray
+    allocate_output(p::PencilFFTPlan, N)      :: Vector{PencilArray}
+    allocate_output(p::PencilFFTPlan, Val(N)) :: NTuple{N, PencilArray}
 
-Allocate uninitialised distributed array that can hold output data for the
+Allocate uninitialised [`PencilArray`](@ref) that can hold output data for the
 given plan.
+
+The second and third forms respectively allocate a vector and a tuple of `N`
+`PencilArray`s.
 """
 allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out,
                                                 p.extra_dims)
+allocate_output(p::PencilFFTPlan, N) = _allocate_many(allocate_output, p, N)
+
+_allocate_many(allocator::Function, p::PencilFFTPlan, N::Integer) =
+    [allocator(p) for n = 1:N]
+_allocate_many(allocator::Function, p::PencilFFTPlan, ::Val{N}) where {N} =
+    ntuple(n -> allocator(p), Val(N))

@@ -48,6 +48,27 @@ function Base.:\(p::PencilFFTPlan, src::PencilArray)
     end
 end
 
+## Operations for collections.
+function check_compatible(a::PencilArrayCollection, b::PencilArrayCollection)
+    Na = length(a)
+    Nb = length(b)
+    if Na != Nb
+        throw(ArgumentError("collections have different lengths: $Na ≠ $Nb"))
+    end
+    nothing
+end
+
+for f in (:mul!, :ldiv!)
+    @eval LinearAlgebra.$f(dst::PencilArrayCollection, p::PencilFFTPlan,
+                           src::PencilArrayCollection) =
+        (check_compatible(dst, src); $f.(dst, p, src))
+end
+
+for f in (:*, :\)
+    @eval Base.$f(p::PencilFFTPlan, src::PencilArrayCollection) =
+        $f.(p, src)
+end
+
 function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
                        full_plan::PencilFFTPlan,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})

@@ -1,5 +1,20 @@
 ## Permutation operations ##
 
+const Permutation{N} = NTuple{N,Int} where N
+
+is_valid_permutation(::Nothing) = true
+is_valid_permutation(::Val{P}) where {P} = isa(P, Permutation) && isperm(P)
+is_valid_permutation(::Any) = false
+
+function check_permutation(perm)
+    if !is_valid_permutation(perm)
+        s = perm isa Permutation ?
+            ".\nHint: passing Val($perm) may fix this." : ""
+        throw(ArgumentError("invalid permutation of dimensions: $perm$s"))
+    end
+    nothing
+end
+
 # Permute tuple values.
 @inline permute_indices(t::Tuple, ::Nothing) = t
 @inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
@@ -56,10 +71,6 @@ function is_identity_permutation(::Val{P}) where P
     P :: Permutation{N}
     P === identity_permutation(Val(N))
 end
-
-is_valid_permutation(::Nothing) = true
-is_valid_permutation(::Val{P}) where {P} = isa(P, Permutation) && isperm(P)
-is_valid_permutation(::Any) = false
 
 same_permutation(::Val{p}, ::Val{p}) where {p} = true
 same_permutation(::Val{p}, ::Val{q}) where {p, q} = (@assert p !== q; false)
