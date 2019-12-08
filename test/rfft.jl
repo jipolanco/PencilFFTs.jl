@@ -20,12 +20,13 @@ const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 # Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
-function test_global_average(u, uF, plan::PencilFFTPlan)
+function test_global_average(u, uF, plan::PencilFFTPlan,
+                             gF::LocalFourierGrid)
     comm = get_comm(plan)
     scale = get_scale_factor(plan)
 
     sum_u2_local = sqnorm(u)
-    sum_uF2_local = sqnorm(uF)
+    sum_uF2_local = sqnorm(uF, gF)
 
     Ngrid = prod(size_global(pencil(u)))
 
@@ -46,9 +47,9 @@ end
 # Squared 2-norm of a tuple of arrays using LinearAlgebra.norm.
 norm2(x::Tuple) = sum(norm.(x).^2)
 
-function micro_benchmarks(u, uF, gF_global::FourierGrid)
+function micro_benchmarks(u, uF, gF_global::FourierGrid,
+                          gF_local::LocalFourierGrid)
     ωF = similar.(uF)
-    gF_local = LocalGrid(gF_global, uF)
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
 
@@ -93,12 +94,13 @@ function micro_benchmarks(u, uF, gF_global::FourierGrid)
     @btime sqnorm($(parent.(u)))
 
     @printf " - %-20s" "sqnorm(uF)..."
-    @btime sqnorm($uF)
+    @btime sqnorm($uF, $gF_local)
 
     nothing
 end
 
 function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
+    # TODO without global_view?
     fill!(u, zero(T))
 
     u_g = global_view(u)
@@ -180,16 +182,19 @@ function main()
 
     u = allocate_input(plan, Val(3))
     ldiv!(u, plan, uF)
-    test_global_average(u, uF, plan)
+
+    gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
+    gF_local = LocalGrid(gF_global, uF)
+
+    test_global_average(u, uF, plan, gF_local)
 
     @test sqnorm(u) ≈ norm2(u)
 
     # These are not the same because `FourierOperations.sqnorm` takes Hermitian
     # symmetry into account, so the result can be roughly twice as large.
-    @test 1 < sqnorm(uF) / norm2(uF) <= 2 + 1e-8
+    @test 1 < sqnorm(uF, gF_local) / norm2(uF) <= 2 + 1e-8
 
-    gF = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
-    rank == 0 && micro_benchmarks(u, uF, gF)
+    rank == 0 && micro_benchmarks(u, uF, gF_global, gF_local)
     MPI.Barrier(comm)
 
     MPI.Finalize()

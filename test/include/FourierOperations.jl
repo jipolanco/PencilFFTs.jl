@@ -103,22 +103,36 @@ index_r2c(::Nothing) = 1
 index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
 
 """
-    sqnorm(u::AbstractArray{<:Complex})
+    sqnorm(u::AbstractArray{<:Complex}, grid::LocalFourierGrid)
 
 Compute squared norm of array in Fourier space, in the local process.
 """
-function sqnorm(u::PencilArray{T}) where {T <: Complex}
+function sqnorm(u::PencilArray{T}, grid::LocalFourierGrid) where {T <: Complex}
+    k_zero = zero(eltype(grid))
     s = zero(real(T))
-    g = global_view(u)
 
-    ind = index_r2c(u)
-
-    for I in CartesianIndices(g)
+    @inbounds for (i, k) in enumerate(grid)
         # Account for Hermitian symmetry implied by r2c transform along the
-        # first logical dimension.
-        i_r2c = Tuple(I)[ind]
-        factor = i_r2c == 1 ? 1 : 2
-        s += factor * abs2(g[I])
+        # first logical dimension. Note that `k` is "unpermuted", meaning that
+        # k[1] is the first *logical* wave number.
+        factor = k[1] === k_zero ? 1 : 2
+        s += factor * abs2(u[i])
+    end
+
+    s
+end
+
+# Variant for vector fields.
+function sqnorm(u::VectorField{T}, grid::LocalFourierGrid) where {T <: Complex}
+    k_zero = zero(eltype(grid))
+    s = zero(real(T))
+
+    @inbounds for (i, k) in enumerate(grid)
+        # Account for Hermitian symmetry implied by r2c transform along the
+        # first logical dimension. Note that `k` is "unpermuted", meaning that
+        # k[1] is the first *logical* wave number.
+        factor = k[1] === k_zero ? 1 : 2
+        s += factor * sum(v -> abs2(v[i]), u)
     end
 
     s
@@ -127,6 +141,6 @@ end
 # Add a variant for real arrays, for completeness.
 sqnorm(u::AbstractArray{T} where {T <: Real}) = sum(abs2, u)
 
-sqnorm(u::Tuple) = mapreduce(sqnorm, +, u)
+sqnorm(u::Tuple, args...) = mapreduce(v -> sqnorm(v, args...), +, u)
 
 end

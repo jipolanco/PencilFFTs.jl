@@ -115,6 +115,7 @@ struct LocalGrid{T,
     # passed to AbstractGrid).
     function LocalGrid(grid::AbstractGrid{T,N},
                        range::NTuple{N,UnitRange{Int}}) where {T, N}
+        # TODO verify that `range` is a subrange of `grid`
         dims = length.(range)
         data = ntuple(n -> Array{T}(undef, dims), Val(N))
         for (i, I) in enumerate(CartesianIndices(range))
