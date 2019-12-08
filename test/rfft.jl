@@ -179,7 +179,7 @@ function main()
     init_random_field!.(uF, (rng, ))
 
     u = allocate_input(plan, Val(3))
-    ldiv!.(u, plan, uF)
+    ldiv!(u, plan, uF)
     test_global_average(u, uF, plan)
 
     @test sqnorm(u) ≈ norm2(u)

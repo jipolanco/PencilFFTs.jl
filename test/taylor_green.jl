@@ -116,7 +116,7 @@ function main()
     g_local = LocalGrid(g_global, u)
     taylor_green!(u, g_local)   # initialise TG velocity field
 
-    uF = plan .* u  # apply 3D FFT
+    uF = plan * u  # apply 3D FFT
 
     gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     gF_local = LocalGrid(gF_global, uF)
@@ -128,7 +128,7 @@ function main()
     end
 
     curl!(ωF, uF, gF_local)
-    ω = plan .\ ωF
+    ω = plan \ ωF
 
     ω_err = check_vorticity_TG(ω, g_local, comm)
     @test ω_err ≈ 0 atol=1e-16
