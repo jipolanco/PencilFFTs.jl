@@ -62,8 +62,12 @@ size_local(::Pencil)
 
 **TODO** add description
 
+### Types
+
 ```@docs
 PencilArray
+PencilArrayCollection
+MaybePencilArrayCollection
 ```
 
 ### Functions
