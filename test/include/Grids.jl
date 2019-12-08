@@ -91,7 +91,7 @@ end
     g[range_local(p, permute=true)]
 
 """
-    LocalGrid{T< N, Perm, G <: AbstractGrid} <: AbstractArray{T, N}
+    LocalGrid{T, N, G<:AbstractGrid} <: AbstractArray{T, N}
 
 Allows access to a subregion of a global grid defined by an `AbstractGrid`
 object.
@@ -140,7 +140,12 @@ Base.IndexStyle(::Type{<:LocalGrid}) = IndexLinear()
 const LocalFourierGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: FourierGrid}
 const LocalPhysicalGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: Grid}
 
-@propagate_inbounds Base.getindex(g::LocalGrid, inds...) =
-    map(x -> x[inds...], g.data)
+@propagate_inbounds function Base.getindex(g::LocalGrid, inds...)
+    # Since all the arrays in `data` have the same indices, we explicitly
+    # convert to linear indices only once. This only makes a difference if more
+    # than one index (or a CartesianIndex) was passed as input.
+    i = LinearIndices(first(g.data))[inds...]
+    map(x -> x[i], g.data)
+end
 
 end
