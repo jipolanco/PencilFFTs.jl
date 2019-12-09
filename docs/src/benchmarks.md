@@ -20,7 +20,13 @@ Each timing is averaged over 100 repetitions.
 
 ```@raw html
 <div class="figure">
-  <img src="img/benchmark_idris.svg" alt="Strong scaling of PencilFFTs">
+  <!--
+  Note: this is evaluated from the directory where the Benchmarks page is
+  built. This directory varies depending on whether `prettyurls` is enabled in
+  `makedocs`. To make things work in both cases, we added a symlink in docs/img
+  pointing to docs/build/img.
+  -->
+  <img src="../img/benchmark_idris.svg" alt="Strong scaling of PencilFFTs">
 </div>
 ```
 
