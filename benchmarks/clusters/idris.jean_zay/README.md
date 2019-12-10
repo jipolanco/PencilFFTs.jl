@@ -17,9 +17,16 @@ Tests run on the [Jean-Zay cluster](http://www.idris.fr/jean-zay/jean-zay-presen
 ([English version](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)) of
 IDRIS (France).
 
-Some relevant specifications:
+Some relevant specifications (copied from
+[here](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)):
 
-- HPE SGI 8600 computer
+- Cumulated peak performance of 13.9 Pflops/s
+
+- Omni-Path interconnection network 100 Gb/s (1 link per scalar node and
+  4 links per converged node)
+
+- Spectrum Scale parallel file system (ex-GPFS)
+
 - 1528 XA730i compute nodes, with 2 Intel Cascade Lake 6248 processors (20
   cores at 2.5 GHz), or 61120 cores available
 
@@ -30,5 +37,5 @@ The benchmarks were performed using Julia 1.3, Intel MPI 2019.0.4 and FFTW 3.3.9
 
 ## Version
 
-Date: 4 December 2019 (PencilFFTs commit
-[`3f238172a`](https://github.com/jipolanco/PencilFFTs.jl/commit/3f238172a62036104f535d7bb22933096458f9a8)).
+Date: 10 December 2019 (PencilFFTs commit
+[`383ed8efa`](https://github.com/jipolanco/PencilFFTs.jl/commit/383ed8efa5bd37f5f3f79fcb60fadadbad3a90d9)).

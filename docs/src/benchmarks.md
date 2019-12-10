@@ -32,8 +32,7 @@ Each timing is averaged over 100 repetitions.
 
 The performance and scalability of PencilFFTs are similar to those displayed
 by P3DFFT.
-In some cases, in particular when using a large number of processes,
-PencilFFTs is slightly faster.
+In some cases PencilFFTs has a performance advantage over P3DFFT.
 This may be explained by the default use of non-blocking point-to-point
 communications in PencilFFTs (using `MPI_Isend` and `MPI_Irecv`), while P3DFFT
 uses global `MPI_Alltoallv` calls.
@@ -43,7 +42,7 @@ received data, while it waits for the incoming data.
 Note that PencilFFTs can optionally use `MPI_Alltoallv` instead of
 point-to-point communications (see the docs for [`PencilFFTPlan`](@ref) and
 [`transpose!`](@ref)).
-We have verified that the implementation with `MPI_Isend/MPI_Irecv` generally
+We have verified that the implementation with `MPI_Isend` and `MPI_Irecv` generally
 outperforms the one based on `MPI_Alltoallv`.
 Observed performance gains can be of the order of 10%.
 
