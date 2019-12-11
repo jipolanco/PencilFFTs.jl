@@ -74,10 +74,10 @@ MaybePencilArrayCollection
 
 ```@docs
 extra_dims(::PencilArray)
-get_comm(::PencilArray)
+get_comm(::MaybePencilArrayCollection)
 get_permutation(::MaybePencilArrayCollection)
 global_view(::PencilArray)
-ndims_extra(::PencilArray)
+ndims_extra(::MaybePencilArrayCollection)
 ndims_space(::PencilArray)
 parent(::PencilArray)
 pencil(::PencilArray)

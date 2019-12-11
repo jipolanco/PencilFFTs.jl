@@ -3,6 +3,8 @@
 - Add method to access `PencilArray` using non-permuted indices.
   Maybe define a `PermutedIndex` type, similar to `CartesianIndex`?
 
+- Make permutations invisible to the user.
+
 - Avoid transpositions when using `NoTransform`
 
 - Reduce array allocations (buffers)

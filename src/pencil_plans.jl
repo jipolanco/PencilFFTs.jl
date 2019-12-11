@@ -378,9 +378,9 @@ See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 get_timer(p::PencilFFTPlan) = p.timer
 
 """
-    allocate_input(p::PencilFFTPlan)         :: PencilArray
-    allocate_input(p::PencilFFTPlan, N)      :: Vector{PencilArray}
-    allocate_input(p::PencilFFTPlan, Val(N)) :: NTuple{N, PencilArray}
+    allocate_input(p::PencilFFTPlan)         -> PencilArray
+    allocate_input(p::PencilFFTPlan, N)      -> Vector{PencilArray}
+    allocate_input(p::PencilFFTPlan, Val(N)) -> NTuple{N, PencilArray}
 
 Allocate uninitialised [`PencilArray`](@ref) that can hold input data for the
 given plan.
@@ -393,9 +393,9 @@ allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in,
 allocate_input(p::PencilFFTPlan, N) = _allocate_many(allocate_input, p, N)
 
 """
-    allocate_output(p::PencilFFTPlan)         :: PencilArray
-    allocate_output(p::PencilFFTPlan, N)      :: Vector{PencilArray}
-    allocate_output(p::PencilFFTPlan, Val(N)) :: NTuple{N, PencilArray}
+    allocate_output(p::PencilFFTPlan)         -> PencilArray
+    allocate_output(p::PencilFFTPlan, N)      -> Vector{PencilArray}
+    allocate_output(p::PencilFFTPlan, Val(N)) -> NTuple{N, PencilArray}
 
 Allocate uninitialised [`PencilArray`](@ref) that can hold output data for the
 given plan.
