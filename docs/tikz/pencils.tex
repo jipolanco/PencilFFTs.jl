@@ -1,0 +1,33 @@
+\documentclass[a4paper]{scrartcl}
+
+\usepackage{xparse}
+
+\usepackage{fontspec}
+\usepackage[math-style=ISO]{unicode-math}
+% \setmainfont{TeX Gyre Pagella}
+\setmainfont{Fira Sans}
+% \setmathfont{TeX Gyre Pagella Math}
+\setmathfont{Fira Math}
+\setsansfont{Fira Sans}
+
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{physics}
+
+\usepackage{tikz}
+
+%% ---------------------------------------------------------------------- %%
+%% Macro definitions
+
+% Redefine \vectorbold (and \vb) from `physics`, as well as \boldsymbol.
+\RenewDocumentCommand\vectorbold{ s m }{\symbf{#2}}
+\RenewDocumentCommand\boldsymbol{ m }{\symbf{#1}}
+
+%% ---------------------------------------------------------------------- %%
+
+\begin{document}
+
+\centering
+\input{fig/pencils.pgf}
+
+\end{document}

@@ -1,0 +1,182 @@
+\usetikzlibrary{math}
+
+\newcommand*{\TikzScaleZ}{-0.4}
+
+\begin{tikzpicture}[x=1cm, y=1cm, z=\TikzScaleZ * 1cm, >=stealth, font=\small]
+  %% Definitions
+  \tikzmath{
+    \Lx = 2.8; \Ly = 1.4; \Lz = -1.4;
+    \Npen = 3;
+    \Mpen = 4;
+    \Nprev = \Npen - 1;
+    \Mprev = \Mpen - 1;
+    % Box size on paper, in cm. A "box" is a diagram associated to one pencil
+    % distribution.
+    \BoxSizeX = \Lx + \TikzScaleZ * \Lz;
+    \BoxSizeY = \Ly + \TikzScaleZ * \Lz;
+    \BoxSepX = 0.3 * \BoxSizeX;  % separation between two boxes
+    \BoxShiftX = \BoxSizeX + \BoxSepX;
+    \BoxNum = 0;  % index of the current box
+  }
+
+  % Verify the values of \BoxSize*:
+  % \draw[red] (0, 0) -- ++(\BoxSizeX, 0) -- ++(0, \BoxSizeY) -- ++(-\BoxSizeX, 0)
+  %   -- cycle;
+
+  %% Pencil colour
+  % Usage: \pencol{colour_name}{n}{m}, where n and m are indices in [0, \Npen-1]
+  % and [0, \Mpen-1].
+  \newcommand*{\pencol}[3]{%
+    \pgfmathsetmacro{\R}{(#2 + 1) / \Npen}
+    \pgfmathsetmacro{\B}{(#3 + 1) / \Mpen}
+    \pgfmathsetmacro{\G}{(\R + \B) / 2}
+    \definecolor{#1}{rgb}{\R, \G, \B}
+  }
+
+  %% Coordinate axes
+  \begin{scope}[font=\small]
+    \pgfmathsetmacro{\L}{0.4*\Ly}
+    \pgfmathsetmacro{\x}{-0.3 * \BoxSizeX}
+    \pgfmathsetmacro{\y}{0.2 * \Ly}
+    % \pgfmathsetmacro{\x}{\Lx + 2*\h}
+    \draw[->] (\x, \y, 0) -- ++(\L, 0, 0) node[above] {$x$};
+    \draw[->] (\x, \y, 0) -- ++(0, \L, 0) node[above] {$y$};
+    \draw[->] (\x, \y, 0) -- ++(0, 0, \L) node[left] {$z$};
+  \end{scope}
+
+  %% x-pencil
+  \begin{scope}[xshift=\BoxNum * \BoxShiftX cm, local bounding box={xPencil}]
+    \pgfmathsetmacro\dy{\Ly / \Npen}
+    \pgfmathsetmacro\dz{\Lz / \Mpen}
+
+    % Invisible path + node for the back of the box (z = Lz).
+    \path[local bounding box={xPencilBack}]
+      (0, 0, \Lz) rectangle ++(\Lx, \Ly, 0);
+
+    % Draw at x = Lx
+    \foreach \n in {0, ..., \Nprev} {
+      \pgfmathsetmacro\yzero{\n * \dy}
+      \foreach \m in {0, ..., \Mprev} {
+        \pencol{pen}{\n}{\m}
+        \draw[fill=pen] (\Lx, \yzero, \m * \dz) -- ++(0, \dy, 0) --
+        ++(0, 0, \dz) -- ++(0, -\dy, 0) -- cycle;
+      }
+    }
+
+    % Draw at y = Ly
+    \foreach \m in {0, ..., \Mprev} {
+      \pencol{pen}{\Nprev}{\m}
+      \draw[fill=pen] (0, \Ly, \m * \dz) -- ++(0, 0, \dz) --
+      ++(\Lx, 0, 0) -- ++(0, 0, -\dz) -- cycle;
+    }
+
+    % Draw at z = 0
+    \begin{scope}[local bounding box=xPencilFront]
+      \foreach \n in {0, ..., \Nprev} {
+        \pencol{pen}{\n}{0}
+        \pgfmathsetmacro\yzero{\n * \dy}
+        \draw[fill=pen]
+          (0, \yzero, 0) -- ++(0, \dy, 0) -- ++(\Lx, 0, 0) -- ++(0, -\dy, 0) --
+          cycle;
+      }
+    \end{scope}
+  \end{scope}
+
+  \tikzmath{\BoxNum = \BoxNum + 1;}
+
+  %% y-pencil
+  \begin{scope}[xshift=\BoxNum * \BoxShiftX cm, local bounding box=yPencil]
+    \pgfmathsetmacro\dx{\Lx / \Npen}
+    \pgfmathsetmacro\dz{\Lz / \Mpen}
+
+    % Invisible path + node for the back of the box (z = Lz).
+    \path[local bounding box={yPencilBack}]
+      (0, 0, \Lz) rectangle ++(\Lx, \Ly, 0);
+
+    % Draw at x = Lx
+    \foreach \m in {0, ..., \Mprev} {
+      \pencol{pen}{\Nprev}{\m}
+      \draw[fill=pen] (\Lx, 0, \m * \dz) -- ++(0, 0, \dz) --
+      ++(0, \Ly, 0) -- ++(0, 0, -\dz) -- cycle;
+    }
+
+    % Draw at y = Ly
+    \foreach \n in {0, ..., \Nprev} {
+      \pgfmathsetmacro\xzero{\n * \dx}
+      \foreach \m in {0, ..., \Mprev} {
+        \pencol{pen}{\n}{\m}
+        \draw[fill=pen] (\xzero, \Ly, \m * \dz) -- ++(\dx, 0, 0) --
+        ++(0, 0, \dz) -- ++(-\dx, 0, 0) -- cycle;
+      }
+    }
+
+    % Draw at z = 0
+    \begin{scope}[local bounding box=yPencilFront]
+      \foreach \n in {0, ..., \Nprev} {
+        \pencol{pen}{\n}{0}
+        \pgfmathsetmacro\xzero{\n * \dx}
+        \draw[fill=pen]
+          (\xzero, 0, 0) -- ++(\dx, 0, 0) -- ++(0, \Ly, 0) -- ++(-\dx, 0, 0) --
+          cycle;
+      }
+    \end{scope}
+  \end{scope}
+
+  \tikzmath{\BoxNum = \BoxNum + 1;}
+
+  %% z-pencil
+  \begin{scope}[xshift=\BoxNum * \BoxShiftX cm, local bounding box={zPencil}]
+    \pgfmathsetmacro\dy{\Ly / \Npen}
+    \pgfmathsetmacro\dx{\Lx / \Mpen}
+
+    % Invisible path + node for the back of the box (z = Lz).
+    \path[local bounding box={zPencilBack}]
+      (0, 0, \Lz) rectangle ++(\Lx, \Ly, 0);
+
+    % Draw at x = Lx
+    \foreach \n in {0, ..., \Nprev} {
+      \pgfmathsetmacro\yzero{\n * \dy}
+      \pencol{pen}{\n}{\Mprev}
+      \draw[fill=pen]
+        (\Lx, \yzero, 0) -- ++(0, \dy, 0) -- ++(0, 0, \Lz) -- ++(0, -\dy, 0) --
+        cycle;
+    }
+
+    % Draw at y = Ly
+    \foreach \m in {0, ..., \Mprev} {
+      \pencol{pen}{\Nprev}{\m}
+      \draw[fill=pen]
+        (\m * \dx, \Ly, 0) -- ++(\dx, 0, 0) -- ++(0, 0, \Lz) -- ++(-\dx, 0, 0)
+        -- cycle;
+    }
+
+    % Draw at z = 0
+    \begin{scope}[local bounding box=zPencilFront]
+      \foreach \n in {0, ..., \Nprev} {
+        \pgfmathsetmacro\yzero{\n * \dy}
+        \foreach \m in {0, ..., \Mprev} {
+          \pencol{pen}{\n}{\m}
+          \draw[fill=pen]
+            (\m * \dx, \yzero, 0) -- ++(0, \dy, 0) -- ++(\dx, 0, 0) --
+            ++(0, -\dy, 0) -- cycle;
+        }
+      }
+    \end{scope}
+  \end{scope}
+
+  %% Pencil labels.
+  \begin{scope}[every node/.style={below, minimum width={\Lx cm}}]
+    \node (yPencilText) at (yPencilFront.south) {$y$-pencil};
+    \node (xPencilText) at (xPencilFront.south) {$x$-pencil};
+    \node (zPencilText) at (zPencilFront.south) {$z$-pencil};
+
+    % \node[inner sep=0pt] at (yPencilText.south) {(spectral space)};
+    % \node[inner sep=0pt] at (zPencilText.south) {(physical space)};
+  \end{scope}
+
+  %% Arrows connecting labels.
+  \begin{scope}[every path/.style={<->, very thick}]
+    \draw (xPencilText.east) -- (yPencilText.west);
+    \draw (yPencilText.east) -- (zPencilText.west);
+  \end{scope}
+\end{tikzpicture}
