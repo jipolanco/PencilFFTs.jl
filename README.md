@@ -36,5 +36,5 @@ This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/
 
 <p align="center">
   <br/>
-  <img width="65%" alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
+  <img width="70%" alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
 </p>
