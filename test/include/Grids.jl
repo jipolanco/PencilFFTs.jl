@@ -24,7 +24,7 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     # dims_in: non-permuted global dimensions
     # perm: index permutation
     function PhysicalGrid(limits::NTuple{N, NTuple{2}}, dims_in::Dims{N},
-                  perm, ::Type{T}=Float64) where {T, N}
+                          perm, ::Type{T}=Float64) where {T, N}
         r = map(limits, dims_in) do l, d
             # Note: we store one extra value at the end (not included in
             # `dims`), to include the right limit.
@@ -93,48 +93,48 @@ end
                                   p::Pencil{N}) where N =
     g[range_local(p, permute=true)]
 
+# TODO rename to LocalGridIterator
 """
-    LocalGrid{T, N, G<:AbstractGrid} <: AbstractArray{T, N}
+    LocalGrid{T, N, G<:AbstractGrid}
 
-Allows access to a subregion of a global grid defined by an `AbstractGrid`
-object.
-
-As opposed to `AbstractGrid`s, which compute values lazily, a `LocalGrid`
-stores all the values of the local grid in N-dimensional `Array`s. This
-enables efficient access to grid values using linear indexing, but costs a bit
-of memory (same as a local vector field).
-
-Also note that a `LocalGrid` takes local indices (starting from 1).
+Iterator for efficient access to a subregion of a global grid defined by an
+`AbstractGrid` object.
 """
 struct LocalGrid{T,
                  N,
                  G <: AbstractGrid{T, N},
-                } <: AbstractArray{T, N}
+                 It <: Iterators.ProductIterator{<:Tuple{Vararg{AbstractVector,N}}},
+                 Perm,
+                }
     grid  :: G
     range :: NTuple{N, UnitRange{Int}}
-    data  :: NTuple{N, Array{T, N}}
-    dims  :: Dims{N}
+    iter  :: It    # iterator with permuted indices and values
+    iperm :: Perm  # inverse permutation
 
-    # Note: the range is expected to be permuted (just like the indices that are
-    # passed to AbstractGrid).
+    # Note: the range is expected to be permuted.
     function LocalGrid(grid::AbstractGrid{T,N},
                        range::NTuple{N,UnitRange{Int}}) where {T, N}
-        ind = CartesianIndices(range)
-        # Verify that `range` is a subrange of `grid`.
-        if !(ind ⊆ CartesianIndices(grid))
+        if !(CartesianIndices(range) ⊆ CartesianIndices(grid))
             throw(ArgumentError("given range $range is not a subrange " *
-                                "of grid with axes = $(axes(grid))"))
+                                "of grid with unpermuted axes = $(axes(grid))"))
         end
-        dims = length.(range)
-        data = ntuple(n -> Array{T}(undef, dims), Val(N))
-        for (i, I) in enumerate(ind)
-            g = grid[I]
-            for n = 1:N
-                data[n][i] = g[n]
-            end
-        end
+
+        iperm = grid.iperm
+        perm = Pencils.inverse_permutation(iperm)
+
+        # Note: grid[range] returns non-permuted coordinates from a permuted
+        # `range`.
+        # We want the the coordinates permuted. This way we can iterate in the
+        # right memory order, according to the current dimension permutation.
+        # Then, we unpermute the coordinates at each call to `iterate`.
+        grid_perm = Pencils.permute_indices(grid[range], perm)
+        iter = Iterators.product(grid_perm...)
+
         G = typeof(grid)
-        new{T, N, G}(grid, range, data, dims)
+        It = typeof(iter)
+        Perm = typeof(iperm)
+
+        new{T, N, G, It, Perm}(grid, range, iter, iperm)
     end
 end
 
@@ -143,19 +143,18 @@ LocalGrid(grid::AbstractGrid,
 LocalGrid(grid::AbstractGrid, p::Pencil) =
     LocalGrid(grid, range_local(p, permute=true))
 
-Base.size(g::LocalGrid) = g.dims
+Base.size(g::LocalGrid) = size(g.iter)
+Base.eltype(::Type{G} where G <: LocalGrid{T}) where {T} = T
 
-Base.IndexStyle(::Type{<:LocalGrid}) = IndexLinear()
+@inline function Base.iterate(g::LocalGrid, state...)
+    next = iterate(g.iter, state...)
+    next === nothing && return nothing
+    coords_perm, state_new = next  # `coords_perm` is permuted, e.g. (z, y, x)
+    # We return unpermuted coordinates, e.g. (x, y, z)
+    Pencils.permute_indices(coords_perm, g.iperm), state_new
+end
 
 const LocalFourierGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: FourierGrid}
 const LocalPhysicalGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: PhysicalGrid}
-
-@propagate_inbounds function Base.getindex(g::LocalGrid, inds...)
-    # Since all the arrays in `data` have the same indices, we explicitly
-    # convert to linear indices only once. This only makes a difference if more
-    # than one index (or a CartesianIndex) was passed as input.
-    i = LinearIndices(first(g.data))[inds...]
-    map(x -> x[i], g.data)
-end
 
 end
