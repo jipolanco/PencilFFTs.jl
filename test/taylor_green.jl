@@ -43,7 +43,7 @@ function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0
 end
 
 # Initialise TG flow (local grid version).
-function taylor_green!(u::VectorField, g::LocalPhysicalGrid, u0=TG_U0, k0=TG_K0)
+function taylor_green!(u::VectorField, g::PhysicalGridIterator, u0=TG_U0, k0=TG_K0)
     @assert size(u[1]) === size(g)
 
     @inbounds for (i, (x, y, z)) in enumerate(g)
@@ -56,7 +56,7 @@ function taylor_green!(u::VectorField, g::LocalPhysicalGrid, u0=TG_U0, k0=TG_K0)
 end
 
 # Verify vorticity of Taylor-Green flow.
-function check_vorticity_TG(ω::VectorField{T}, g::LocalPhysicalGrid, comm,
+function check_vorticity_TG(ω::VectorField{T}, g::PhysicalGridIterator, comm,
                             u0=TG_U0, k0=TG_K0) where {T}
     diff2 = zero(T)
 
@@ -74,7 +74,7 @@ function check_vorticity_TG(ω::VectorField{T}, g::LocalPhysicalGrid, comm,
     MPI.Allreduce(diff2, +, comm)
 end
 
-function fields_to_vtk(g::LocalGrid, basename, fields::Vararg{Pair})
+function fields_to_vtk(g::PhysicalGridIterator, basename, fields::Vararg{Pair})
     isempty(fields) && return
 
     # This works but it's heavier, since g.data is a dense array:
@@ -113,13 +113,13 @@ function main()
     u = allocate_input(plan, Val(3))  # allocate vector field
 
     g_global = PhysicalGrid(GEOMETRY, size_in, get_permutation(u))
-    g_local = LocalGrid(g_global, u)
+    g_local = LocalGridIterator(g_global, u)
     taylor_green!(u, g_local)   # initialise TG velocity field
 
     uF = plan * u  # apply 3D FFT
 
     gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
-    gF_local = LocalGrid(gF_global, uF)
+    gF_local = LocalGridIterator(gF_global, uF)
     ωF = similar.(uF)
 
     let div2 = divergence(uF, gF_local)

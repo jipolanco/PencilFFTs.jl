@@ -1,7 +1,7 @@
 module Grids
 
 export PhysicalGrid, FourierGrid
-export LocalGrid, LocalPhysicalGrid, LocalFourierGrid
+export LocalGridIterator, PhysicalGridIterator, FourierGridIterator
 import Base: @propagate_inbounds
 
 using PencilFFTs.Pencils
@@ -93,27 +93,27 @@ end
                                   p::Pencil{N}) where N =
     g[range_local(p, permute=true)]
 
-# TODO rename to LocalGridIterator
 """
-    LocalGrid{T, N, G<:AbstractGrid}
+    LocalGridIterator{T, N, G<:AbstractGrid}
 
 Iterator for efficient access to a subregion of a global grid defined by an
 `AbstractGrid` object.
 """
-struct LocalGrid{T,
-                 N,
-                 G <: AbstractGrid{T, N},
-                 It <: Iterators.ProductIterator{<:Tuple{Vararg{AbstractVector,N}}},
-                 Perm,
-                }
+struct LocalGridIterator{
+                T,
+                N,
+                G <: AbstractGrid{T, N},
+                It <: Iterators.ProductIterator{<:Tuple{Vararg{AbstractVector,N}}},
+                Perm,
+            }
     grid  :: G
     range :: NTuple{N, UnitRange{Int}}
     iter  :: It    # iterator with permuted indices and values
     iperm :: Perm  # inverse permutation
 
     # Note: the range is expected to be permuted.
-    function LocalGrid(grid::AbstractGrid{T,N},
-                       range::NTuple{N,UnitRange{Int}}) where {T, N}
+    function LocalGridIterator(grid::AbstractGrid{T,N},
+                               range::NTuple{N,UnitRange{Int}}) where {T, N}
         if !(CartesianIndices(range) ⊆ CartesianIndices(grid))
             throw(ArgumentError("given range $range is not a subrange " *
                                 "of grid with unpermuted axes = $(axes(grid))"))
@@ -138,15 +138,15 @@ struct LocalGrid{T,
     end
 end
 
-LocalGrid(grid::AbstractGrid,
-          u::Pencils.MaybePencilArrayCollection) = LocalGrid(grid, pencil(u))
-LocalGrid(grid::AbstractGrid, p::Pencil) =
-    LocalGrid(grid, range_local(p, permute=true))
+LocalGridIterator(grid::AbstractGrid, u::Pencils.MaybePencilArrayCollection) =
+    LocalGridIterator(grid, pencil(u))
+LocalGridIterator(grid::AbstractGrid, p::Pencil) =
+    LocalGridIterator(grid, range_local(p, permute=true))
 
-Base.size(g::LocalGrid) = size(g.iter)
-Base.eltype(::Type{G} where G <: LocalGrid{T}) where {T} = T
+Base.size(g::LocalGridIterator) = size(g.iter)
+Base.eltype(::Type{G} where G <: LocalGridIterator{T}) where {T} = T
 
-@inline function Base.iterate(g::LocalGrid, state...)
+@inline function Base.iterate(g::LocalGridIterator, state...)
     next = iterate(g.iter, state...)
     next === nothing && return nothing
     coords_perm, state_new = next  # `coords_perm` is permuted, e.g. (z, y, x)
@@ -154,7 +154,10 @@ Base.eltype(::Type{G} where G <: LocalGrid{T}) where {T} = T
     Pencils.permute_indices(coords_perm, g.iperm), state_new
 end
 
-const LocalFourierGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: FourierGrid}
-const LocalPhysicalGrid{T, N} = LocalGrid{T, N, G} where {T, N, G <: PhysicalGrid}
+const FourierGridIterator{T, N} =
+    LocalGridIterator{T, N, G} where {T, N, G <: FourierGrid}
+
+const PhysicalGridIterator{T, N} =
+    LocalGridIterator{T, N, G} where {T, N, G <: PhysicalGrid}
 
 end

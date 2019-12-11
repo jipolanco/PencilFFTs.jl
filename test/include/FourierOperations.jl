@@ -41,7 +41,7 @@ end
 
 # Local grid variant (faster -- with linear indexing!)
 function divergence(uF::VectorField{T},
-                    grid::LocalFourierGrid) where {T <: Complex}
+                    grid::FourierGridIterator) where {T <: Complex}
     div2 = real(zero(T))
     @inbounds for (i, k) in enumerate(grid)
         div = zero(T)
@@ -79,7 +79,7 @@ end
 
 function curl!(ω::VectorField{T},
                u::VectorField{T},
-               grid::LocalFourierGrid) where {T <: Complex}
+               grid::FourierGridIterator) where {T <: Complex}
     @inbounds for (i, k) in enumerate(grid)
         v = (u[1][i], u[2][i], u[3][i])
         ω[1][i] = 1im * (k[2] * v[3] - k[3] * v[2])
@@ -103,11 +103,11 @@ index_r2c(::Nothing) = 1
 index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
 
 """
-    sqnorm(u::AbstractArray{<:Complex}, grid::LocalFourierGrid)
+    sqnorm(u::AbstractArray{<:Complex}, grid::FourierGridIterator)
 
 Compute squared norm of array in Fourier space, in the local process.
 """
-function sqnorm(u::PencilArray{T}, grid::LocalFourierGrid) where {T <: Complex}
+function sqnorm(u::PencilArray{T}, grid::FourierGridIterator) where {T <: Complex}
     k_zero = zero(eltype(grid))
     s = zero(real(T))
 
@@ -123,7 +123,7 @@ function sqnorm(u::PencilArray{T}, grid::LocalFourierGrid) where {T <: Complex}
 end
 
 # Variant for vector fields.
-function sqnorm(u::VectorField{T}, grid::LocalFourierGrid) where {T <: Complex}
+function sqnorm(u::VectorField{T}, grid::FourierGridIterator) where {T <: Complex}
     k_zero = zero(eltype(grid))
     s = zero(real(T))
 

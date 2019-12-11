@@ -21,7 +21,7 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 # Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
 function test_global_average(u, uF, plan::PencilFFTPlan,
-                             gF::LocalFourierGrid)
+                             gF::FourierGridIterator)
     comm = get_comm(plan)
     scale = get_scale_factor(plan)
 
@@ -48,7 +48,7 @@ end
 norm2(x::Tuple) = sum(norm.(x).^2)
 
 function micro_benchmarks(u, uF, gF_global::FourierGrid,
-                          gF_local::LocalFourierGrid)
+                          gF_local::FourierGridIterator)
     ωF = similar.(uF)
 
     BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
@@ -184,7 +184,7 @@ function main()
     ldiv!(u, plan, uF)
 
     gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
-    gF_local = LocalGrid(gF_global, uF)
+    gF_local = LocalGridIterator(gF_global, uF)
 
     test_global_average(u, uF, plan, gF_local)
 
