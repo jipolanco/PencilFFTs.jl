@@ -15,7 +15,7 @@ them.
 The name of this package originates from the decomposition of 3D domains along
 two out of three dimensions, sometimes called *pencil* decomposition.
 This is illustrated by the figure below
-([source](https://hal.archives-ouvertes.fr/tel-02084215v1)),
+([adapted from here](https://hal.archives-ouvertes.fr/tel-02084215v1)),
 where each coloured block is managed by a different MPI process.
 Typically, one wants to compute FFTs on a scalar or vector field along the
 three spatial dimensions.

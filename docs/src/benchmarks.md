@@ -26,7 +26,10 @@ Each timing is averaged over 100 repetitions.
   `makedocs`. To make things work in both cases, we added a symlink in docs/img
   pointing to docs/build/img.
   -->
-  <img src="../img/benchmark_idris.svg" alt="Strong scaling of PencilFFTs">
+  <img
+    width="90%"
+    src="../img/benchmark_idris.svg"
+    alt="Strong scaling of PencilFFTs">
 </div>
 ```
 
