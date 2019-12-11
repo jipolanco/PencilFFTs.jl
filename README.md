@@ -13,7 +13,7 @@ them.
 The name of this package originates from the decomposition of 3D domains along
 two out of three dimensions, sometimes called *pencil* decomposition.
 This is illustrated by the figure below
-([source](https://hal.archives-ouvertes.fr/tel-02084215v1)),
+([adapted from here](https://hal.archives-ouvertes.fr/tel-02084215v1)),
 where each coloured block is managed by a different MPI process.
 Typically, one wants to compute FFTs on a scalar or vector field along the
 three spatial dimensions.
@@ -24,7 +24,7 @@ configuration to the other and perform FFTs along the other dimensions.
 
 <p align="center">
   <br/>
-  <img alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
+  <img width="85%" alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
 </p>
 
 ## Performance
@@ -36,5 +36,5 @@ This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/
 
 <p align="center">
   <br/>
-  <img alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
+  <img width="70%" alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
 </p>
