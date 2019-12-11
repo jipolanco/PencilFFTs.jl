@@ -24,7 +24,7 @@ configuration to the other and perform FFTs along the other dimensions.
 
 <p align="center">
   <br/>
-  <img alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
+  <img width="85%" alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
 </p>
 
 ## Performance
