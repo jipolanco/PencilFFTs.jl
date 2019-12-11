@@ -27,7 +27,7 @@ Each timing is averaged over 100 repetitions.
   pointing to docs/build/img.
   -->
   <img
-    width="90%"
+    width="75%"
     src="../img/benchmark_idris.svg"
     alt="Strong scaling of PencilFFTs">
 </div>

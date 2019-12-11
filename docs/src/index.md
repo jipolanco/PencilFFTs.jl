@@ -26,7 +26,10 @@ configuration to the other and perform FFTs along the other dimensions.
 
 ```@raw html
 <div class="figure">
-  <img src="img/pencils.svg" alt="Pencil decomposition of 3D domains">
+  <img
+    width="85%"
+    src="img/pencils.svg"
+    alt="Pencil decomposition of 3D domains">
 </div>
 ```
 
