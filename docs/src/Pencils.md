@@ -75,15 +75,15 @@ MaybePencilArrayCollection
 ```@docs
 extra_dims(::PencilArray)
 get_comm(::PencilArray)
-get_permutation(::PencilArray)
+get_permutation(::MaybePencilArrayCollection)
 global_view(::PencilArray)
 ndims_extra(::PencilArray)
 ndims_space(::PencilArray)
 parent(::PencilArray)
 pencil(::PencilArray)
-range_local(::PencilArray)
+range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
-size_global(::PencilArray)
+size_global(::MaybePencilArrayCollection)
 spatial_indices(::PencilArray)
 ```
 
