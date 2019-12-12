@@ -11,9 +11,15 @@ the figure below.
 
 ```@raw html
 <div class="figure">
+  <!--
+  Note: this is evaluated from the directory where the Tutorial page is
+  built. This directory varies depending on whether `prettyurls` is enabled in
+  `makedocs`. To make things work in both cases, we added a symlink in docs/img
+  pointing to docs/build/img.
+  -->
   <img
     width="85%"
-    src="img/pencils.svg"
+    src="../img/pencils.svg"
     alt="Pencil decomposition of 3D domains">
 </div>
 ```
