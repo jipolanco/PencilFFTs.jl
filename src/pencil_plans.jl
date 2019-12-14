@@ -341,7 +341,13 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
     # Generate forward and backward FFTW transforms.
     fftw_kw = plan1d_opt.fftw_kw
     plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)
-    plan_bw = plan(transform_bw, parent(A_bw), dims; fftw_kw...)
+
+    plan_bw = if transform_bw === Transforms.BRFFT()
+        d = size(parent(A_fw), 1)
+        plan(transform_bw, parent(A_bw), d, dims; fftw_kw...)
+    else
+        plan(transform_bw, parent(A_bw), dims; fftw_kw...)
+    end
 
     PencilPlan1D(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end

@@ -35,8 +35,9 @@ eltype_output(::TransformC2R, ::Type{Complex{T}}) where {T <: FFTReal} = T
 eltype_input(::TransformR2C, ::Type{T}) where {T <: FFTReal} = T
 eltype_input(::TransformC2R, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
-# Backward plans: we assume that the input data size is even!
+# Backward plans: in the first case, we assume that the input data size is even!
 _args_bw_rfft((A, dims)) = (A, 2 * size(A, first(dims)) - 2, dims)
+_args_bw_rfft((A, d, dims)) = (A, d, dims)
 
 plan(::RFFT, args...; kwargs...) = FFTW.plan_rfft(args...; kwargs...)
 plan(::BRFFT, args...; kwargs...) =

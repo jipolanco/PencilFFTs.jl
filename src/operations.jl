@@ -82,8 +82,6 @@ function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
         fftw_plan = plan.bfft_plan
     end
 
-    @debug "Apply 1D plan" fftw_plan get_permutation(Pi)
-
     # Transpose pencil if required.
     u = if pencil(x) === Pi
         x
@@ -97,6 +95,9 @@ function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
     else
         _temporary_pencil_array(Po, full_plan.obuf, full_plan.extra_dims)
     end
+
+    @debug("Apply 1D plan", fftw_plan, get_permutation(Pi), size(parent(u)),
+           size(parent(v)))
 
     @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
