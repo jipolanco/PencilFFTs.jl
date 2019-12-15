@@ -100,7 +100,6 @@ function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
     fill!(u, zero(T))
 
     u_g = global_view(u)
-    perm = get_permutation(u)
 
     dims_global = size_global(pencil(u))
     ind_space = CartesianIndices(dims_global)
@@ -133,8 +132,7 @@ function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
         # We add in case a previous value was set by the code in the block
         # below (for Hermitian symmetry).
         if I ∈ ind_space_local
-            Ip = Pencils.permute_indices(I, perm)
-            u_g[Ip] += val
+            u_g[I] += val
         end
 
         # If kx != 0, we're done.
@@ -147,9 +145,9 @@ function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
         # This also ensures that the zero mode is real.
         J0 = map((i, N) -> i == 0 ? 0 : N - i, I0, dims_global)
         J = CartesianIndex(J0 .+ 1)
+
         if J ∈ ind_space_local
-            Jp = Pencils.permute_indices(J, perm)
-            u_g[Jp] += conj(val)
+            u_g[J] += conj(val)
         end
     end
 

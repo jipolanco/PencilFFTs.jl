@@ -8,10 +8,11 @@ pencil.
 
 !!! note "Index permutations"
 
-    If the `Pencil` has an associated index permutation, then the input array
-    must have its dimensions permuted accordingly.
-    The resulting `PencilArray` must be accessed with permuted indices, just
-    like its parent array.
+    If the `Pencil` has an associated index permutation, then `data` must have
+    its dimensions permuted accordingly.
+
+    Unlike `data`, the resulting `PencilArray` should be accessed with
+    unpermuted indices.
 
     ##### Example
 
@@ -20,10 +21,14 @@ pencil.
     Then:
     ```julia
     data = zeros(20, 30, 10)       # parent array (with permuted dimensions)
+
     u = PencilArray(pencil, data)  # wrapper with dimensions (10, 20, 30)
-    u[5, 15, 25]                   # BoundsError (25 > 10)
-    u[15, 25, 5]                   # correct
+    @assert size(u) === (10, 20, 30)
+
+    u[15, 25, 5]                   # BoundsError (15 > 10 and 25 > 20)
+    u[5, 15, 25]                   # correct
     parent(u)[15, 25, 5]           # correct
+
     ```
 
 !!! note "Extra dimensions"
@@ -61,13 +66,14 @@ PencilArray(pencil, (4, 3))  # array dimensions are (20, 10, 30, 4, 3)
 ```
 """
 struct PencilArray{T, N,
-                   P <: Pencil,
                    A <: AbstractArray{T,N},
-                   E,   # number of "extra" dimensions (= N - Np)
                    Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
+                   E,   # number of "extra" dimensions (= N - Np)
+                   P <: Pencil,
                   } <: AbstractArray{T,N}
     pencil   :: P
     data     :: A
+    space_dims :: Dims{Np}  # *unpermuted* spatial dimensions
     extra_dims :: Dims{E}
 
     function PencilArray(pencil::Pencil{Np, Mp, T} where {Np, Mp},
@@ -87,7 +93,10 @@ struct PencilArray{T, N,
                 "Local dimensions of pencil: $(size_local(pencil))."))
         end
 
-        new{T, N, P, A, E, Np}(pencil, data, extra_dims)
+        iperm = inverse_permutation(get_permutation(pencil))
+        space_dims = permute_indices(geom_dims, iperm)
+
+        new{T, N, A, Np, E, P}(pencil, data, space_dims, extra_dims)
     end
 end
 
@@ -140,20 +149,102 @@ end
 """
     size(x::PencilArray)
 
-Return local dimensions of a `PencilArray`.
+Return (unpermuted) local dimensions of a `PencilArray`.
 """
-Base.size(x::PencilArray) = size(parent(x))
+Base.size(x::PencilArray) = (x.space_dims..., x.extra_dims...)
+
+# TODO this won't work with extra_dims...
+function Base.axes(x::PencilArray)
+    iperm = inverse_permutation(get_permutation(x))
+    permute_indices(axes(parent(x)), iperm)
+end
+
+function Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where {S}
+    perm = get_permutation(x)
+    dims_perm = permute_indices(dims, perm)
+    PencilArray(x.pencil, similar(x.data, S, dims_perm))
+end
 
 # Use same index style as the parent array.
-Base.IndexStyle(::Type{<:PencilArray{T,N,P,A}} where {T,N,P}) where {A} =
+Base.IndexStyle(::Type{<:PencilArray{T,N,A}} where {T,N}) where {A} =
     IndexStyle(A)
 
-@propagate_inbounds Base.getindex(x::PencilArray, inds...) = x.data[inds...]
-@propagate_inbounds Base.setindex!(x::PencilArray, v, inds...) =
-    x.data[inds...] = v
+# Overload Base._sub2ind for converting from Cartesian to linear index.
+# TODO this won't work with extra_dims...
+@inline function Base._sub2ind(x::PencilArray, I...)
+    # _sub2ind(axes(x), I...)  <- default implementation for AbstractArray
+    J = permute_indices(I, get_permutation(x))
+    Base._sub2ind(parent(x), J...)
+end
 
-Base.similar(x::PencilArray, ::Type{S}, dims::Dims) where S =
-    PencilArray(x.pencil, similar(x.data, S, dims))
+# We make LinearIndices(::PencilArray) return a PermutedLinearIndices, which
+# takes index permutation into account.
+# (TODO Better / cleaner way to do this??)
+struct PermutedLinearIndices{N, L <: LinearIndices, Perm,
+                             Offsets <: Union{Nothing, Dims{N}},
+                            }
+    data :: L  # indices in permuted order
+    perm :: Perm
+    offsets :: Offsets
+    function PermutedLinearIndices(ind::LinearIndices{N},
+                                   perm::Perm, offsets=nothing) where {N, Perm}
+        L = typeof(ind)
+        Off = typeof(offsets)
+        new{N, L, Perm, Off}(ind, perm, offsets)
+    end
+end
+
+Base.length(L::PermutedLinearIndices) = length(L.data)
+Base.iterate(L::PermutedLinearIndices, args...) = iterate(L.data, args...)
+Base.lastindex(L::PermutedLinearIndices) = lastindex(L.data)
+
+@inline _apply_offset(I::CartesianIndex, ::Nothing) = I
+@inline _apply_offset(I::CartesianIndex{N}, off::Dims{N}) where {N} =
+    CartesianIndex(Tuple(I) .- off)
+
+@inline @propagate_inbounds Base.getindex(L::PermutedLinearIndices,
+                                          i::Integer) = L.data[i]
+
+@inline @propagate_inbounds function Base.getindex(
+        L::PermutedLinearIndices{N}, I::CartesianIndex{N}) where {N}
+    Ioff = _apply_offset(I, L.offsets)
+    J = permute_indices(Ioff, L.perm)
+    L.data[J]
+end
+
+Base.LinearIndices(A::PencilArray) =
+    PermutedLinearIndices(LinearIndices(parent(A)), get_permutation(A))
+
+# Linear indexing
+@propagate_inbounds @inline Base.getindex(x::PencilArray, i::Integer) =
+    x.data[i]
+
+@propagate_inbounds @inline Base.setindex!(x::PencilArray, v, i::Integer) =
+    x.data[i] = v
+
+# Cartesian indexing: assume input indices are unpermuted, and permute them.
+# (This is similar to the implementation of PermutedDimsArray.)
+@propagate_inbounds @inline Base.getindex(
+        x::PencilArray{T,N}, I::Vararg{Int,N}) where {T,N} =
+    x.data[_genperm(x, I)...]
+
+@propagate_inbounds @inline Base.setindex!(
+        x::PencilArray{T,N}, v, I::Vararg{Int,N}) where {T,N} =
+    x.data[_genperm(x, I)...] = v
+
+@inline function _genperm(x::PencilArray{T,N}, I::NTuple{N,Int}) where {T,N}
+    # Split "spatial" and "extra" indices.
+    M = ndims_space(x)
+    E = ndims_extra(x)
+    @assert M + E === N
+    J = ntuple(n -> I[n], Val(M))
+    K = ntuple(n -> I[M + n], Val(E))
+    perm = get_permutation(x)
+    (permute_indices(J, perm)..., K...)
+end
+
+@inline _genperm(x::PencilArray, I::CartesianIndex) =
+    CartesianIndex(_genperm(x, Tuple(I)))
 
 """
     pencil(x::PencilArray)
@@ -231,10 +322,10 @@ size_global(x::MaybePencilArrayCollection; permute=false) =
 
 Local data range held by the PencilArray.
 
-By default the dimensions are permuted to match the order of indices in the
+By default the dimensions not permuted, matching the order of indices in the
 array.
 """
-range_local(x::MaybePencilArrayCollection; permute=true) =
+range_local(x::MaybePencilArrayCollection; permute=false) =
     (range_local(pencil(x), permute=permute)..., Base.OneTo.(extra_dims(x))...)
 
 """

@@ -2,16 +2,13 @@ module FourierOperations
 
 export divergence, curl!, sqnorm
 
-# TODO
-# - Can I make this module independent of Pencils?
-
 using PencilFFTs.Pencils
 using Reexport
 
 include("Grids.jl")
 @reexport using .Grids
 
-const VectorField{T} = NTuple{3, PencilArray{T,3}}
+const VectorField{T} = NTuple{N, PencilArray{T,3}} where {N}
 
 """
     divergence(u::AbstractArray{<:Complex}, grid::FourierGrid)
@@ -25,6 +22,9 @@ function divergence(uF_local::VectorField{T},
     uF = map(global_view, uF_local)
     ux = first(uF)
 
+    # Note: when the indices of `uF` are permuted, this is not the most
+    # efficient implementation because the arrays are traversed in logical
+    # order, not in memory order (this is the behaviour of `CartesianIndices`).
     @inbounds for I in CartesianIndices(ux)
         k = grid[I]  # (kx, ky, kz)
         l = LinearIndices(ux)[I]
@@ -107,31 +107,31 @@ index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
 
 Compute squared norm of array in Fourier space, in the local process.
 """
-function sqnorm(u::PencilArray{T}, grid::FourierGridIterator) where {T <: Complex}
-    k_zero = zero(eltype(grid))
-    s = zero(real(T))
+sqnorm(u::PencilArray, grid) = sqnorm((u, ), grid)
 
-    @inbounds for (i, k) in enumerate(grid)
-        # Account for Hermitian symmetry implied by r2c transform along the
-        # first logical dimension. Note that `k` is "unpermuted", meaning that
-        # k[1] is the first *logical* wave number.
-        factor = k[1] === k_zero ? 1 : 2
-        s += factor * abs2(u[i])
-    end
-
-    s
-end
-
-# Variant for vector fields.
 function sqnorm(u::VectorField{T}, grid::FourierGridIterator) where {T <: Complex}
     k_zero = zero(eltype(grid))
     s = zero(real(T))
 
+    gp = parent(grid) :: FourierGrid
+    kx = gp[1]  # global wave numbers along r2c dimension
+
+    # Note: when Nx (size of input data) is even, the Nyquist frequency is also
+    # counted twice.
+    Nx = size(gp, 1)  # size of real input data along r2c dimension
+    k_zero = kx[1]    # zero mode
+    kx_lims = if iseven(Nx)
+        (k_zero, kx[end])  # kx = 0 or Nx/2 (Nyquist frequency)
+    else
+        # We repeat k_zero for type inference reasons.
+        (k_zero, k_zero)  # only kx = 0
+    end
+
     @inbounds for (i, k) in enumerate(grid)
         # Account for Hermitian symmetry implied by r2c transform along the
         # first logical dimension. Note that `k` is "unpermuted", meaning that
         # k[1] is the first *logical* wave number.
-        factor = k[1] === k_zero ? 1 : 2
+        factor = k[1] in kx_lims ? 1 : 2
         s += factor * sum(v -> abs2(v[i]), u)
     end
 
