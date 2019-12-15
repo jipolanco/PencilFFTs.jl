@@ -93,7 +93,7 @@ The following options are **experimental** and may disappear in the future.
   for instance, multiple vector field components in a single array.
   See [`Pencils.PencilArray`](@ref) for more details.
 
-  **NOTE** An alternative to `extra_dims` is to create a tuple or an array of
+  **NOTE:** An alternative to `extra_dims` is to create a tuple or an array of
   `PencilArray`s, e.g. one per vector component.
   This can be done via the [`allocate_input`](@ref) and
   [`allocate_output`](@ref) functions.

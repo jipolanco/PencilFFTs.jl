@@ -172,9 +172,9 @@ example is a fluid dynamics application around the
 vortex flow.
 The example shows how to:
 
-- initialise a 3D vector field $\bm{v}$ that is compatible with `PencilFFT`
-  plans,
-- iterate efficiently over MPI-distributed arrays (i.e. `PencilArray`s),
+- initialise a 3D vector field $\bm{v}$ that is compatible with
+  [`PencilFFTPlan`](@ref)s,
+- iterate efficiently over [`PencilArray`](@ref)s,
 - apply forward and backward 3D parallel FFTs,
 - compute the divergence ($∇ ⋅ \bm{v}$) and the curl ($∇ × \bm{v}$) of
   a vector field $\bm{v}$ in Fourier space.

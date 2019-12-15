@@ -35,8 +35,8 @@ Each timing is averaged over 100 repetitions.
 
 The performance and scalability of PencilFFTs are similar to those displayed
 by P3DFFT.
-In some cases PencilFFTs has a performance advantage over P3DFFT.
-This may be explained by the default use of non-blocking point-to-point
+In some cases PencilFFTs has a performance advantage over P3DFFT,
+which may be explained by the default use of non-blocking point-to-point
 communications in PencilFFTs (using `MPI_Isend` and `MPI_Irecv`), while P3DFFT
 uses global `MPI_Alltoallv` calls.
 This enables PencilFFTs to perform data reordering operations on the partially
@@ -59,10 +59,12 @@ The cluster where the benchmarks were run has Intel Cascade Lake 6248
 processors with 2×20 cores per node.
 
 The number of MPI processes along each decomposed dimension, $P_1$ and $P_2$,
-was automatically determined by a call to `MPI_Dims_create`.
-In our tests, MPI tends to create a balanced decomposition with $P_1 ≈ P_2$.
+was automatically determined by a call to `MPI_Dims_create`,
+which tends to create a balanced decomposition with $P_1 ≈ P_2$.
 For instance, a total of 1024 processes is divided into $P_1 = P_2 = 32$.
-Different results would be obtained with other combinations, but this was not throughly tested.
+Different results may be obtained with other combinations, but this was not
+tested.
 
-The source files used to generate this benchmark are available [in the
+The source files used to generate this benchmark, as well as the raw benchmark
+results, are all available [in the
 PencilFFTs repo](https://github.com/jipolanco/PencilFFTs.jl/tree/master/benchmarks).

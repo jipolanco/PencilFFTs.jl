@@ -60,8 +60,6 @@ size_local(::Pencil)
 
 ## Array wrappers
 
-**TODO** add description
-
 ### Types
 
 ```@docs
