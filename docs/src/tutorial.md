@@ -129,22 +129,31 @@ For convenience, the [`global_view`](@ref) function can be used to generate an
 [`OffsetArray`](https://github.com/JuliaArrays/OffsetArrays.jl) wrapper that
 takes global indices.
 
-Finally note that, by default, the output of a multidimensional transform
-should be accessed with permuted indices.
+### Output data layout
+
+In memory, the dimensions of the transform output are permuted with respect to
+the input.
 That is, if the order of indices in the input data is `(x, y, z)`, then the
-output has order `(z, y, x)`.
-This allows to always perform FFTs along the fastest array dimension and
-to avoid a local data transposition, resulting in performance gains.
-A similar approach is followed by other parallel FFT libraries
-(FFTW itself, in its distributed-memory routines, [includes
+output has order `(z, y, x)` in memory.
+This detail is hidden from the user, and **arrays should always be accessed in
+the same order as the input data**, regardless of the output dimension
+permutation.
+This applies to `PencilArray`s and to `OffsetArray`s returned by
+[`global_view`](@ref).
+
+The reasoning behind dimension permutations, is that they allow to always
+perform FFTs along the fastest array dimension and to avoid a local data
+transposition, resulting in performance gains.
+A similar approach is followed by other parallel FFT libraries.
+FFTW itself, in its distributed-memory routines, [includes
 a flag](http://fftw.org/doc/Transposed-distributions.html#Transposed-distributions)
-that enables a similar behaviour).
+that enables a similar behaviour.
 In PencilFFTs, index permutation is the default, but it can be disabled via the
 `permute_dims` flag of [`PencilFFTPlan`](@ref).
-As a side note, a great deal of work has been spent in making generic index
-permutations as efficient as possible, both in intermediate and in the output state of the multidimensional transforms.
+
+A great deal of work has been spent in making generic index permutations as
+efficient as possible, both in intermediate and in the output state of the
+multidimensional transforms.
 This has been achieved, in part, by making sure that permutations such as `(3,
-2, 1)` are compile-time constants (i.e. [value
+2, 1)` are compile-time constants (using [value
 types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)).
-In the future, permutations will probably be performed invisibly, without the
-user having to care about them.
