@@ -207,9 +207,14 @@ end
 
 function main()
     MPI.Init()
+
+    myrank = MPI.Comm_rank(MPI.COMM_WORLD)
+    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+
     test_rfft(DATA_DIMS_EVEN)
     println()
     test_rfft(DATA_DIMS_ODD, benchmark=false)
+
     MPI.Finalize()
 end
 

@@ -110,22 +110,24 @@ Compute squared norm of array in Fourier space, in the local process.
 sqnorm(u::PencilArray, grid) = sqnorm((u, ), grid)
 
 function sqnorm(u::VectorField{T}, grid::FourierGridIterator) where {T <: Complex}
-    k_zero = zero(eltype(grid))
-    s = zero(real(T))
-
     gp = parent(grid) :: FourierGrid
     kx = gp[1]  # global wave numbers along r2c dimension
 
-    # Note: when Nx (size of input data) is even, the Nyquist frequency is also
-    # counted twice.
-    Nx = size(gp, 1)  # size of real input data along r2c dimension
-    k_zero = kx[1]    # zero mode
+    # Note: when Nx (size of real input data) is even, the Nyquist frequency is
+    # also counted twice.
+    Nx = size(gp, 1)
+    @assert length(kx) == div(Nx, 2) + 1
+
+    k_zero = kx[1]  # zero mode
+
     kx_lims = if iseven(Nx)
         (k_zero, kx[end])  # kx = 0 or Nx/2 (Nyquist frequency)
     else
         # We repeat k_zero for type inference reasons.
         (k_zero, k_zero)  # only kx = 0
     end
+
+    s = zero(real(T))
 
     @inbounds for (i, k) in enumerate(grid)
         # Account for Hermitian symmetry implied by r2c transform along the
