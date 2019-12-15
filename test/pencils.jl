@@ -45,12 +45,13 @@ function test_array_wrappers(p::Pencil)
 
     let v = similar(u)
         @test typeof(v) === typeof(u)
-        @test size(v) === size(u) === size_local(p, permute=true)
+        @test size(v) === size(u) === size_local(p, permute=false)
 
         vp = parent(v)
         randn!(vp)
-        I = size(v) .>> 1  # permuted indices
-        @test v[I...] == vp[I...]  # both arrays take the same (permuted) indices
+        I = size(v) .>> 1  # non-permuted indices
+        J = permute(I, perm)
+        @test v[I...] == vp[J...]  # the parent takes permuted indices
     end
 
     let psize = size_local(p)

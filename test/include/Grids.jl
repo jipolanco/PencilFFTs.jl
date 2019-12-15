@@ -11,10 +11,7 @@ using AbstractFFTs: Frequencies, fftfreq, rfftfreq
 # N-dimensional grid.
 abstract type AbstractGrid{T, N, Perm} end
 
-# Note: the PhysicalGrid is accessed with permuted indices, and returns non-permuted
-# values.
-# For example, if the permutation is (2, 3, 1), the PhysicalGrid is accessed with
-# indices (i_2, i_3, i_1), and returns values (x_1, x_2, x_3).
+# Note: the PhysicalGrid is accessed with non-permuted indices.
 struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     dims  :: Dims{N}                 # permuted dimensions (N1, N2, N3)
     r     :: NTuple{N, LinRange{T}}  # non-permuted coordinates (x, y, z)
@@ -30,7 +27,7 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             # `dims`), to include the right limit.
             LinRange{T}(first(l), last(l), d + 1)
         end
-        dims = Pencils.permute_indices(dims_in, perm)
+        dims = dims_in
         iperm = Pencils.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
@@ -53,7 +50,7 @@ struct FourierGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             fs::T = 2pi * M / L
             n == 1 ? rfftfreq(M, fs)::F : fftfreq(M, fs)::F
         end
-        dims = Pencils.permute_indices(dims_in, perm)
+        dims = dims_in
         iperm = Pencils.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
@@ -63,6 +60,7 @@ end
 Base.eltype(::Type{<:AbstractGrid{T}}) where {T} = T
 Base.ndims(g::AbstractGrid{T, N}) where {T, N} = N
 Base.size(g::AbstractGrid) = g.dims
+Base.size(g::AbstractGrid, i) = size(g)[i]
 Base.axes(g::AbstractGrid) = Base.OneTo.(size(g))
 Base.CartesianIndices(g::AbstractGrid) = CartesianIndices(axes(g))
 
@@ -76,22 +74,20 @@ Base.iterate(::AbstractGrid, ::Nothing) = nothing
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,
                                            I::CartesianIndex{N}) where N
-    # Assume input indices are permuted, and un-permute them.
-    t = Pencils.permute_indices(Tuple(I), g.iperm)
+    # Assume input indices are not permuted.
+    t = Tuple(I)
     ntuple(n -> g[n][t[n]], Val(N))
 end
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,
                                            ranges::NTuple{N, AbstractRange}) where N
-    # Assume input indices are permuted, and un-permute them.
-    t = Pencils.permute_indices(ranges, g.iperm)
-    ntuple(n -> g[n][t[n]], Val(N))
+    ntuple(n -> g[n][ranges[n]], Val(N))
 end
 
 # Get range of geometry associated to a given pencil.
 @propagate_inbounds Base.getindex(g::AbstractGrid{T, N} where T,
                                   p::Pencil{N}) where N =
-    g[range_local(p, permute=true)]
+    g[range_local(p, permute=false)]
 
 """
     LocalGridIterator{T, N, G<:AbstractGrid}
@@ -111,7 +107,7 @@ struct LocalGridIterator{
     iter  :: It    # iterator with permuted indices and values
     iperm :: Perm  # inverse permutation
 
-    # Note: the range is expected to be permuted.
+    # Note: the range is expected to be unpermuted.
     function LocalGridIterator(grid::AbstractGrid{T,N},
                                range::NTuple{N,UnitRange{Int}}) where {T, N}
         if !(CartesianIndices(range) ⊆ CartesianIndices(grid))
@@ -122,9 +118,9 @@ struct LocalGridIterator{
         iperm = grid.iperm
         perm = Pencils.inverse_permutation(iperm)
 
-        # Note: grid[range] returns non-permuted coordinates from a permuted
+        # Note: grid[range] returns non-permuted coordinates from a non-permuted
         # `range`.
-        # We want the the coordinates permuted. This way we can iterate in the
+        # We want the coordinates permuted. This way we can iterate in the
         # right memory order, according to the current dimension permutation.
         # Then, we unpermute the coordinates at each call to `iterate`.
         grid_perm = Pencils.permute_indices(grid[range], perm)
@@ -140,9 +136,11 @@ end
 
 LocalGridIterator(grid::AbstractGrid, u::Pencils.MaybePencilArrayCollection) =
     LocalGridIterator(grid, pencil(u))
-LocalGridIterator(grid::AbstractGrid, p::Pencil) =
-    LocalGridIterator(grid, range_local(p, permute=true))
 
+LocalGridIterator(grid::AbstractGrid, p::Pencil) =
+    LocalGridIterator(grid, range_local(p, permute=false))
+
+Base.parent(g::LocalGridIterator) = g.grid
 Base.size(g::LocalGridIterator) = size(g.iter)
 Base.eltype(::Type{G} where G <: LocalGridIterator{T}) where {T} = T
 
