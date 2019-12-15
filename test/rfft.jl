@@ -14,7 +14,8 @@ using Test
 include("include/FourierOperations.jl")
 using .FourierOperations
 
-const DATA_DIMS = (42, 24, 16)
+const DATA_DIMS_EVEN = (42, 24, 16)
+const DATA_DIMS_ODD = DATA_DIMS_EVEN .- 1
 const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
@@ -64,12 +65,8 @@ function micro_benchmarks(u, uF, gF_global::FourierGrid,
     @printf " - %-20s" "curl! global_view..."
     @btime curl!($ωF, $uF, $gF_global)
 
-    ωF_copy = copy.(ωF)
-
     @printf " - %-20s" "curl! local..."
     @btime curl!($ωF, $uF, $gF_local)
-
-    @test all(ωF .≈ ωF_copy)
 
     # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
     @printf " - %-20s" "norm2(u)..."
@@ -100,7 +97,6 @@ function micro_benchmarks(u, uF, gF_global::FourierGrid,
 end
 
 function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
-    # TODO without global_view?
     fill!(u, zero(T))
 
     u_g = global_view(u)
@@ -160,13 +156,12 @@ function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
     u
 end
 
-function main()
-    MPI.Init()
-
-    size_in = DATA_DIMS
+function test_rfft(size_in; benchmark=true)
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     rank = MPI.Comm_rank(comm)
+
+    rank == 0 && @info "Input data size: $size_in"
 
     pdims_2d = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
@@ -186,7 +181,20 @@ function main()
     gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
     gF_local = LocalGridIterator(gF_global, uF)
 
-    test_global_average(u, uF, plan, gF_local)
+    # Compare different methods for computing stuff in Fourier space.
+    @testset "Fourier operations" begin
+        test_global_average(u, uF, plan, gF_local)
+
+        div_global = divergence(uF, gF_global)
+        div_local = divergence(uF, gF_local)
+        @test div_global ≈ div_local
+
+        ωF_global = similar.(uF)
+        ωF_local = similar.(uF)
+        curl!(ωF_global, uF, gF_global)
+        curl!(ωF_local, uF, gF_local)
+        @test all(ωF_global .≈ ωF_local)
+    end
 
     @test sqnorm(u) ≈ norm2(u)
 
@@ -194,9 +202,16 @@ function main()
     # symmetry into account, so the result can be roughly twice as large.
     @test 1 < sqnorm(uF, gF_local) / norm2(uF) <= 2 + 1e-8
 
-    rank == 0 && micro_benchmarks(u, uF, gF_global, gF_local)
-    MPI.Barrier(comm)
+    rank == 0 && benchmark && micro_benchmarks(u, uF, gF_global, gF_local)
 
+    MPI.Barrier(comm)
+end
+
+function main()
+    MPI.Init()
+    test_rfft(DATA_DIMS_EVEN)
+    println()
+    test_rfft(DATA_DIMS_ODD, benchmark=false)
     MPI.Finalize()
 end
 
