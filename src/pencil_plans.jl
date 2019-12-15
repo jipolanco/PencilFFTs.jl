@@ -65,12 +65,6 @@ along each dimension.
 - The floating point precision can be selected by setting `real_type` parameter,
   which is `Float64` by default.
 
-- `extra_dims` may be used to specify the sizes of one or more extra dimensions
-  that should not be transformed. These dimensions will be added to the rightmost
-  (i.e. slowest) indices of the arrays. Extra dimensions can be used to contain,
-  for instance, multiple vector field components in a single array.
-  See [`Pencils.PencilArray`](@ref) for more details.
-
 - The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
   `FFTW` plan creation functions (see [`AbstractFFTs`
   docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft)).
@@ -88,6 +82,21 @@ along each dimension.
 
 - `timer` should be a `TimerOutput` object.
   See [Measuring performance](@ref Pencils.measuring_performance) for details.
+
+# Experimental arguments
+
+The following options are **experimental** and may disappear in the future.
+
+- `extra_dims` may be used to specify the sizes of one or more extra dimensions
+  that should not be transformed. These dimensions will be added to the rightmost
+  (i.e. slowest) indices of the arrays. Extra dimensions can be used to contain,
+  for instance, multiple vector field components in a single array.
+  See [`Pencils.PencilArray`](@ref) for more details.
+
+  **NOTE** An alternative to `extra_dims` is to create a tuple or an array of
+  `PencilArray`s, e.g. one per vector component.
+  This can be done via the [`allocate_input`](@ref) and
+  [`allocate_output`](@ref) functions.
 
 # Example
 

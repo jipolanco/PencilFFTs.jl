@@ -33,7 +33,7 @@ function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0
 
     @inbounds for I in CartesianIndices(u[1])
         x, y, z = g[I]
-        l = LinearIndices(u[1])[I]
+        l = LinearIndices(u[1])[I]  # compute linear index just once
         u[1][l] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
         u[2][l] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
         u[3][l] = 0

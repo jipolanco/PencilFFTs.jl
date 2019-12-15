@@ -4,10 +4,8 @@
 CurrentModule = PencilFFTs
 ```
 
-Say you want to perform a 3D FFT of real periodic data defined on
-$N_x × N_y × N_z$ grid points.
-The data is to be distributed over 12 MPI processes on a $3 × 4$ grid, as in
-the figure below.
+The following tutorial shows how to perform a 3D FFT of real periodic data
+defined on a grid of $N_x × N_y × N_z$ points.
 
 ```@raw html
 <div class="figure">
@@ -23,6 +21,10 @@ the figure below.
     alt="Pencil decomposition of 3D domains">
 </div>
 ```
+
+The example assumes that 12 MPI processes are available.
+The data is to be distributed on a 2D MPI topology of dimensions $3 × 4$,
+as represented in the above figure.
 
 ## Creating plans
 
@@ -131,13 +133,13 @@ takes global indices.
 
 ### Output data layout
 
-In memory, the dimensions of the transform output are permuted with respect to
-the input.
+In memory, the dimensions of the transform output are by default permuted with
+respect to the input.
 That is, if the order of indices in the input data is `(x, y, z)`, then the
 output has order `(z, y, x)` in memory.
-This detail is hidden from the user, and **arrays should always be accessed in
-the same order as the input data**, regardless of the output dimension
-permutation.
+This detail is hidden from the user, and **output arrays are always accessed in
+the same order as the input data**, regardless of the underlying output
+dimension permutation.
 This applies to `PencilArray`s and to `OffsetArray`s returned by
 [`global_view`](@ref).
 
@@ -157,3 +159,29 @@ multidimensional transforms.
 This has been achieved, in part, by making sure that permutations such as `(3,
 2, 1)` are compile-time constants (using [value
 types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)).
+
+## More examples
+
+For the moment, some examples are available in the `test/` directory of the
+`PencilFFTs` repo.
+
+In particular, the
+[`test/taylor_green.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/test/taylor_green.jl)
+example is a fluid dynamics application around the
+[Taylor--Green](https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex)
+vortex flow.
+The example shows how to:
+
+- initialise a 3D vector field $\bm{v}$ that is compatible with `PencilFFT`
+  plans,
+- iterate efficiently over MPI-distributed arrays (i.e. `PencilArray`s),
+- apply forward and backward 3D parallel FFTs,
+- compute the divergence ($∇ ⋅ \bm{v}$) and the curl ($∇ × \bm{v}$) of
+  a vector field $\bm{v}$ in Fourier space.
+
+The example uses a few tools (`Grids` and `FourierOperations` modules) defined
+under the
+[`test/include`](https://github.com/jipolanco/PencilFFTs.jl/tree/master/test/include)
+directory, which are specifically written for real-to-complex FFTs.
+In the future, these tools may be written in a more generic manner, and become
+part of `PencilFFTs`.
