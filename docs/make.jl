@@ -13,7 +13,9 @@ makedocs(
     sitename = "PencilFFTs.jl",
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
-        assets = ["assets/custom.css"],  # load src/assets/custom.css in <head>
+        # load assets in <head>
+        assets = ["assets/custom.css",
+                  "assets/matomo.js"],
     ),
     modules = [PencilFFTs],
     pages = [
