@@ -101,6 +101,8 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
         println("\n", "-"^60, "\n\n", plan, "\n")
 
         @inferred allocate_input(plan)
+        @inferred allocate_input(plan, 2, 3)
+        @inferred allocate_input(plan, Val(3))
         @inferred allocate_output(plan)
         u = allocate_input(plan)
         v = allocate_output(plan)

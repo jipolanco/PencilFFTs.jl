@@ -393,36 +393,38 @@ See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 get_timer(p::PencilFFTPlan) = p.timer
 
 """
-    allocate_input(p::PencilFFTPlan)         -> PencilArray
-    allocate_input(p::PencilFFTPlan, N)      -> Vector{PencilArray}
-    allocate_input(p::PencilFFTPlan, Val(N)) -> NTuple{N, PencilArray}
+    allocate_input(p::PencilFFTPlan)          -> PencilArray
+    allocate_input(p::PencilFFTPlan, dims...) -> Array{PencilArray}
+    allocate_input(p::PencilFFTPlan, Val(N))  -> NTuple{N, PencilArray}
 
 Allocate uninitialised [`PencilArray`](@ref) that can hold input data for the
 given plan.
 
-The second and third forms respectively allocate a vector and a tuple of `N`
-`PencilArray`s.
+The second and third forms respectively allocate an array of `PencilArray`s of
+size `dims`, and a tuple of `N` `PencilArray`s.
 """
 allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in,
                                                p.extra_dims)
-allocate_input(p::PencilFFTPlan, N) = _allocate_many(allocate_input, p, N)
+allocate_input(p::PencilFFTPlan, dims...) =
+    _allocate_many(allocate_input, p, dims...)
 
 """
-    allocate_output(p::PencilFFTPlan)         -> PencilArray
-    allocate_output(p::PencilFFTPlan, N)      -> Vector{PencilArray}
-    allocate_output(p::PencilFFTPlan, Val(N)) -> NTuple{N, PencilArray}
+    allocate_output(p::PencilFFTPlan)          -> PencilArray
+    allocate_output(p::PencilFFTPlan, dims...) -> Array{PencilArray}
+    allocate_output(p::PencilFFTPlan, Val(N))  -> NTuple{N, PencilArray}
 
 Allocate uninitialised [`PencilArray`](@ref) that can hold output data for the
 given plan.
 
-The second and third forms respectively allocate a vector and a tuple of `N`
-`PencilArray`s.
+The second and third forms respectively allocate an array of `PencilArray`s of
+size `dims`, and a tuple of `N` `PencilArray`s.
 """
 allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out,
                                                 p.extra_dims)
-allocate_output(p::PencilFFTPlan, N) = _allocate_many(allocate_output, p, N)
+allocate_output(p::PencilFFTPlan, dims...) =
+    _allocate_many(allocate_output, p, dims...)
 
-_allocate_many(allocator::Function, p::PencilFFTPlan, N::Integer) =
-    [allocator(p) for n = 1:N]
+_allocate_many(allocator::Function, p::PencilFFTPlan, dims::Vararg{Int}) =
+    [allocator(p) for I in CartesianIndices(dims)]
 _allocate_many(allocator::Function, p::PencilFFTPlan, ::Val{N}) where {N} =
     ntuple(n -> allocator(p), Val(N))
