@@ -9,6 +9,10 @@
 
 - Multithreading?
 
+- Implement FFT padding (like in the Fortran P3DFFT), e.g. for 2/3 dealiasing.
+
+- Add `Grids` module.
+
 ## Pencils
 
 - add optional callbacks to `transpose!`? To do stuff while data is being received...

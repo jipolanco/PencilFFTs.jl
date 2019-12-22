@@ -25,9 +25,9 @@ pencil.
     u = PencilArray(pencil, data)  # wrapper with dimensions (10, 20, 30)
     @assert size(u) === (10, 20, 30)
 
-    u[15, 25, 5]                   # BoundsError (15 > 10 and 25 > 20)
-    u[5, 15, 25]                   # correct
-    parent(u)[15, 25, 5]           # correct
+    u[15, 25, 5]          # BoundsError (15 > 10 and 25 > 20)
+    u[5, 15, 25]          # correct
+    parent(u)[15, 25, 5]  # correct
 
     ```
 
