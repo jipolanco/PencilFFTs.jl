@@ -12,7 +12,7 @@ DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
 makedocs(
     sitename = "PencilFFTs.jl",
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true",
+        prettyurls = true,
         # load assets in <head>
         assets = ["assets/custom.css",
                   "assets/matomo.js"],

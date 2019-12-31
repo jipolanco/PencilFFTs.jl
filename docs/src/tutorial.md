@@ -12,8 +12,7 @@ defined on a grid of $N_x × N_y × N_z$ points.
   <!--
   Note: this is evaluated from the directory where the Tutorial page is
   built. This directory varies depending on whether `prettyurls` is enabled in
-  `makedocs`. To make things work in both cases, we added a symlink in docs/img
-  pointing to docs/build/img.
+  `makedocs`. Here we assume `prettyurls=true`.
   -->
   <img
     width="85%"

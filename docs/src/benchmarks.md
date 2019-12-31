@@ -23,8 +23,7 @@ Each timing is averaged over 100 repetitions.
   <!--
   Note: this is evaluated from the directory where the Benchmarks page is
   built. This directory varies depending on whether `prettyurls` is enabled in
-  `makedocs`. To make things work in both cases, we added a symlink in docs/img
-  pointing to docs/build/img.
+  `makedocs`. Here we assume `prettyurls=true`.
   -->
   <img
     width="75%"
