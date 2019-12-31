@@ -10,11 +10,12 @@ This module may be used independently of the FFT functionality.
 The [`Pencils`](@ref) module defines types that describe [an MPI Cartesian
 topology](@ref sec:mpi_topology) and [the decomposition of data over MPI
 processes](@ref sec:pencil_configs).
-Also, [array wrappers](@ref Array-wrappers) allow to conveniently (and
-efficiently) deal with the MPI-decomposed data.
+The module also defines [array wrappers](@ref Array-wrappers), most notably the
+[`PencilArray`](@ref) type, which allow to conveniently and efficiently work
+with MPI-decomposed data.
 
-```@docs
-Pencils
+```@raw html
+<!-- TODO Summarise sections. Skip bla bla if you're not interested. -->
 ```
 
 ## [MPI topology](@id sec:mpi_topology)
@@ -24,39 +25,97 @@ decomposition.
 In other words, it contains information about the number of decomposed
 dimensions, and the number of processes in each of these dimensions.
 
+The main `MPITopology` constructor takes a MPI communicator and a tuple
+specifying the number of processes in each dimension.
+For instance, to distribute 12 MPI processes on a $3 × 4$ grid:
+```julia
+comm = MPI.COMM_WORLD  # we assume MPI.Comm_size(comm) == 12
+pdims = (3, 4)
+topology = MPITopology(comm, pdims)
+```
+
 At the lower level, [`MPITopology`](@ref) uses
 [`MPI_Cart_create`](https://www.mpich.org/static/docs/latest/www3/MPI_Cart_create.html)
 to define a Cartesian MPI communicator.
-
-```@docs
-MPITopology
-get_comm(::MPITopology)
-length(::MPITopology)
-ndims(::MPITopology)
-size(::MPITopology)
+For more control, one can also create a Cartesian communicator using
+`MPI.Cart_create`, and pass that to `MPITopology`:
+```julia
+comm = MPI.COMM_WORLD
+dims = [3, 4]  # note: array, not tuple!
+periods = zeros(Int, N)
+reorder = false
+comm_cart = MPI.Cart_create(comm, dims, periods, reorder)
+topology = MPITopology(comm_cart)
 ```
 
 ## [Pencil configurations](@id sec:pencil_configs)
 
-The [`Pencil`](@ref) type describes a given MPI decomposition configuration of
-multidimensional data.
+A *pencil* configuration refers to a given distribution of multidimensional
+data among MPI processes.
+This information is encoded in the [`Pencil`](@ref) type.
 
-```@docs
-Pencil
+More precisely, a pencil configuration includes:
+- [MPI topology](@ref sec:mpi_topology) information,
+- global and local dimensions of the numerical grid,
+- subset of decomposed dimensions,
+- type of decomposed data (e.g. `Float64`),
+- definition of optional permutation of dimensions.
+
+### Construction
+
+The creation of a new [`Pencil`](@ref) requires a [`MPITopology`](@ref), as
+well as the global data dimensions and a list of decomposed dimensions.
+Optionally, one can also specify the data type (the default is `Float64`) and
+a permutation of dimensions.
+
+For instance, to decompose along the first and third dimensions of a complex
+3D dataset,
+```julia
+topology = MPITopology(#= ... =#)
+dims_global = (16, 32, 64)
+decomp_dims = (1, 3)  # this requires ndims(topology) == 2
+pencil = Pencil(topology, dims_global, decomp_dims, Complex{Float64})
 ```
 
-### Functions
-
-```@docs
-eltype(::Pencil)
-get_comm(::Pencil)
-get_decomposition(::Pencil)
-get_permutation(::Pencil)
-ndims(::Pencil)
-range_local(::Pencil{N}) where N
-size_global(::Pencil)
-size_local(::Pencil)
+One may also want to create multiple pencil configurations that differ, for
+instance, on the selection of decomposed dimensions.
+For this case, a second constructor is available that takes an already existing
+`Pencil` instance.
+Calling this constructor should be preferred when possible since it allows
+sharing memory buffers (used for instance for [global transpositions](@ref Global-MPI-operations)) and thus reducing memory usage.
+The following creates a `Pencil` equivalent to the one above, but with
+different decomposed dimensions:
+```julia
+pencil_x = Pencil(pencil, decomp_dims=(2, 3))
 ```
+See the [`Pencil`](@ref) documentation for more details.
+
+### Dimension permutations
+
+As mentioned above, a `Pencil` may optionally be given information on dimension
+permutations.
+In this case, the layout of the data arrays in memory is different from the
+logical order of dimensions.
+
+To make this clearer, consider the example above where the global data
+dimensions are $N_x × N_y × N_z = 16 × 32 × 64$.
+In this case, the logical order is $(x, y, z)$.
+Now let's say that we want the memory order of the data to be $(y, z, x)$,[^1]
+which corresponds to the permutation `(2, 3, 1)`.
+
+Permutations are passed to the `Pencil` constructor via the `permute` keyword
+argument.
+For performance reasons, in the `Pencils` module, dimension permutations are
+compile-time constants, and thus permutations should be specified as [value
+types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)
+wrapping a tuple.
+For instance,
+```julia
+permutation = Val((2, 3, 1))
+pencil = Pencil(#= ... =#, permute=permutation)
+```
+One can also pass `nothing` as a permutation, which disables permutations (this
+is the default).
 
 ## Array wrappers
 
@@ -144,31 +203,48 @@ pencil = Pencil(..., timer=to)
 print_timer(to)
 ```
 
-### Internal documentation
+## Library
+
+### Modules
 
 ```@docs
+Pencils
+```
+
+### Types
+
+```@docs
+MPITopology
+Pencil
+```
+
+### Functions
+
+```@docs
+get_comm(::MPITopology)
+length(::MPITopology)
+ndims(::MPITopology)
+size(::MPITopology)
+
+eltype(::Pencil)
+get_comm(::Pencil)
+get_decomposition(::Pencil)
+get_permutation(::Pencil)
+ndims(::Pencil)
+range_local(::Pencil{N}) where N
+size_global(::Pencil)
+size_local(::Pencil)
 to_local(::Pencil)
 ```
 
 ## Index
 
-### Modules
-
 ```@index
 Pages = ["Pencils.md"]
-Order = [:module]
+Order = [:module, :type, :function]
 ```
 
-### Types
-
-```@index
-Pages = ["Pencils.md"]
-Order = [:type]
-```
-
-### Functions
-
-```@index
-Pages = ["Pencils.md"]
-Order = [:function]
-```
+[^1]:
+    Why would we want this?
+    Perhaps because we want to efficiently perform FFTs along $y$, which under
+    this permutation would be the fastest dimension.
