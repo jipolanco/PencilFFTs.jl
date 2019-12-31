@@ -27,10 +27,15 @@ configuration to the other and perform FFTs along the other dimensions.
   <img width="85%" alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
 </p>
 
+Note that PencilFFTs can decompose grids of arbitrary dimension `N`, along an
+arbitrary number of subdimensions `M < N`.
+(In the example above, `N = 3` and `M = 2`.)
+
 ## Quick start
 
 The following example shows how to apply a 3D FFT of real data over 12 MPI
-processes distributed on a `3 × 4` grid (just like in the figure above).
+processes distributed on a `3 × 4` grid (same distribution as in the figure
+above).
 
 ```julia
 using MPI
@@ -48,12 +53,12 @@ proc_dims = (3, 4)
 # Create plan
 plan = PencilFFTPlan(dims, transform, proc_dims, comm)
 
-# Allocate and initialise input data, and apply transform
+# Allocate and initialise input data, and apply transform.
 u = allocate_input(plan)
 rand!(u)
 uF = plan * u
 
-# Apply backwards transform (note that the result is normalised)
+# Apply backwards transform. Note that the result is normalised.
 v = plan \ uF
 @assert u ≈ v
 ```
@@ -63,12 +68,15 @@ For more details see the
 
 ## Performance
 
-The performance of PencilFFTs is on par with widely adopted MPI-based FFT
-libraries implemented in lower-level languages.
-This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/) library
-(see [the benchmarks section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) in the docs for details).
+The performance of PencilFFTs is comparable to that of widely adopted MPI-based
+FFT libraries implemented in lower-level languages.
+This is seen in the below comparison with the [P3DFFT++](https://www.p3dfft.net/) library.
 
 <p align="center">
   <br/>
   <img width="70%" alt="Strong scaling of PencilFFTs" src="docs/src/img/benchmark_idris.svg">
 </p>
+
+See [the benchmarks
+section](https://jipolanco.github.io/PencilFFTs.jl/dev/benchmarks/) of the docs
+for details.
