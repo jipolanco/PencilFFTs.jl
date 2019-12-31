@@ -42,11 +42,18 @@ dimensions.[^2]
 Moreover, the transforms applied along each dimension can be arbitrarily chosen
 among those supported by [FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
 including complex-to-complex, real-to-complex and real-to-real transforms.
+
 The generic and efficient implementation of this package is greatly enabled by
 the use of zero-cost abstractions in Julia.
 As shown in the [Benchmarks](@ref) section, the performance of PencilFFTs has
 been validated against the C++ implementation of the
 [P3DFFT](https://www.p3dfft.net) library.
+
+## Installation
+
+PencilFFTs can be installed using the Julia package manager:
+
+    julia> ] add PencilFFTs
 
 ## Similar projects
 

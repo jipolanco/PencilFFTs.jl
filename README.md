@@ -31,6 +31,12 @@ Note that PencilFFTs can decompose grids of arbitrary dimension `N`, along an
 arbitrary number of subdimensions `M < N`.
 (In the example above, `N = 3` and `M = 2`.)
 
+## Installation
+
+PencilFFTs can be installed using the Julia package manager:
+
+    julia> ] add PencilFFTs
+
 ## Quick start
 
 The following example shows how to apply a 3D FFT of real data over 12 MPI
