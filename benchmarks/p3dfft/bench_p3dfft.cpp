@@ -11,15 +11,11 @@
 #include <memory>
 #include <vector>
 
-// TODO
-// - timers!
-
 // File based on p3dfft.3/sample/C++/test3D_r2c.C and
 // p3dfft/sample/C/driver_rand.c.
 
 constexpr char USAGE[] = "./bench_p3dfft N [repetitions] [output_file]";
 
-using Real = double;
 using Complex = std::complex<double>;
 
 template <int N> using Dims = std::array<int, N>;
@@ -127,9 +123,8 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
       std::cout << "L2 error: " << diff2 << std::endl;
   }
 
-#ifdef TIMERS
-  p3dfft::timers.init();
-#endif
+  // Initialise timers
+  Cset_timers();
 
   double t = -MPI_Wtime();
   for (int n = 0; n < repetitions; ++n) {
@@ -140,13 +135,17 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   t += MPI_Wtime();
   t *= 1000 / repetitions;  // time in ms
 
-  if (rank == 0)
+  // Gather timing statistics.
+  std::array<double, 12> timers;
+  Cget_timers(timers.data());
+  for (auto &t : timers) t /= repetitions;
+
+  if (rank == 0) {
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
-
-#ifdef TIMERS
-  p3dfft::timers.print(grid_i.mpi_comm_glob);
-#endif
+    for (int i = 0; i < timers.size(); ++i)
+      std::cout << "  timer[" << i << "]: " << timers[i] << std::endl;
+  }
 
   return t;
 }
@@ -236,6 +235,7 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   Cp3dfft_setup(pdims.data(), dims[0], dims[1], dims[2],
                 MPI_Comm_c2f(MPI_COMM_WORLD), dims[0], dims[1], dims[2], 0,
                 memsize.data());
+  Cset_timers();
 
   // Get dimensions for input array - real numbers, X-pencil shape. Note that we
   // are following the Fortran ordering, i.e. the dimension with stride-1 is X.
