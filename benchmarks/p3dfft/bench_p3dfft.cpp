@@ -232,9 +232,8 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
 
   // Initialise P3DFFT
   Dims<3> memsize;  // not used...
-  Cp3dfft_setup(pdims.data(), dims[0], dims[1], dims[2],
-                MPI_Comm_c2f(MPI_COMM_WORLD), dims[0], dims[1], dims[2], 0,
-                memsize.data());
+  Cp3dfft_setup(pdims.data(), dims[0], dims[1], dims[2], MPI_Comm_c2f(comm),
+                dims[0], dims[1], dims[2], 0, memsize.data());
   Cset_timers();
 
   // Get dimensions for input array - real numbers, X-pencil shape. Note that we
