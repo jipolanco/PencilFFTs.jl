@@ -17,7 +17,7 @@ class Benchmark(NamedTuple):
 BENCH_PENCILS = Benchmark('PencilFFTs', 'results/PencilFFTs_N{N}.dat',
                           plot_style=dict(color='C0'))
 
-BENCH_P3DFFT = Benchmark('P3DFFT++', 'results/P3DFFT3_N{N}.dat',
+BENCH_P3DFFT = Benchmark('P3DFFT', 'results/P3DFFT3_N{N}.dat',
                          plot_style=dict(color='C1'))
 
 

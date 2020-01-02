@@ -13,6 +13,8 @@ elif (( resolution == 1024 )); then
     procs="256 512 1024 2048 4096 8192 16384"
 fi
 
+# TODO load fftw3 and pass it to cmake
+
 module purge
 module load intel-all/19.0.4
 module load git
@@ -20,15 +22,14 @@ module load cmake/3.14.4
 
 # Compile p3dfft
 export CXX=icpc
-srcdir="$(realpath -e ../../p3dfft.3)"
+srcdir="$(realpath -e ../../p3dfft)"
 builddir=build.p3dfft
 
 if [[ ! -d $builddir ]]; then
     mkdir -p $builddir
     pushd $builddir || exit 1
     cmake "$srcdir" -DCMAKE_BUILD_TYPE=Release \
-        -DP3DFFT_CXX_FLAGS="-O3 -DNDEBUG -xHost" \
-        -DUSE_JULIA_FFTW=ON || exit 2
+        -DP3DFFT_Fortran_FLAGS="-O3 -DNDEBUG -xHost" || exit 2
     make -j4
     popd || exit 1
 fi
