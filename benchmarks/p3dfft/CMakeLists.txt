@@ -29,37 +29,16 @@ add_compile_options(${MPI_CXX_COMPILE_OPTIONS})
 add_compile_definitions(${MPI_CXX_COMPILE_DEFINITIONS})
 
 # Find FFTW.
-option(USE_JULIA_FFTW "Use same FFTW library as Julia" ON)
-
-if(USE_JULIA_FFTW)
-    execute_process(
-        COMMAND julia --project
-            -e "import FFTW_jll; println(FFTW_jll.LIBPATH)"
-        OUTPUT_VARIABLE julia_fftw3_libpath
-        RESULT_VARIABLE julia_result
-        )
-    if(NOT julia_result EQUAL 0)
-        message(FATAL_ERROR "julia process failed!")
-    endif()
-    string(STRIP ${julia_fftw3_libpath} fftw3_libdir)
-else()
-    set(FFTW3_LIBDIR "" CACHE PATH "FFTW3 library directory")
-    find_library(FFTW3_LIB NAMES fftw3 HINTS ${FFTW3_LIBDIR})
-    if(NOT FFTW3_LIB)
-        message(FATAL_ERROR
-            "FFTW3 not found! Try setting FFTW3_LIBDIR.")
-    endif()
-    get_filename_component(fftw3_libdir "${FFTW3_LIB}" DIRECTORY)
+set(FFTW3_LIBDIR "" CACHE PATH "FFTW3 library directory")
+find_library(FFTW3_LIB NAMES fftw3 HINTS ${FFTW3_LIBDIR})
+if(NOT FFTW3_LIB)
+    message(FATAL_ERROR
+        "FFTW3 not found! Try setting FFTW3_LIBDIR.")
 endif()
+get_filename_component(fftw3_libdir "${FFTW3_LIB}" DIRECTORY)
+get_filename_component(fftw3_root "${fftw3_libdir}/.." ABSOLUTE)
 
 message(STATUS "Using FFTW3 library dir: ${fftw3_libdir}")
-
-find_library(fftw3_lib_actual NAMES fftw3 HINTS ${fftw3_libdir})
-set(fftw3_home "${CMAKE_CURRENT_BINARY_DIR}/fftw3")
-file(REMOVE_RECURSE ${fftw3_home})
-file(MAKE_DIRECTORY "${fftw3_home}/lib")
-set(fftw3_lib_symlink ${fftw3_home}/lib/libfftw3.so)
-file(CREATE_LINK ${fftw3_lib_actual} ${fftw3_lib_symlink} SYMBOLIC)
 
 # Install P3DFFT as external project.
 set(p3dfft_git_repo https://github.com/sdsc/p3dfft.git)
@@ -74,7 +53,7 @@ set(P3DFFT_C_FLAGS "-O3 -DNDEBUG" CACHE STRING "P3DFFT build flags")
 set(p3dfft_config_flags
     "${P3DFFT_CONFIG_FLAGS}"
     "--enable-fftw"
-    "--with-fftw=${fftw3_home}"
+    "--with-fftw=${fftw3_root}"
     "--prefix=${p3dfft_install_prefix}"
 )
 
@@ -112,10 +91,9 @@ ExternalProject_Add(p3dfft_build
     GIT_PROGRESS TRUE
     # UPDATE_COMMAND ""
 
-    # By default, P3DFFT looks for lib/libfftw3.a, but FFTW3_jll only includes
-    # the shared library version (libfftw3.so). This patch makes P3DFFT look
-    # for "libfftw3.so".
-    PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
+    # By default, P3DFFT looks for the static library lib/libfftw3.a.
+    # This patch makes P3DFFT look for "libfftw3.so" instead.
+    # PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
 
     BUILD_IN_SOURCE TRUE
     CONFIGURE_COMMAND aclocal
@@ -137,7 +115,7 @@ set_target_properties(p3dfft PROPERTIES
     IMPORTED_LINK_INTERFACE_LANGUAGES Fortran
 )
 target_link_libraries(p3dfft
-    INTERFACE ${fftw3_lib_actual} ${MPI_Fortran_LIBRARIES})
+    INTERFACE ${FFTW3_LIB} ${MPI_Fortran_LIBRARIES})
 
 add_executable(bench_p3dfft bench_p3dfft.cpp)
 target_link_libraries(bench_p3dfft p3dfft ${MPI_CXX_LIBRARIES})
