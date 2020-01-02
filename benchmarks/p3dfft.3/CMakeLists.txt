@@ -33,43 +33,65 @@ option(USE_JULIA_FFTW "Use same FFTW library as Julia" ON)
 
 if(USE_JULIA_FFTW)
     execute_process(
-        COMMAND julia -e "import FFTW; println(FFTW.libfftw3)"
-        OUTPUT_VARIABLE julia_libfftw3
+        COMMAND julia --project
+            -e "import FFTW_jll; println(FFTW_jll.LIBPATH)"
+        OUTPUT_VARIABLE julia_fftw3_libpath
         RESULT_VARIABLE julia_result
         )
     if(NOT julia_result EQUAL 0)
         message(FATAL_ERROR "julia process failed!")
     endif()
 
-    string(STRIP ${julia_libfftw3} FFTW3_LIB)
-    get_filename_component(FFTW3_LIBDIR ${FFTW3_LIB} DIRECTORY CACHE)
-    find_file(FFTW3_INC fftw3.h HINTS ${FFTW3_LIBDIR}/../include)
+    string(STRIP ${julia_fftw3_libpath} fftw3_libdir)
+    get_filename_component(FFTW3_HOME "${fftw3_libdir}/.." ABSOLUTE)
 
-    if(NOT FFTW3_INC)
-        message(SEND_ERROR "fftw3.h included in FFTW.jl not found!")
+    find_library(FFTW3_LIB fftw3
+        HINTS ${fftw3_libdir} NO_DEFAULT_PATH)
+    find_file(FFTW3_INC fftw3.h
+        HINTS "${FFTW3_HOME}/include" NO_DEFAULT_PATH)
+
+    message(STATUS "${FFTW3_LIB} ${FFTW3_INC}")
+
+    if(NOT FFTW3_INC OR NOT FFTW3_LIB)
+        message(SEND_ERROR "fftw3.h or libfftw3.so not found!")
     endif()
 
-    get_filename_component(FFTW3_INCDIR ${FFTW3_INC} DIRECTORY CACHE)
+    get_filename_component(fftw3_incdir ${FFTW3_INC} DIRECTORY)
 else()
     set(FFTW3_LIBDIR "" CACHE PATH "FFTW3 library directory")
     set(FFTW3_INCDIR "" CACHE PATH "FFTW3 include directory")
 
-    find_library(FFTW3_LIB NAMES libfftw3.so HINTS ${FFTW3_LIBDIR})
+    find_library(FFTW3_LIB NAMES fftw3 HINTS ${FFTW3_LIBDIR})
     find_file(FFTW3_INC NAMES fftw3.h HINTS ${FFTW3_INCDIR})
 
     if(NOT FFTW3_INC OR NOT FFTW3_LIB)
-        message(SEND_ERROR
+        message(FATAL_ERROR
             "FFTW3 not found! Try setting FFTW3_LIBDIR and FFTW3_INCDIR.")
     endif()
+
+    get_filename_component(fftw3_incdir "${FFTW3_INC}" DIRECTORY)
+    get_filename_component(fftw3_libdir "${FFTW3_LIB}" DIRECTORY)
+
+    message(STATUS "${fftw3_incdir} ${fftw3_libdir}")
+
+    # P3DFFT expects a FFTW3 directory structure of the form
+    # FFTW3_HOME/{lib,include}. This is not compatible with the way FFTW3 is
+    # commonly installed in Linux distros. We workaround this by creating
+    # symlinks.
+    set(FFTW3_HOME "${CMAKE_CURRENT_BINARY_DIR}/fftw3")
+    file(MAKE_DIRECTORY "${FFTW3_HOME}")
+    file(CREATE_LINK "${fftw3_libdir}" "${FFTW3_HOME}/lib" SYMBOLIC)
+    file(CREATE_LINK "${fftw3_incdir}" "${FFTW3_HOME}/include" SYMBOLIC)
 endif()
 
-find_library(FFTW3_LIB_F NAMES libfftw3f.so HINTS ${FFTW3_LIBDIR})
+find_library(FFTW3_LIB_F NAMES libfftw3f.so HINTS ${fftw3_libdir})
 
-message(STATUS "Using FFTW3 library dir: ${FFTW3_LIBDIR}")
-message(STATUS "Using FFTW3 include dir: ${FFTW3_INCDIR}")
+message(STATUS "FFTW3 home: ${FFTW3_HOME}")
+message(STATUS "Using FFTW3 library dir: ${fftw3_libdir}")
+message(STATUS "Using FFTW3 include dir: ${fftw3_incdir}")
 
 # Install P3DFFT++ as external project.
-set(p3dfft_git_commit_hash b25205d5695abd0dd637fe607c36a8a5c99c7a08)
+set(p3dfft_git_commit_hash 09040fd71b6d6e90e18808b1a0dfa6b41c5dbc8b)
 set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
 
 set(P3DFFT_CONFIG_FLAGS "--enable-fftwestimate"
@@ -80,8 +102,7 @@ set(P3DFFT_CXX_FLAGS "-O3 -DNDEBUG"
 set(p3dfft_config_flags
     "${P3DFFT_CONFIG_FLAGS}"
     "--enable-fftw"
-    "--with-fftw-lib=${FFTW3_LIBDIR}"
-    "--with-fftw-inc=${FFTW3_INCDIR}"
+    "--with-fftw=${FFTW3_HOME}"
     "--prefix=${p3dfft_install_prefix}"
     )
 set(p3dfft_config_vars
@@ -122,7 +143,7 @@ add_library(p3dfft STATIC IMPORTED GLOBAL)
 add_dependencies(p3dfft p3dfft_build)
 set_target_properties(p3dfft PROPERTIES
     IMPORTED_LOCATION ${p3dfft_install_prefix}/lib/libp3dfft.3.a
-    INTERFACE_INCLUDE_DIRECTORIES "${p3dfft_incdir};${FFTW3_INCDIR}"
+    INTERFACE_INCLUDE_DIRECTORIES "${p3dfft_incdir};${fftw3_incdir}"
     INTERFACE_COMPILE_DEFINITIONS "${p3dfft_interface_definitions}"
     )
 target_link_libraries(p3dfft INTERFACE ${FFTW3_LIB} ${FFTW3_LIB_F})
