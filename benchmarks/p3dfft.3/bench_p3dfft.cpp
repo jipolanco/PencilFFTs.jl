@@ -1,23 +1,40 @@
 #include <p3dfft.h>
 
+#include <mpi.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <complex>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <vector>
 
-// File based on p3dfft.3/sample/C++/test3D_r2c.C
+// TODO
+// - timers!
+
+// File based on p3dfft.3/sample/C++/test3D_r2c.C and
+// p3dfft/sample/C/driver_rand.c.
 
 constexpr char USAGE[] = "./bench_p3dfft N [repetitions] [output_file]";
 
 using Real = double;
-using Complex = p3dfft::complex_double;
+using Complex = std::complex<double>;
 
 template <int N> using Dims = std::array<int, N>;
 
 constexpr int DEFAULT_REPETITIONS = 100;
+
+struct PencilSetup {
+  const int conf;
+  Dims<3> dims_global;
+  Dims<3> start, end, size;
+  PencilSetup(Dims<3> dims_global, int conf)
+      : conf(conf), dims_global(dims_global) {
+    Cp3dfft_get_dims(start.data(), end.data(), size.data(), conf);
+  }
+};
 
 template <class T, size_t N>
 auto print(T &io, const Dims<N> &dims) -> decltype(io) {
@@ -28,31 +45,17 @@ auto print(T &io, const Dims<N> &dims) -> decltype(io) {
   return io;
 }
 
-template <class T>
-std::vector<T> allocate_data(const p3dfft::grid &grid) {
-  auto &dims = grid.ldims;
-  int size = dims[0] * dims[1] * dims[2];
-  return std::vector<T>(size);
-}
-
 // This is adapted from test3D_r2c.C
-std::vector<double> &init_wave(std::vector<double> &u,
-                               const p3dfft::grid &grid) {
+std::vector<double> &init_wave(std::vector<double> &u, const PencilSetup &pen) {
   Dims<3> local_dims; // local permuted dimensions (i.e. in storage order)
   Dims<3> glob_start; // starting position in global array
 
   for (int i = 0; i < 3; ++i) {
-    int m = grid.mem_order[i];  // permutation
-    local_dims[m] = grid.ldims[i];
-    glob_start[m] = grid.glob_start[i];
+    local_dims[i] = pen.size[i];
+    glob_start[i] = pen.start[i];
   }
 
-  auto &gdims = grid.gdims;  // non-permuted global dimensions
-
-  // Note: the following assumes that there's no permutation of input data!!
-  // (This seems to be assumed by the original code...)
-  assert(grid.mem_order[0] == 0 && grid.mem_order[1] == 1 &&
-         grid.mem_order[2] == 2);
+  auto &gdims = pen.dims_global;  // non-permuted global dimensions
 
   std::vector<double> sinx(gdims[0]), siny(gdims[1]), sinz(gdims[2]);
   double twopi = 8 * std::atan(1.0);
@@ -80,7 +83,7 @@ std::vector<double> &init_wave(std::vector<double> &u,
 // transformed (complex) array, and not in the real data after backward
 // transform.
 template <typename T>
-void normalise(std::vector<T> &x, int gdims[3]) {
+void normalise(std::vector<T> &x, Dims<3> gdims) {
   double f = 1.0 / (double(gdims[0]) * double(gdims[1]) * double(gdims[2]));
   for (auto &v : x) v *= f;
 }
@@ -96,29 +99,24 @@ double compare(const std::vector<double> &x, const std::vector<double> &y) {
   return diff2;
 }
 
-double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o,
+double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
                  std::vector<double> &ui, std::vector<double> &ui_final,
-                 std::vector<Complex> &uo, int repetitions) {
-  auto comm = grid_i.mpi_comm_glob;
+                 std::vector<Complex> &uo, int repetitions, MPI_Comm comm) {
   int rank;
   MPI_Comm_rank(comm, &rank);
 
-  // Transform types
-  std::array<int, 3> transform_ids_fw = {
-      p3dfft::R2CFFT_D, p3dfft::CFFT_FORWARD_D, p3dfft::CFFT_FORWARD_D};
-  std::array<int, 3> transform_ids_bw = {
-      p3dfft::C2RFFT_D, p3dfft::CFFT_BACKWARD_D, p3dfft::CFFT_BACKWARD_D};
-  p3dfft::trans_type3D transforms_fw(transform_ids_fw.data());
-  p3dfft::trans_type3D transforms_bw(transform_ids_bw.data());
-  p3dfft::transform3D<Real, Complex> trans_f(grid_i, grid_o, &transforms_fw);
-  p3dfft::transform3D<Complex, Real> trans_b(grid_o, grid_i, &transforms_bw);
+  init_wave(ui, pencil_x);
 
-  init_wave(ui, grid_i);
+  unsigned char op_f[] = "fft";
+  unsigned char op_b[] = "tff";
+
+  // p3dfft transform functions take pointers to real values.
+  double *uo_ptr = reinterpret_cast<double *>(uo.data());
 
   // Warm-up
-  trans_f.exec(ui.data(), uo.data(), false);
-  normalise(uo, grid_i.gdims);
-  trans_b.exec(uo.data(), ui_final.data(), true);
+  Cp3dfft_ftran_r2c(ui.data(), uo_ptr, op_f);
+  normalise(uo, pencil_x.dims_global);
+  Cp3dfft_btran_c2r(uo_ptr, ui_final.data(), op_b);
 
   // Check result
   {
@@ -135,9 +133,9 @@ double transform(p3dfft::grid &grid_i, p3dfft::grid &grid_o,
 
   double t = -MPI_Wtime();
   for (int n = 0; n < repetitions; ++n) {
-    trans_f.exec(ui.data(), uo.data(), false);
-    normalise(uo, grid_i.gdims);
-    trans_b.exec(uo.data(), ui_final.data(), true);
+    Cp3dfft_ftran_r2c(ui.data(), uo_ptr, op_f);
+    normalise(uo, pencil_x.dims_global);
+    Cp3dfft_btran_c2r(uo_ptr, ui_final.data(), op_b);
   }
   t += MPI_Wtime();
   t *= 1000 / repetitions;  // time in ms
@@ -205,11 +203,6 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   MPI_Comm_rank(comm, &myrank);
   MPI_Comm_size(comm, &Nproc);
 
-  if (Nproc == 1) {
-    throw std::runtime_error(
-        "Error: P3DFFT will fail without any warning if run with 1 process!");
-  }
-
   if (myrank == 0) {
     auto dims = opt.dims;
     std::cout << "Number of processes:   " << Nproc << std::endl;
@@ -238,45 +231,40 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
     print(std::cout << "Processes:  ", pdims) << "\n";
   }
 
-  // Input grid
-  Dims<3> gdims_i = dims;
-  int dim_conj_sym = -1;
-  Dims<3> proc_order_i = {0, 1, 2};
-  Dims<3> mem_order_i = {0, 1, 2};
-  Dims<3> pgrid_i = {1, pdims[0], pdims[1]};
-  p3dfft::grid grid_i(gdims_i.data(), dim_conj_sym, pgrid_i.data(),
-                      proc_order_i.data(), mem_order_i.data(), comm);
+  // Initialise P3DFFT
+  Dims<3> memsize;  // not used...
+  Cp3dfft_setup(pdims.data(), dims[0], dims[1], dims[2],
+                MPI_Comm_c2f(MPI_COMM_WORLD), dims[0], dims[1], dims[2], 0,
+                memsize.data());
 
-  // Output grid
-  Dims<3> gdims_o = gdims_i;
-  dim_conj_sym = 0;
-  gdims_o[0] = gdims_o[0] / 2 + 1;
-  Dims<3> pgrid_o = {pdims[0], pdims[1], 1};
-  Dims<3> mem_order_o = {2, 1, 0};
-  p3dfft::grid grid_o(gdims_o.data(), dim_conj_sym, pgrid_o.data(),
-                      proc_order_i.data(), mem_order_o.data(), comm);
+  // Get dimensions for input array - real numbers, X-pencil shape. Note that we
+  // are following the Fortran ordering, i.e. the dimension with stride-1 is X.
+  PencilSetup pencil_x(dims, 1);
 
-  // Sometimes there is a weird "free(): invalid pointer" error when the vectors
-  // are destroyed. Maybe P3DFFT thinks it owns the pointers and deletes them??
-  // We make sure that these vectors are destroyed *after* the results are
-  // written to a file. This way we are sure that the results are written, even
-  // if the program crashes later.
-  auto ui = allocate_data<double>(grid_i);
+  // Get dimensions for output array - complex numbers, Z-pencil shape.
+  // Stride-1 dimension could be X or Z, depending on how the library was
+  // compiled (stride1 option)
+  PencilSetup pencil_z(dims, 2);
+
+  // Allocate and initialise.
+  std::vector<double> ui(pencil_x.size[0] * pencil_x.size[1] *
+                         pencil_x.size[2]);
   auto ui_final = ui;
-  auto uo = allocate_data<Complex>(grid_o);
+  std::vector<Complex> uo(pencil_z.size[0] * pencil_z.size[1] *
+                          pencil_z.size[2]);
 
-  double t_ms = transform(grid_i, grid_o, ui, ui_final, uo, opt.repetitions);
+  double t_ms =
+      transform(pencil_x, pencil_z, ui, ui_final, uo, opt.repetitions, comm);
+
+  Cp3dfft_clean();
 
   // Write results
   if (myrank == 0)
     BenchResults{opt, t_ms, pdims}.write_to_file();
-
-  MPI_Barrier(comm);  // vectors are destroyed after this barrier!
 }
 
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
-  p3dfft::setup();
 
   auto comm = MPI_COMM_WORLD;
   int myrank;
@@ -292,7 +280,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  p3dfft::cleanup();
   MPI_Finalize();
   return 0;
 }
