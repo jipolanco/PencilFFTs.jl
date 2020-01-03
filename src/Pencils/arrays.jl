@@ -347,23 +347,6 @@ Returns `nothing` if there is no associated permutation.
 get_permutation(x::MaybePencilArrayCollection) = get_permutation(pencil(x))
 
 """
-    spatial_indices(x::PencilArray)
-    spatial_indices(x::PencilArrayCollection)
-    spatial_indices(x::GlobalPencilArray)
-
-Create a `CartesianIndices` to iterate over the local "spatial" dimensions of a
-pencil-decomposed array.
-
-The "spatial" dimensions are those that may be decomposed (as opposed to the
-"extra" dimensions, which are not considered by this function).
-"""
-function spatial_indices(x::PencilArray)
-    Np = ndims_space(x)
-    CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
-end
-spatial_indices(x::PencilArrayCollection) = _apply(spatial_indices, x)
-
-"""
     gather(x::PencilArray, [root::Integer=0])
 
 Gather data from all MPI processes into one (big) array.

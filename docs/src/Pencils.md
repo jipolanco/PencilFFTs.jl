@@ -141,7 +141,6 @@ pencil(::PencilArray)
 range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
 size_global(::MaybePencilArrayCollection)
-spatial_indices(::PencilArray)
 ```
 
 ## Global MPI operations

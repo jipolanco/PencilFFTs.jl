@@ -23,8 +23,3 @@ function Base.LinearIndices(g::GlobalPencilArray)
     off = g.offsets
     PermutedLinearIndices(LinearIndices(parent(A)), get_permutation(A), off)
 end
-
-function spatial_indices(x::GlobalPencilArray)
-    Np = ndims(x) - ndims_extra(parent(x))
-    CartesianIndices(ntuple(n -> axes(x, n), Val(Np)))
-end
