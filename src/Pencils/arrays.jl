@@ -177,44 +177,6 @@ Base.IndexStyle(::Type{<:PencilArray{T,N,A}} where {T,N}) where {A} =
     Base._sub2ind(parent(x), J...)
 end
 
-# We make LinearIndices(::PencilArray) return a PermutedLinearIndices, which
-# takes index permutation into account.
-# (TODO Better / cleaner way to do this??)
-struct PermutedLinearIndices{N, L <: LinearIndices, Perm,
-                             Offsets <: Union{Nothing, Dims{N}},
-                            }
-    data :: L  # indices in permuted order
-    perm :: Perm
-    offsets :: Offsets
-    function PermutedLinearIndices(ind::LinearIndices{N},
-                                   perm::Perm, offsets=nothing) where {N, Perm}
-        L = typeof(ind)
-        Off = typeof(offsets)
-        new{N, L, Perm, Off}(ind, perm, offsets)
-    end
-end
-
-Base.length(L::PermutedLinearIndices) = length(L.data)
-Base.iterate(L::PermutedLinearIndices, args...) = iterate(L.data, args...)
-Base.lastindex(L::PermutedLinearIndices) = lastindex(L.data)
-
-@inline _apply_offset(I::CartesianIndex, ::Nothing) = I
-@inline _apply_offset(I::CartesianIndex{N}, off::Dims{N}) where {N} =
-    CartesianIndex(Tuple(I) .- off)
-
-@inline @propagate_inbounds Base.getindex(L::PermutedLinearIndices,
-                                          i::Integer) = L.data[i]
-
-@inline @propagate_inbounds function Base.getindex(
-        L::PermutedLinearIndices{N}, I::CartesianIndex{N}) where {N}
-    Ioff = _apply_offset(I, L.offsets)
-    J = permute_indices(Ioff, L.perm)
-    L.data[J]
-end
-
-Base.LinearIndices(A::PencilArray) =
-    PermutedLinearIndices(LinearIndices(parent(A)), get_permutation(A))
-
 # Linear indexing
 @propagate_inbounds @inline Base.getindex(x::PencilArray, i::Integer) =
     x.data[i]

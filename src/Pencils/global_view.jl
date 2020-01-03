@@ -17,9 +17,3 @@ end
 # Account for index permutation in global views.
 @inline Base._sub2ind(x::GlobalPencilArray, I...) =
     Base._sub2ind(parent(x), (I .- x.offsets)...)
-
-function Base.LinearIndices(g::GlobalPencilArray)
-    A = parent(g)
-    off = g.offsets
-    PermutedLinearIndices(LinearIndices(parent(A)), get_permutation(A), off)
-end

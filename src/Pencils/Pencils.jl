@@ -36,6 +36,7 @@ import .MPITopologies: get_comm
 include("pencil.jl")       # Pencil
 include("arrays.jl")       # PencilArray
 include("global_view.jl")  # GlobalPencilArray
+include("permuted_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndices
 
 include("data_ranges.jl")
 include("mpi_wrappers.jl")
