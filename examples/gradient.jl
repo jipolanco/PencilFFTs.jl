@@ -52,15 +52,6 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
     θ_glob = global_view(θ_hat)
     ∇θ_glob = global_view.(∇θ_hat)
 
-    # Note: in Fourier space, the dimensions are by default permuted to
-    # (z, y, x), i.e. the **last** index (the one associated to `z`) varies the
-    # fastest, instead of the first index as it is usually in Julia.
-    #
-    # Unfortunately, when using CartesianIndices, the usual (i, j, k) order is
-    # used, instead of the (k, j, i) order that would be optimal here.
-    # In other words, looping with CartesianIndices is not very efficient in
-    # this specific case.
-
     @inbounds for I in CartesianIndices(θ_glob)
         i, j, k = Tuple(I)  # global indices
 
