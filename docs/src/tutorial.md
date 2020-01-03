@@ -159,9 +159,10 @@ This has been achieved, in part, by making sure that permutations such as `(3,
 2, 1)` are compile-time constants (using [value
 types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)).
 
-## More examples
+## Example scripts
 
-For the moment, some examples are available in the `test/` directory of the
+In addition to the example section on the sidebar,
+some example scripts are available in the `test/` directory of the
 `PencilFFTs` repo.
 
 In particular, the
@@ -175,7 +176,7 @@ The example shows how to:
   [`PencilFFTPlan`](@ref)s,
 - iterate efficiently over [`PencilArray`](@ref)s,
 - apply forward and backward 3D parallel FFTs,
-- compute the divergence ($∇ ⋅ \bm{v}$) and the curl ($∇ × \bm{v}$) of
+- compute the divergence ($\bm{∇} ⋅ \bm{v}$) and the curl ($\bm{∇} × \bm{v}$) of
   a vector field $\bm{v}$ in Fourier space.
 
 The example uses a few tools (`Grids` and `FourierOperations` modules) defined

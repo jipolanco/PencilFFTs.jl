@@ -5,26 +5,29 @@ This example shows different methods to compute the gradient of a real-valued
 It is assumed that the field is periodic with period $L = 2π$ along all
 dimensions.
 
+A working implementation of this example can be found in
+[`examples/gradient.jl`](https://github.com/jipolanco/PencilFFTs.jl/tree/master/examples/gradient.jl).
+
 ## General procedure
 
 The discrete Fourier expansion of $θ$ writes
 ```math
-θ(\bm{x}) = ∑_{\bm{k} ∈ \Z} \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},
+θ(\bm{x}) = ∑_{\bm{k} ∈ \Z^3} \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},
 ```
 where $\bm{k} = (k_x, k_y, k_z)$ are the Fourier wave numbers and $\hat{θ}$ is
 the discrete Fourier transform of $θ$.
 Then, the spatial derivatives of $θ$ are given by
 ```math
 \frac{∂ θ(\bm{x})}{∂ x_i} =
-∑_{\bm{k} ∈ \Z} i k_i \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},
+∑_{\bm{k} ∈ \Z^3} i k_i \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},
 ```
 where the underscript $i$ denotes one of the spatial components $x$, $y$ or
 $z$.
 
-In other words, to compute $∇θ = (∂_x θ, ∂_y θ, ∂_z θ)$, one has to:
+In other words, to compute $\bm{∇} θ = (∂_x θ, ∂_y θ, ∂_z θ)$, one has to:
 1. transform $θ$ to Fourier space to obtain $\hat{θ}$,
 2. multiply $\hat{θ}$ by $i \bm{k}$,
-3. transform the result back to physical space to obtain $∇θ$.
+3. transform the result back to physical space to obtain $\bm{∇} θ$.
 
 ## Preparation
 
@@ -65,12 +68,12 @@ randn!(θ)
 In general, the Fourier wave numbers are of the form
 $k_i = 0, ±\frac{2π}{L_i}, ±\frac{4π}{L_i}, ±\frac{6π}{L_i}, \ldots$,
 where $L_i$ is the period along dimension $i$.
-However, when a real-to-complex Fourier transform is applied, roughly half of
+When a real-to-complex Fourier transform is applied, roughly half of
 these wave numbers are redundant due to the Hermitian symmetry of the complex
 Fourier coefficients.
 In practice, this means that for the fastest dimension $x$ (along which
-a real-to-complex transform is performed), only the positive wave numbers are
-kept, i.e. $k_x = 0, \frac{2π}{L_x}, \frac{4π}{L_x}, \ldots$.
+a real-to-complex transform is performed), the negative wave numbers are
+dropped, i.e. $k_x = 0, \frac{2π}{L_x}, \frac{4π}{L_x}, \ldots$.
 
 The `AbstractFFTs` package provides a convenient way to generate the Fourier
 wave numbers, using the functions
@@ -82,14 +85,14 @@ our 3D real-to-complex transform:
 ```julia
 using AbstractFFTs: fftfreq, rfftfreq
 
-box_size = (2π, 2π, 2π)  # L_x, L_y, L_z
+box_size = (2π, 2π, 2π)  # Lx, Ly, Lz
 sample_rate = 2π .* dims ./ box_size
 
-# In our case (L_x = 2π and N_x even), this gives kx = [0, 1, 2, ..., N_x/2].
+# In our case (Lx = 2π and Nx even), this gives kx = [0, 1, 2, ..., Nx/2].
 kx = rfftfreq(dims[1], sample_rate[1])
 
-# In our case (L_y = 2π and N_y even), this gives
-# ky = [0, 1, 2, ..., N_y/2-1, -Ny/2, -Ny/2+1, ..., -1] (and similarly for kz).
+# In our case (Ly = 2π and Ny even), this gives
+# ky = [0, 1, 2, ..., Ny/2-1, -Ny/2, -Ny/2+1, ..., -1] (and similarly for kz).
 ky = fftfreq(dims[2], sample_rate[2])
 kz = fftfreq(dims[3], sample_rate[3])
 
