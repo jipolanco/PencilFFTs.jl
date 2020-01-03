@@ -24,6 +24,10 @@ let with_checks = !MAKE_FAST
         pages=[
             "Home" => "index.md",
             "tutorial.md",
+            "More examples" => [
+                "examples/init_vector_field.md",
+                "examples/gradient.md",
+            ],
             "PencilFFTs.md",
             "Transforms.md",
             "Pencils.md",
