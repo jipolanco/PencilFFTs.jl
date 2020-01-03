@@ -1,7 +1,22 @@
 #!/usr/bin/env julia
 
-# See https://jipolanco.github.io/PencilFFTs.jl/dev/examples/gradient/ for
-# details.
+# Different implementations of gradient computation in Fourier space, with
+# performance comparisons.
+
+# Some sample benchmark results:
+#
+#     Transforms: (RFFT, FFT, FFT)
+#     Global dimensions: (64, 32, 64)  ->  (33, 32, 64)
+#     MPI topology: 2D decomposition (2×1 processes)
+#
+#     gradient_global_view!...            257.487 μs (0 allocations: 0 bytes)
+#     gradient_global_view_explicit!...   122.961 μs (0 allocations: 0 bytes)
+#     gradient_local!...                  154.610 μs (3 allocations: 1.14 KiB)
+#     gradient_local_parent!...           152.820 μs (3 allocations: 1.14 KiB)
+#     gradient_local_linear!...           144.994 μs (3 allocations: 1.14 KiB)
+#     gradient_local_linear_explicit!...  142.701 μs (3 allocations: 1.14 KiB)
+
+# See also https://jipolanco.github.io/PencilFFTs.jl/dev/examples/gradient/.
 
 using BenchmarkTools
 using MPI
@@ -68,6 +83,7 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
     ∇θ_hat
 end
 
+# This is the fastest implementation, and I'm not sure why!
 function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
                                         θ_hat::PencilArray, kvec_global)
     # Generate OffsetArrays that take global indices.
@@ -127,7 +143,47 @@ function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
     ∇θ_hat
 end
 
-# Similar to gradient_local!, but avoiding CartesianIndices (faster!).
+# Compute and return ∇θ in Fourier space, using local indices on the raw data
+# (which takes permuted indices).
+function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
+                                θ_hat::PencilArray, kvec_global)
+    # Get local data range in the global grid.
+    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
+
+    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
+    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
+
+    θ_p = parent(θ_hat) :: Array
+    ∇θ_p = parent.(∇θ_hat)
+
+    perm = get_permutation(θ_hat)
+    iperm = Pencils.inverse_permutation(perm)
+
+    @inbounds for I in CartesianIndices(θ_p)
+        # Unpermute indices to (i, j, k)
+        J = Pencils.permute_indices(I, iperm)
+
+        # Wave number vector associated to current Cartesian index.
+        i, j, k = Tuple(J)  # local indices
+        kx = kvec_local[1][i]
+        ky = kvec_local[2][j]
+        kz = kvec_local[3][k]
+
+        # Performance: compute linear index here, then access arrays using
+        # linear index `n` instead of Cartesian index `I`.
+        n = LinearIndices(θ_p)[I]
+
+        u = im * θ_p[n]
+
+        ∇θ_p[1][n] = kx * u
+        ∇θ_p[2][n] = ky * u
+        ∇θ_p[3][n] = kz * u
+    end
+
+    ∇θ_hat
+end
+
+# Similar to gradient_local!, but avoiding CartesianIndices (slightly faster).
 function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
                                 θ_hat::PencilArray, kvec_global)
     # Get local data range in the global grid.
@@ -171,11 +227,9 @@ end
 
 # Less generic version of the above, assuming that the permutation is (3, 2, 1).
 # It's basically the same but probably easier to understand.
-function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
-                                θ_hat::PencilArray, kvec_global,
-                                perm::Val{(3, 2, 1)},
-                               )
-    @assert get_permutation(θ_hat) === perm
+function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
+                                         θ_hat::PencilArray, kvec_global)
+    @assert get_permutation(θ_hat) === Val((3, 2, 1))
 
     # Get local data range in the global grid.
     rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
@@ -251,22 +305,20 @@ function main()
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local!..."
-    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec)         # faster
+    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+    @printf "%-40s" "gradient_local_parent!..."
+    @btime gradient_local_parent!($∇θ_hat_other, $θ_hat, $kvec)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local_linear!..."
-    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec)  # fastest
+    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
-    # Test the "explicit" variant of `gradient_local_linear`
-    let perm = get_permutation(θ_hat)  # permutation in Fourier space
-        gradient_local_linear!(∇θ_hat_other, θ_hat, kvec, perm)
-        @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-        # Same timings as generic version of `gradient_local_linear`!
-        @printf "%-40s" "gradient_local_linear! (explicit)..."
-        @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec, $perm)
-    end
+    @printf "%-40s" "gradient_local_linear_explicit!..."
+    @btime gradient_local_linear_explicit!($∇θ_hat_other, $θ_hat, $kvec)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     # Get gradient in physical space.
     ∇θ = plan \ ∇θ_hat_base
