@@ -317,12 +317,12 @@ size_global(x::MaybePencilArrayCollection; permute=false) =
     (size_global(pencil(x), permute=permute)..., extra_dims(x)...)
 
 """
-    range_local(x::PencilArray; permute=true)
-    range_local(x::PencilArrayCollection; permute=true)
+    range_local(x::PencilArray; permute=false)
+    range_local(x::PencilArrayCollection; permute=false)
 
 Local data range held by the PencilArray.
 
-By default the dimensions not permuted, matching the order of indices in the
+By default the dimensions are not permuted, matching the order of indices in the
 array.
 """
 range_local(x::MaybePencilArrayCollection; permute=false) =
