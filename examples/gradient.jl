@@ -110,6 +110,10 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
 
     @inbounds for (n, kvec_n) in enumerate(kvec_iter)
         # Apply inverse permutation to the current wave number vector.
+        # Note that this permutation has zero cost, since iperm is a
+        # compile-time constant!
+        # (This can be verified by comparing the performance of this function
+        # with the "explicit" variant of `gradient_local_linear`, below.)
         κ = Pencils.permute_indices(kvec_n, iperm)  # = (kx, ky, kz)
 
         u = im * θ_hat[n]
@@ -118,6 +122,35 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
         ∇θ_hat[1][n] = κ[1] * u
         ∇θ_hat[2][n] = κ[2] * u
         ∇θ_hat[3][n] = κ[3] * u
+    end
+
+    ∇θ_hat
+end
+
+# Less generic version of the above, assuming that the permutation is (3, 2, 1).
+# It's basically the same but probably easier to understand.
+function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
+                                θ_hat::PencilArray, kvec_global,
+                                perm::Val{(3, 2, 1)},
+                               )
+    @assert get_permutation(θ_hat) === perm
+
+    # Get local data range in the global grid.
+    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
+
+    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
+    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
+
+    # Create wave number iterator in (kz, ky, kx) order, i.e. in the same order
+    # as the array data.
+    kvec_iter = Iterators.product(kvec_local[3], kvec_local[2], kvec_local[1])
+
+    @inbounds for (n, kvec_n) in enumerate(kvec_iter)
+        kz, ky, kx = kvec_n
+        u = im * θ_hat[n]
+        ∇θ_hat[1][n] = kx * u
+        ∇θ_hat[2][n] = ky * u
+        ∇θ_hat[3][n] = kz * u
     end
 
     ∇θ_hat
@@ -176,6 +209,15 @@ function main()
     @btime gradient_global_view!($∇θ_hat_glb, $θ_hat, $kvec)
     @btime gradient_local!($∇θ_hat_loc, $θ_hat, $kvec)         # faster
     @btime gradient_local_linear!($∇θ_hat_lin, $θ_hat, $kvec)  # fastest
+
+    # Test the "explicit" variant of `gradient_local_linear`
+    let perm = get_permutation(θ_hat)  # permutation in Fourier space
+        gradient_local_linear!(∇θ_hat_lin, θ_hat, kvec, perm)
+        @assert all(∇θ_hat_glb .≈ ∇θ_hat_lin)
+
+        # Same timings as generic version of `gradient_local_linear`!
+        @btime gradient_local_linear!($∇θ_hat_lin, $θ_hat, $kvec, $perm)
+    end
 
     # Get gradient in physical space.
     ∇θ = plan \ ∇θ_hat_loc
