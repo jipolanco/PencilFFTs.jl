@@ -8,7 +8,12 @@ using MPI
 using PencilFFTs
 
 using AbstractFFTs: fftfreq, rfftfreq
+using Printf: @printf
 using Random: randn!
+
+const INPUT_DIMS = (64, 32, 64)
+
+const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 function generate_wavenumbers_r2c(dims::Dims{3})
     box_size = (2π, 2π, 2π)  # Lx, Ly, Lz
@@ -32,6 +37,15 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
     θ_glob = global_view(θ_hat)
     ∇θ_glob = global_view.(∇θ_hat)
 
+    # Note: in Fourier space, the dimensions are by default permuted to
+    # (z, y, x), i.e. the **last** index (the one associated to `z`) varies the
+    # fastest, instead of the first index as it is usually in Julia.
+    #
+    # Unfortunately, when using CartesianIndices, the usual (i, j, k) order is
+    # used, instead of the (k, j, i) order that would be optimal here.
+    # In other words, looping with CartesianIndices is not very efficient in
+    # this specific case.
+
     @inbounds for I in CartesianIndices(θ_glob)
         i, j, k = Tuple(I)  # global indices
 
@@ -40,8 +54,8 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
         ky = kvec_global[2][j]
         kz = kvec_global[3][k]
 
-        # Performance: compute linear index here, then index arrays using linear
-        # index `n` instead of Cartesian index `I`.
+        # Performance: compute linear index here, then access arrays using
+        # linear index `n` instead of Cartesian index `I`.
         n = LinearIndices(θ_glob)[I]
 
         u = im * θ_glob[n]
@@ -49,6 +63,34 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
         ∇θ_glob[1][n] = kx * u
         ∇θ_glob[2][n] = ky * u
         ∇θ_glob[3][n] = kz * u
+    end
+
+    ∇θ_hat
+end
+
+function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
+                                        θ_hat::PencilArray, kvec_global)
+    # Generate OffsetArrays that take global indices.
+    θ_glob = global_view(θ_hat)
+    ∇θ_glob = global_view.(∇θ_hat)
+
+    rng = axes(θ_glob)  # (i1:i2, j1:j2, k1:k2)
+
+    # Note: since the dimensions in Fourier space are permuted as (z, y, x), it
+    # is faster to loop with `k` as the fastest index.
+    @assert get_permutation(θ_hat) === Val((3, 2, 1))
+
+    @inbounds for i in rng[1], j in rng[2], k in rng[3]
+        # Wave number vector associated to current Cartesian index.
+        kx = kvec_global[1][i]
+        ky = kvec_global[2][j]
+        kz = kvec_global[3][k]
+
+        u = im * θ_glob[i, j, k]
+
+        ∇θ_glob[1][i, j, k] = kx * u
+        ∇θ_glob[2][i, j, k] = ky * u
+        ∇θ_glob[3][i, j, k] = kz * u
     end
 
     ∇θ_hat
@@ -71,8 +113,8 @@ function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
         ky = kvec_local[2][j]
         kz = kvec_local[3][k]
 
-        # Performance: compute linear index here, then index arrays using linear
-        # index `n` instead of Cartesian index `I`.
+        # Performance: compute linear index here, then access arrays using
+        # linear index `n` instead of Cartesian index `I`.
         n = LinearIndices(θ_hat)[I]
 
         u = im * θ_hat[n]
@@ -160,7 +202,7 @@ function main()
     MPI.Init()
 
     # Input data dimensions (Nx × Ny × Nz)
-    dims = (16, 32, 64)
+    dims = INPUT_DIMS
 
     kvec = generate_wavenumbers_r2c(dims)
 
@@ -172,6 +214,9 @@ function main()
     Nproc = MPI.Comm_size(comm)
     rank = MPI.Comm_rank(comm)
 
+    # Disable output on all but one process.
+    rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+
     # Let MPI_Dims_create choose the decomposition.
     proc_dims = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
@@ -180,10 +225,7 @@ function main()
 
     # Create plan
     plan = PencilFFTPlan(dims, transform, proc_dims, comm)
-
-    if rank == 0
-        println(plan)
-    end
+    println(plan, "\n")
 
     # Allocate data and initialise field
     θ = allocate_input(plan)
@@ -193,34 +235,41 @@ function main()
     θ_hat = plan * θ
 
     # Compute and compare gradients using different methods.
-    # Note that these return a tuple of 3 PencilArrays, representing a vector
+    # Note that these return a tuple of 3 PencilArrays representing a vector
     # field.
-    ∇θ_hat_glb = allocate_output(plan, Val(3))
-    ∇θ_hat_loc = allocate_output(plan, Val(3))
-    ∇θ_hat_lin = allocate_output(plan, Val(3))
+    ∇θ_hat_base = allocate_output(plan, Val(3))
+    ∇θ_hat_other = similar.(∇θ_hat_base)
 
-    gradient_global_view!(∇θ_hat_glb, θ_hat, kvec)
-    gradient_local!(∇θ_hat_loc, θ_hat, kvec)
-    gradient_local_linear!(∇θ_hat_lin, θ_hat, kvec)
+    gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
 
-    @assert all(∇θ_hat_glb .≈ ∇θ_hat_loc)
-    @assert all(∇θ_hat_glb .≈ ∇θ_hat_lin)
+    @printf "%-40s" "gradient_global_view!..."
+    @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
-    @btime gradient_global_view!($∇θ_hat_glb, $θ_hat, $kvec)
-    @btime gradient_local!($∇θ_hat_loc, $θ_hat, $kvec)         # faster
-    @btime gradient_local_linear!($∇θ_hat_lin, $θ_hat, $kvec)  # fastest
+    @printf "%-40s" "gradient_global_view_explicit!..."
+    @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+    @printf "%-40s" "gradient_local!..."
+    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec)         # faster
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+    @printf "%-40s" "gradient_local_linear!..."
+    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec)  # fastest
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     # Test the "explicit" variant of `gradient_local_linear`
     let perm = get_permutation(θ_hat)  # permutation in Fourier space
-        gradient_local_linear!(∇θ_hat_lin, θ_hat, kvec, perm)
-        @assert all(∇θ_hat_glb .≈ ∇θ_hat_lin)
+        gradient_local_linear!(∇θ_hat_other, θ_hat, kvec, perm)
+        @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
         # Same timings as generic version of `gradient_local_linear`!
-        @btime gradient_local_linear!($∇θ_hat_lin, $θ_hat, $kvec, $perm)
+        @printf "%-40s" "gradient_local_linear! (explicit)..."
+        @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec, $perm)
     end
 
     # Get gradient in physical space.
-    ∇θ = plan \ ∇θ_hat_loc
+    ∇θ = plan \ ∇θ_hat_base
 
     MPI.Finalize()
 end
