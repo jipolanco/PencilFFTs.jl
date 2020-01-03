@@ -1,8 +1,14 @@
 # TODO
 
+- Break into multiple packages: PencilArrays, PencilFFTs (maybe also
+  PencilIterators / PencilGrids? PencilIO?)
+
+- `extra_dims` stuff should be in a separate section of the docs (or
+  removed...)
+
 - Avoid transpositions when using `NoTransform`
 
-- Reduce array allocations (buffers)
+- Is it possible to reduce array allocations (buffers)?
 
 - Disallow (or support?) initialising BRFFT plan. Instead, RFFT plan should be
   created and applied backwards.
@@ -11,7 +17,13 @@
 
 - Implement FFT padding (like in the Fortran P3DFFT), e.g. for 2/3 dealiasing.
 
-- Add `Grids` module.
+- Add `Grids` module?
+
+- Permuted dimensions and CartesianIndices: visiting order of array and of grid
+  must be the same.
+
+  * Performance: can I make CartesianIndices visit permuted arrays in memory
+    order? (this is not currently the case...)
 
 ## Pencils
 
