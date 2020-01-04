@@ -71,19 +71,6 @@ PencilFFTs can be installed using the Julia package manager:
 - [2DECOMP&FFT](http://www.2decomp.org) is another parallel 3D FFT library
   using pencil decomposition written in Fortran.
 
-## Contents
-
-```@contents
-Pages = [
-    "tutorial.md",
-    "PencilFFTs.md",
-    "Transforms.md",
-    "Pencils.md",
-    "benchmarks.md",
-]
-Depth = 2
-```
-
 [^1]:
     Figure adapted from [this thesis](https://hal.archives-ouvertes.fr/tel-02084215v1).
 
