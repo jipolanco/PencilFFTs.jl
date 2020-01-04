@@ -107,13 +107,7 @@ end
 
 # Compute and return ∇θ in Fourier space, using local indices.
 function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
-                         kvec_global)
-    # Get local data range in the global grid.
-    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-
-    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
-
+                         kvec_local::NTuple{3,Vector})
     @inbounds for (n, I) in enumerate(CartesianIndices(θ_hat))
         i, j, k = Tuple(I)  # local indices
 
@@ -135,13 +129,8 @@ end
 # Compute and return ∇θ in Fourier space, using local indices on the raw data
 # (which takes permuted indices).
 function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
-                                θ_hat::PencilArray, kvec_global)
-    # Get local data range in the global grid.
-    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-
-    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
-
+                                θ_hat::PencilArray,
+                                kvec_local::NTuple{3,Vector})
     θ_p = parent(θ_hat) :: Array
     ∇θ_p = parent.(∇θ_hat)
 
@@ -170,13 +159,8 @@ end
 
 # Similar to gradient_local!, but avoiding CartesianIndices (slightly faster).
 function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
-                                θ_hat::PencilArray, kvec_global)
-    # Get local data range in the global grid.
-    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-
-    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
-
+                                θ_hat::PencilArray,
+                                kvec_local::NTuple{3,Vector})
     # We want to iterate over the arrays in memory order to maximise
     # performance. For this we need to take into account the permutation of
     # indices in the Fourier-transformed arrays. By default, the memory order in
@@ -213,14 +197,9 @@ end
 # Less generic version of the above, assuming that the permutation is (3, 2, 1).
 # It's basically the same but probably easier to understand.
 function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
-                                         θ_hat::PencilArray, kvec_global)
+                                         θ_hat::PencilArray,
+                                         kvec_local::NTuple{3,Vector})
     @assert get_permutation(θ_hat) === Val((3, 2, 1))
-
-    # Get local data range in the global grid.
-    rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-
-    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-    kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
 
     # Create wave number iterator in (kz, ky, kx) order, i.e. in the same order
     # as the array data.
@@ -279,6 +258,11 @@ function main()
     ∇θ_hat_base = allocate_output(plan, Val(3))
     ∇θ_hat_other = similar.(∇θ_hat_base)
 
+    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
+    kvec_local = let rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
+        ntuple(d -> kvec[d][rng[d]], Val(3))
+    end
+
     gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
 
     @printf "%-40s" "gradient_global_view!..."
@@ -290,19 +274,19 @@ function main()
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local!..."
-    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec)
+    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec_local)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local_parent!..."
-    @btime gradient_local_parent!($∇θ_hat_other, $θ_hat, $kvec)
+    @btime gradient_local_parent!($∇θ_hat_other, $θ_hat, $kvec_local)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local_linear!..."
-    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec)
+    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec_local)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     @printf "%-40s" "gradient_local_linear_explicit!..."
-    @btime gradient_local_linear_explicit!($∇θ_hat_other, $θ_hat, $kvec)
+    @btime gradient_local_linear_explicit!($∇θ_hat_other, $θ_hat, $kvec_local)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
     # Get gradient in physical space.
