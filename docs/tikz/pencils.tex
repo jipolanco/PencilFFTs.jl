@@ -11,6 +11,7 @@
 \setsansfont{Fira Sans}
 
 \usepackage{graphicx}
+\usepackage{xcolor}
 \usepackage{microtype}
 \usepackage{physics}
 
@@ -24,6 +25,14 @@
 \RenewDocumentCommand\boldsymbol{ m }{\symbf{#1}}
 
 %% ---------------------------------------------------------------------- %%
+
+% Colours in Julia logo: https://julialang.org/v2/img/logo.svg
+\definecolorset{HTML}{Julia}{}{%
+  Blue,4D64AE;%
+  Green,399746;%
+  Red,CA3C32;%
+  Purple,9259A3%
+}
 
 \begin{document}
 

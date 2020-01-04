@@ -27,10 +27,17 @@
   % Usage: \pencol{colour_name}{n}{m}, where n and m are indices in [0, \Npen-1]
   % and [0, \Mpen-1].
   \newcommand*{\pencol}[3]{%
-    \pgfmathsetmacro{\R}{(#2 + 1) / \Npen}
-    \pgfmathsetmacro{\B}{(#3 + 1) / \Mpen}
-    \pgfmathsetmacro{\G}{(\R + \B) / 2}
-    \definecolor{#1}{rgb}{\R, \G, \B}
+    \tikzmath{
+      \A = #2 / (\Npen - 1) * 100;
+      \B = #3 / (\Mpen - 1) * 100;
+      % Note: for \A, \B >= 0, atan2 returns something in [0, 90]
+      \C = atan2(\A, \B) * 100 / 90;
+    }
+    % \node at (#2, #3) {\C};  % for verification!
+    \colorlet{nearwhite}{black!2}
+    \colorlet{tmpA}{JuliaPurple!\A!nearwhite}
+    \colorlet{tmpB}{JuliaGreen!\B!nearwhite}
+    \colorlet{#1}{tmpA!\C!tmpB}
   }
 
   %% Coordinate axes
