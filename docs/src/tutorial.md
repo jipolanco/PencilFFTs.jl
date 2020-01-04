@@ -130,9 +130,9 @@ For convenience, the [`global_view`](@ref) function can be used to generate an
 [`OffsetArray`](https://github.com/JuliaArrays/OffsetArrays.jl) wrapper that
 takes global indices.
 
-### Output data layout
+### [Output data layout](@id tutorial:output_data_layout)
 
-In memory, the dimensions of the transform output are by default permuted with
+In memory, the dimensions of the transform output are by default reversed with
 respect to the input.
 That is, if the order of indices in the input data is `(x, y, z)`, then the
 output has order `(z, y, x)` in memory.
@@ -159,10 +159,14 @@ This has been achieved, in part, by making sure that permutations such as `(3,
 2, 1)` are compile-time constants (using [value
 types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)).
 
-## Example scripts
+## Further reading
 
-In addition to the example section on the sidebar,
-some example scripts are available in the `test/` directory of the
+The examples on the sidebar further illustrate the use of transforms and
+provide an introduction to working with MPI-distributed data in the form of
+`PencilArray`s.
+
+In addition to the examples,
+some useful scripts are available in the `test/` directory of the
 `PencilFFTs` repo.
 
 In particular, the
@@ -183,5 +187,3 @@ The example uses a few tools (`Grids` and `FourierOperations` modules) defined
 under the
 [`test/include`](https://github.com/jipolanco/PencilFFTs.jl/tree/master/test/include)
 directory, which are specifically written for real-to-complex FFTs.
-In the future, these tools may be written in a more generic manner, and become
-part of `PencilFFTs`.
