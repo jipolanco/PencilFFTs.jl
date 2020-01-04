@@ -233,15 +233,15 @@ size_global(p::Pencil; permute::Bool=false) =
     permute ? permute_indices(p.size_global, p.perm) : p.size_global
 
 """
-    to_local(p::Pencil, global_inds; permute=true)
+    to_local(p::Pencil, global_inds; permute=false)
 
 Convert non-permuted global indices to local indices.
 
-Indices are permuted by default using the permutation associated to the pencil
-configuration `p`.
+Indices can be optionally permuted using the permutation associated to the
+pencil configuration `p`.
 """
 function to_local(p::Pencil{N}, global_inds::ArrayRegion{N};
-                  permute=true) where N
+                  permute=false) where N
     ind = map(global_inds, p.axes_local) do rg, rl
         @assert step(rg) == 1
         δ = 1 - first(rl)

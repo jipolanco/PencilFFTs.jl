@@ -201,7 +201,7 @@ function transpose_impl!(
         # Global data range that I need to send to process n.
         srange = intersect.(idims_local, odims[ind])
         length_send_n = prod(length.(srange)) * prod_extra_dims
-        local_send_range = to_local(Pi, srange)
+        local_send_range = to_local(Pi, srange, permute=true)
 
         # Determine amount of data to be received.
         rrange = intersect.(odims_local, idims[ind])
