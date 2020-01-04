@@ -15,6 +15,12 @@
 #     gradient_local_parent!...           152.820 μs (3 allocations: 1.14 KiB)
 #     gradient_local_linear!...           144.994 μs (3 allocations: 1.14 KiB)
 #     gradient_local_linear_explicit!...  142.701 μs (3 allocations: 1.14 KiB)
+#
+# This was obtained when running julia with the default optimisation level -O2.
+#
+# If one uses -O1 instead, `gradient_local_linear_explicit!` becomes much
+# slower than the rest, indicating that there's a lot of compiler optimisations
+# going on specifically in that function.
 
 # See also https://jipolanco.github.io/PencilFFTs.jl/dev/examples/gradient/.
 
@@ -52,17 +58,13 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
     θ_glob = global_view(θ_hat)
     ∇θ_glob = global_view.(∇θ_hat)
 
-    @inbounds for I in CartesianIndices(θ_glob)
+    @inbounds for (n, I) in enumerate(CartesianIndices(θ_glob))
         i, j, k = Tuple(I)  # global indices
 
         # Wave number vector associated to current Cartesian index.
         kx = kvec_global[1][i]
         ky = kvec_global[2][j]
         kz = kvec_global[3][k]
-
-        # Performance: compute linear index here, then access arrays using
-        # linear index `n` instead of Cartesian index `I`.
-        n = LinearIndices(θ_glob)[I]
 
         u = im * θ_glob[n]
 
@@ -112,17 +114,13 @@ function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
     # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
     kvec_local = ntuple(d -> kvec_global[d][rng[d]], Val(3))
 
-    @inbounds for I in CartesianIndices(θ_hat)
+    @inbounds for (n, I) in enumerate(CartesianIndices(θ_hat))
         i, j, k = Tuple(I)  # local indices
 
         # Wave number vector associated to current Cartesian index.
         kx = kvec_local[1][i]
         ky = kvec_local[2][j]
         kz = kvec_local[3][k]
-
-        # Performance: compute linear index here, then access arrays using
-        # linear index `n` instead of Cartesian index `I`.
-        n = LinearIndices(θ_hat)[I]
 
         u = im * θ_hat[n]
 
@@ -150,7 +148,7 @@ function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
     perm = get_permutation(θ_hat)
     iperm = Pencils.inverse_permutation(perm)
 
-    @inbounds for I in CartesianIndices(θ_p)
+    @inbounds for (n, I) in enumerate(CartesianIndices(θ_p))
         # Unpermute indices to (i, j, k)
         J = Pencils.permute_indices(I, iperm)
 
@@ -159,10 +157,6 @@ function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
         kx = kvec_local[1][i]
         ky = kvec_local[2][j]
         kz = kvec_local[3][k]
-
-        # Performance: compute linear index here, then access arrays using
-        # linear index `n` instead of Cartesian index `I`.
-        n = LinearIndices(θ_p)[I]
 
         u = im * θ_p[n]
 
