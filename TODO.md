@@ -3,6 +3,9 @@
 - Break into multiple packages: PencilArrays, PencilFFTs (maybe also
   PencilIterators / PencilGrids? PencilIO?)
 
+- Package for permuted arrays? (basically an improved version of
+  `PermutedDimsArray`, with fast Cartesian indexing...)
+
 - `extra_dims` stuff should be in a separate section of the docs (or
   removed...)
 
@@ -22,9 +25,6 @@
 - Permuted dimensions and CartesianIndices: visiting order of array and of grid
   must be the same.
 
-  * Performance: can I make CartesianIndices visit permuted arrays in memory
-    order? (this is not currently the case...)
-
 ## Pencils
 
 - add optional callbacks to `transpose!`? To do stuff while data is being received...
@@ -32,3 +32,9 @@
 - functions to exchange ghost data between pencils
 
 - parallel HDF5 I/O (optional?) -> use Requires
+
+## Examples
+
+- Chebyshev expansions.
+
+- Initialising arrays in physical space.
