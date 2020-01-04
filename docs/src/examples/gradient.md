@@ -320,7 +320,8 @@ dimension permutation, methods [1](@ref gradient_method_global) and [3](@ref
 gradient_method_local) should be preferred.
 These use `CartesianIndices` and make no assumptions on the permutations
 (actually, permutations are completely invisible in the implementations).
-The latter is faster and should be preferred for performance.
+[Method 3](@ref gradient_method_local) is faster and should be preferred for
+performance.
 
 The [second method](@ref gradient_method_global_explicit) uses explicit
 `(i, j, k)` indices.
