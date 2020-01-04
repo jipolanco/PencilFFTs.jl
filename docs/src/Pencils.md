@@ -14,8 +14,8 @@ The module also defines [array wrappers](@ref Array-wrappers), most notably the
 [`PencilArray`](@ref) type, which allow to conveniently and efficiently work
 with MPI-decomposed data.
 
-```@raw html
-<!-- TODO Summarise sections. Skip bla bla if you're not interested. -->
+```@docs
+Pencils
 ```
 
 ## [MPI topology](@id sec:mpi_topology)
@@ -24,6 +24,8 @@ The [`MPITopology`](@ref) type defines the MPI Cartesian topology of the
 decomposition.
 In other words, it contains information about the number of decomposed
 dimensions, and the number of processes in each of these dimensions.
+
+### Construction
 
 The main `MPITopology` constructor takes a MPI communicator and a tuple
 specifying the number of processes in each dimension.
@@ -46,6 +48,21 @@ periods = zeros(Int, N)
 reorder = false
 comm_cart = MPI.Cart_create(comm, dims, periods, reorder)
 topology = MPITopology(comm_cart)
+```
+
+### Types
+
+```@docs
+MPITopology
+```
+
+### Methods
+
+```@docs
+get_comm(::MPITopology)
+length(::MPITopology)
+ndims(::MPITopology)
+size(::MPITopology)
 ```
 
 ## [Pencil configurations](@id sec:pencil_configs)
@@ -82,7 +99,8 @@ instance, on the selection of decomposed dimensions.
 For this case, a second constructor is available that takes an already existing
 `Pencil` instance.
 Calling this constructor should be preferred when possible since it allows
-sharing memory buffers (used for instance for [global transpositions](@ref Global-MPI-operations)) and thus reducing memory usage.
+sharing memory buffers (used for instance for [global transpositions](@ref
+Global-MPI-operations)) and thus reducing memory usage.
 The following creates a `Pencil` equivalent to the one above, but with
 different decomposed dimensions:
 ```julia
@@ -117,7 +135,74 @@ pencil = Pencil(#= ... =#, permute=permutation)
 One can also pass `nothing` as a permutation, which disables permutations (this
 is the default).
 
+### Types
+
+```@docs
+Pencil
+```
+
+### Methods
+
+```@docs
+eltype(::Pencil)
+get_comm(::Pencil)
+get_decomposition(::Pencil)
+get_permutation(::Pencil)
+ndims(::Pencil)
+range_local(::Pencil{N}) where N
+size_global(::Pencil)
+size_local(::Pencil)
+to_local(::Pencil)
+```
+
 ## Array wrappers
+
+The `Pencils` module also defines a [`PencilArray`](@ref) type that wraps
+an `AbstractArray` while including pencil decomposition information.
+
+### Construction
+
+A `PencilArray` wrapper can be simply constructed from a `Pencil` instance as
+```julia
+pencil = Pencil(#= ... =#)
+A = PencilArray(pencil)
+parent(A)  # returns the allocated Array
+```
+This allocates a new `Array` with the local dimensions and data type associated
+to the `Pencil`.
+
+One can also construct a `PencilArray` wrapper from an existing
+`AbstractArray`, whose dimensions and type must be compatible with the `Pencil`
+configuration.
+For instance, the following works:
+```julia
+T = eltype(pencil)
+dims = size_local(pencil, permute=true)  # dimensions of data array must be permuted!
+data = Array{T}(undef, dims)
+A = PencilArray(pencil, data)
+```
+Note that `data` does not need to be a `Array`, but can be any subtype of
+`AbstractArray`.
+
+### Dimension permutations
+
+Unlike the wrapped `AbstractArray`, the `PencilArray` wrapper takes
+non-permuted indices.
+For instance, if the underlying permutation of the `Pencil` is `(2, 3, 1)`,
+then `A[i, j, k]` points to the same value as `parent(A)[j, k, i]`.
+
+### Global views
+
+`PencilArray`s are accessed using local indices that start at 1, regardless of
+the location of the subdomain associated to the local process on the global
+grid.
+Sometimes it may be more convenient to use global indices describing the
+position of the local process in the domain.
+For this, the [`global_view`](@ref) function is provided that generates an
+[`OffsetArray`](https://github.com/JuliaArrays/OffsetArrays.jl) wrapper taking
+global indices.
+For more details, see for instance [the gradient example](@ref
+gradient_method_global).
 
 ### Types
 
@@ -127,7 +212,7 @@ PencilArrayCollection
 MaybePencilArrayCollection
 ```
 
-### Functions
+### Methods
 
 ```@docs
 extra_dims(::PencilArray)
@@ -202,40 +287,6 @@ pencil = Pencil(..., timer=to)
 print_timer(to)
 ```
 
-## Library
-
-### Modules
-
-```@docs
-Pencils
-```
-
-### Types
-
-```@docs
-MPITopology
-Pencil
-```
-
-### Functions
-
-```@docs
-get_comm(::MPITopology)
-length(::MPITopology)
-ndims(::MPITopology)
-size(::MPITopology)
-
-eltype(::Pencil)
-get_comm(::Pencil)
-get_decomposition(::Pencil)
-get_permutation(::Pencil)
-ndims(::Pencil)
-range_local(::Pencil{N}) where N
-size_global(::Pencil)
-size_local(::Pencil)
-to_local(::Pencil)
-```
-
 ## Index
 
 ```@index
@@ -245,5 +296,5 @@ Order = [:module, :type, :function]
 
 [^1]:
     Why would we want this?
-    Perhaps because we want to efficiently perform FFTs along $y$, which under
-    this permutation would be the fastest dimension.
+    Perhaps because we want to efficiently perform FFTs along $y$, which, under
+    this permutation, would be the fastest dimension.

@@ -1,5 +1,8 @@
 # Distributed FFTs
 
+Distributed FFTs are built on top of the [`Pencils`](@ref) and the
+[`Transforms`](@ref) modules, and are implemented in the `PencilFFTs` module.
+
 ```@meta
 CurrentModule = PencilFFTs
 ```
@@ -7,6 +10,7 @@ CurrentModule = PencilFFTs
 ## Types
 
 ```@docs
+GlobalFFTParams
 PencilFFTPlan
 ```
 
@@ -57,8 +61,9 @@ plan = PencilFFTPlan(..., timer=to)
 print_timer(to)
 ```
 
-## Internal documentation
+## Index
 
-```@docs
-GlobalFFTParams
+```@index
+Pages = ["PencilFFTs.md"]
+Order = [:module, :type, :function]
 ```

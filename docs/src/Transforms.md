@@ -11,10 +11,6 @@ Transforms
 ## Transform types
 
 ```@docs
-AbstractTransform
-
-NoTransform
-
 FFT
 BFFT
 
@@ -22,15 +18,18 @@ RFFT
 BRFFT
 
 R2R
+
+NoTransform
 ```
 
-## Internal documentation
+## Internals
 
 What follows is used internally by `PencilFFTs`.
 
-### Custom plans
+### Types
 
 ```@docs
+AbstractTransform
 IdentityPlan
 ```
 
@@ -47,4 +46,11 @@ eltype_output
 expand_dims
 kind
 length_output
+```
+
+## Index
+
+```@index
+Pages = ["Transforms.md"]
+Order = [:module, :type, :function]
 ```

@@ -37,6 +37,8 @@ pencil.
     indices).
     For instance, these may correspond to vector or tensor components.
     These dimensions are not affected by permutations.
+    **Support for extra dimensions is experimental and may dissapear in the
+    future!**.
 
     ##### Example
 
