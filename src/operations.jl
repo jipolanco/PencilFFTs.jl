@@ -120,7 +120,7 @@ function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8},
                                  extra_dims::Dims)
     # Create "unsafe" pencil array wrapping buffer data.
     T = eltype(p)
-    dims = (size_local(p)..., extra_dims...)
+    dims = (size_local(p, permute=true)..., extra_dims...)
     nb = prod(dims) * sizeof(T)
     resize!(buf, nb)
     x = Pencils.unsafe_as_array(T, buf, dims)

@@ -87,10 +87,12 @@ struct PencilArray{T, N,
         geom_dims = ntuple(n -> size_data[n], Np)  # = size_data[1:Np]
         extra_dims = ntuple(n -> size_data[Np + n], E)  # = size_data[Np+1:N]
 
-        if geom_dims !== size_local(pencil)
+        dims_local = size_local(pencil, permute=true)
+
+        if geom_dims !== dims_local
             throw(DimensionMismatch(
                 "array has incorrect dimensions: $(size_data). " *
-                "Local dimensions of pencil: $(size_local(pencil))."))
+                "Local dimensions of pencil: $(dims_local)."))
         end
 
         iperm = inverse_permutation(get_permutation(pencil))
@@ -100,9 +102,11 @@ struct PencilArray{T, N,
     end
 end
 
-PencilArray(pencil::Pencil, extra_dims::Dims=()) =
-    PencilArray(pencil, Array{eltype(pencil)}(undef, size_local(pencil)...,
-                                              extra_dims...))
+function PencilArray(pencil::Pencil, extra_dims::Dims=())
+    T = eltype(pencil)
+    dims = (size_local(pencil, permute=true)..., extra_dims...)
+    PencilArray(pencil, Array{T}(undef, dims))
+end
 
 """
     PencilArrayCollection

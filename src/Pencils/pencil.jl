@@ -200,25 +200,25 @@ Get tuple with decomposed dimensions of the given pencil configuration.
 get_decomposition(p::Pencil) = p.decomp_dims
 
 """
-    range_local(p::Pencil; permute=true)
+    range_local(p::Pencil; permute=false)
 
 Local data range held by the pencil.
 
-By default the dimensions are permuted to match those of the associated data
-arrays.
+By default the dimensions are not permuted, i.e. they follow the logical order
+of dimensions.
 """
-range_local(p::Pencil{N}; permute::Bool=true) where N =
+range_local(p::Pencil{N}; permute::Bool=false) where N =
     (permute ? p.axes_local_perm : p.axes_local) :: ArrayRegion{N}
 
 """
-    size_local(p::Pencil; permute=true)
+    size_local(p::Pencil; permute=false)
 
 Local dimensions of the data held by the pencil.
 
-By default the dimensions are permuted to match those of the associated data
-arrays.
+By default the dimensions are not permuted, i.e. they follow the logical order
+of dimensions.
 """
-size_local(p::Pencil; permute::Bool=true) =
+size_local(p::Pencil; permute::Bool=false) =
     length.(range_local(p, permute=permute))
 
 """
@@ -227,8 +227,7 @@ size_local(p::Pencil; permute::Bool=true) =
 Global dimensions of the Cartesian grid associated to the given domain
 decomposition.
 
-Unlike `size_local`, by default the returned dimensions are *not* permuted to
-match the dimensions of the local data.
+Like [`size_local`](@ref), by default the returned dimensions are not permuted.
 """
 size_global(p::Pencil; permute::Bool=false) =
     permute ? permute_indices(p.size_global, p.perm) : p.size_global

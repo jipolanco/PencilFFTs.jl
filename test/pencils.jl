@@ -54,7 +54,7 @@ function test_array_wrappers(p::Pencil)
         @test v[I...] == vp[J...]  # the parent takes permuted indices
     end
 
-    let psize = size_local(p)
+    let psize = size_local(p, permute=true)
         a = zeros(T, psize)
         u = PencilArray(p, a)
         @test u.data === a
@@ -265,7 +265,7 @@ function main()
 
         @inferred Pencils.to_local(pen2, (1:2, 1:2, 1:2))
 
-        @inferred Pencils.size_local(pen2)
+        @inferred Pencils.size_local(pen2, permute=true)
 
         @inferred PencilArray(pen2)
         @inferred PencilArray(pen2, (3, 4))
