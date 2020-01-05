@@ -291,7 +291,7 @@ print_timer(to)
 
 ```@index
 Pages = ["Pencils.md"]
-Order = [:module, :type, :function]
+Order = [:module, :type, :constant, :function]
 ```
 
 [^1]:
