@@ -47,8 +47,6 @@ set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
 
 set(P3DFFT_CONFIG_FLAGS "--enable-estimate;--enable-stride1"
     CACHE STRING "P3DFFT configuration flags")
-set(P3DFFT_Fortran_FLAGS "-O3 -DNDEBUG" CACHE STRING "P3DFFT build flags")
-set(P3DFFT_C_FLAGS "-O3 -DNDEBUG" CACHE STRING "P3DFFT build flags")
 
 set(p3dfft_config_flags
     "${P3DFFT_CONFIG_FLAGS}"
@@ -61,19 +59,24 @@ message(STATUS "Fortran compiler ID: ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    set(p3dfft_config_flags "${p3dfft_config_flags};--enable-gnu")
+    set(p3dfft_default_flags "-O3 -march=native -DNDEBUG")
+    list(APPEND p3dfft_config_flags "--enable-gnu")
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    set(p3dfft_config_flags "${p3dfft_config_flags};--enable-intel")
+    set(p3dfft_default_flags "-O3 -xHost -DNDEBUG")
+    list(APPEND p3dfft_config_flags "--enable-intel")
 endif()
+
+set(P3DFFT_Fortran_FLAGS "${p3dfft_default_flags}"
+    CACHE STRING "P3DFFT build flags")
+set(P3DFFT_C_FLAGS "${p3dfft_default_flags}"
+    CACHE STRING "P3DFFT build flags")
 
 set(p3dfft_config_vars
     "CC=${MPI_C_COMPILER}"
     "FC=${MPI_Fortran_COMPILER}"
     "CFLAGS=${P3DFFT_C_FLAGS}"
     "FCFLAGS=${P3DFFT_Fortran_FLAGS}"
-    "LDFLAGS=-lfftw3"
 )
-set(p3dfft_interface_definitions "HAVE_CONFIG_H")
 
 message(STATUS "P3DFFT config flags: ${p3dfft_config_flags}")
 message(STATUS "P3DFFT config variables: ${p3dfft_config_vars}")
@@ -89,18 +92,19 @@ ExternalProject_Add(p3dfft_build
     GIT_TAG ${p3dfft_git_commit_hash}
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
-    # UPDATE_COMMAND ""
+    UPDATE_COMMAND ""
 
     # By default, P3DFFT looks for the static library lib/libfftw3.a.
-    # This patch makes P3DFFT look for "libfftw3.so" instead.
+    # This "patch" makes P3DFFT look for "libfftw3.so" instead.
     # PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
 
     BUILD_IN_SOURCE TRUE
-    CONFIGURE_COMMAND aclocal
+
+    CONFIGURE_COMMAND aclocal --force
     COMMAND automake
     COMMAND ./configure ${p3dfft_config_flags} ${p3dfft_config_vars}
+
     BUILD_COMMAND ${MAKE_EXE} -C build
-    # COMMAND ${MAKE_EXE}
     INSTALL_COMMAND ${MAKE_EXE} -C build install
     COMMAND ${MAKE_EXE} install-data-am  # install header files
 )
@@ -111,7 +115,6 @@ add_dependencies(p3dfft p3dfft_build)
 set_target_properties(p3dfft PROPERTIES
     IMPORTED_LOCATION ${p3dfft_install_prefix}/lib/libp3dfft.a
     INTERFACE_INCLUDE_DIRECTORIES "${p3dfft_incdir}"
-    # INTERFACE_COMPILE_DEFINITIONS "${p3dfft_interface_definitions}"
     IMPORTED_LINK_INTERFACE_LANGUAGES Fortran
 )
 target_link_libraries(p3dfft

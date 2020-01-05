@@ -234,7 +234,6 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   Dims<3> memsize;  // not used...
   Cp3dfft_setup(pdims.data(), dims[0], dims[1], dims[2], MPI_Comm_c2f(comm),
                 dims[0], dims[1], dims[2], 0, memsize.data());
-  Cset_timers();
 
   // Get dimensions for input array - real numbers, X-pencil shape. Note that we
   // are following the Fortran ordering, i.e. the dimension with stride-1 is X.
