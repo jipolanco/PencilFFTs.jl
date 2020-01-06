@@ -34,8 +34,8 @@ Some relevant specifications (copied from
 
 The benchmarks were performed using Julia 1.3.1 and Intel MPI 2019.0.4.
 We used PencilFFTs v0.2.0 with FFTW.jl v1.2.0 and MPI.jl v0.11.0.
-P3DFFT (Fortran version) was built with Intel 2019 compilers and linked to FFTW
-3.3.8.
+P3DFFT v2.7.6 (Fortran version) was built with Intel 2019 compilers and linked
+to FFTW 3.3.8.
 
 ## Version
 

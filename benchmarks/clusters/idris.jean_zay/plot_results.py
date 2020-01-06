@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 
 from typing import NamedTuple
 
+MPI_TAG = "intel_19.0.4"
+
 
 class Benchmark(NamedTuple):
     name: str
@@ -14,10 +16,10 @@ class Benchmark(NamedTuple):
     plot_style: dict = dict()
 
 
-BENCH_PENCILS = Benchmark('PencilFFTs', 'results/PencilFFTs_N{N}.dat',
+BENCH_PENCILS = Benchmark('PencilFFTs', 'results/PencilFFTs_N{N}_{MPI}.dat',
                           plot_style=dict(color='C0'))
 
-BENCH_P3DFFT = Benchmark('P3DFFT', 'results/P3DFFT3_N{N}.dat',
+BENCH_P3DFFT = Benchmark('P3DFFT', 'results/P3DFFT3_N{N}_{MPI}.dat',
                          plot_style=dict(color='C1'))
 
 
@@ -62,7 +64,7 @@ def plot_from_file(ax: plt.Axes, bench: Benchmark, resolution: int,
     ax.set_yscale('log', basey=(2 if speedup else 10))
 
     is_pencilffts = bench is BENCH_PENCILS
-    filename = bench.filename_fmt.format(N=resolution)
+    filename = bench.filename_fmt.format(N=resolution, MPI=MPI_TAG)
     data = np.loadtxt(filename)
     Nxyz = data[:, 0:3]
     N = Nxyz[0, 0]
@@ -95,7 +97,7 @@ def plot_from_file(ax: plt.Axes, bench: Benchmark, resolution: int,
 
 def compare_params(ax: plt.Axes, resolution, bench=BENCH_PENCILS,
                    params=PARAMS_ALL, plot_kw=None):
-    filename = bench.filename_fmt.format(N=resolution)
+    filename = bench.filename_fmt.format(N=resolution, MPI=MPI_TAG)
     data = np.loadtxt(filename)
     Nxyz = data[:, 0:3]
     N = Nxyz[0, 0]
