@@ -144,7 +144,7 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
     for (int i = 0; i < timers.size(); ++i)
-      std::cout << "  timer[" << i << "]: " << timers[i] << std::endl;
+      std::cout << "  timer[" << (i + 1) << "]: " << timers[i] << std::endl;
   }
 
   return t;

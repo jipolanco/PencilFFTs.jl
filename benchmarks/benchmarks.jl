@@ -3,6 +3,7 @@
 using PencilFFTs
 using PencilFFTs.Pencils
 
+import FFTW
 using MPI
 
 using ArgParse
@@ -15,6 +16,8 @@ using Random
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(Pencils)
+
+FFTW.set_num_threads(1)
 
 const PROFILE = false
 const PROFILE_OUTPUT = "profile.txt"

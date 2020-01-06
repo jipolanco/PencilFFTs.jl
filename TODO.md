@@ -27,6 +27,11 @@
 
 ## Pencils
 
+- transpositions: optimise `copy_permuted!` using something similar to P3DFFT2
+  "loop blocking factors", or like `permutedims!` for `PermutedDimsArray`.
+  This should improve the benchmarks when using a relatively low number of
+  processes.
+
 - add optional callbacks to `transpose!`? To do stuff while data is being received...
 
 - functions to exchange ghost data between pencils
