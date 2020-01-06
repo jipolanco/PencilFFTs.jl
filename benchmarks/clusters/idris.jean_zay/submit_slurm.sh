@@ -11,9 +11,9 @@ intel_version=19.0.4
 mkdir -p results details
 
 if (( resolution == 512 )); then
-    procs="64 128 256 512 1024 2048 4096"
+    procs="128 256 512 1024 2048 4096"
 elif (( resolution == 1024 )); then
-    procs="128 256 512 1024 2048 4096 8192 16384"
+    procs="256 512 1024 2048 4096 8192 16384"
 fi
 
 module purge
@@ -56,7 +56,7 @@ for n in $procs; do
 
 #SBATCH --exclusive
 #SBATCH --ntasks=$n
-#SBATCH --ntasks-per-node=40
+# #SBATCH --ntasks-per-node=40
 #SBATCH --time=30
 #SBATCH --hint=nomultithread
 #SBATCH --output="details/Nproc${n}_N${resolution}_${mpi_label}_%j.out"

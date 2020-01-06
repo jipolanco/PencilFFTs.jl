@@ -32,10 +32,12 @@ Some relevant specifications (copied from
 
 ## Software
 
-The benchmarks were performed using Julia 1.3, Intel MPI 2019.0.4 and FFTW 3.3.9
-(version bundled by FFTW.jl).
+The benchmarks were performed using Julia 1.3.1 and Intel MPI 2019.0.4.
+We used PencilFFTs v0.2.0 with FFTW.jl v1.2.0 and MPI.jl v0.11.0.
+P3DFFT (Fortran version) was built with Intel 2019 compilers and linked to FFTW
+3.3.8.
 
 ## Version
 
-Date: 10 December 2019 (PencilFFTs commit
-[`383ed8efa`](https://github.com/jipolanco/PencilFFTs.jl/commit/383ed8efa5bd37f5f3f79fcb60fadadbad3a90d9)).
+Date: 6 January 2020 (PencilFFTs v0.2.0, commit
+[`b2621d49d`](https://github.com/jipolanco/PencilFFTs.jl/commit/b2621d49dcc95992f05896e943612d4dbdd7924e)).
