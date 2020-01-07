@@ -11,7 +11,7 @@ intel_version=19.0.4
 mkdir -p results details
 
 if (( resolution == 512 )); then
-    procs="128 256 512 1024 2048 4096"
+    procs="128 256 512 1024 2048 4096 8192"
 elif (( resolution == 1024 )); then
     procs="256 512 1024 2048 4096 8192 16384"
 fi
