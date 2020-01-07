@@ -40,14 +40,15 @@ of arbitrary dimension $N$.
 The decompositions can be performed along an arbitrary number $M < N$ of
 dimensions.[^2]
 Moreover, the transforms applied along each dimension can be arbitrarily chosen
-among those supported by [FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
+(and combined) among those supported by [FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
 including complex-to-complex, real-to-complex and real-to-real transforms.
 
 The generic and efficient implementation of this package is greatly enabled by
 the use of zero-cost abstractions in Julia.
-As shown in the [Benchmarks](@ref) section, the performance of PencilFFTs has
-been validated against the C++ implementation of the
-[P3DFFT](https://www.p3dfft.net) library.
+As shown in the [Benchmarks](@ref) section, PencilFFTs scales well to large
+numbers of processes, and performs similarly to the Fortran implementation of
+[P3DFFT](https://www.p3dfft.net), possibly the most popular library for
+computing parallel FFTs using 2D domain decomposition.
 
 ## Installation
 

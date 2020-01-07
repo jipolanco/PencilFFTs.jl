@@ -1,0 +1,10 @@
+Currently Loaded Modulefiles:
+ 1) intel-compilers/19.0.4(default)   5) autoconf/2.69              
+ 2) fftw/3.3.8                        6) automake/1.16.1            
+ 3) git/2.21.0                        7) intel-mpi/19.0.4(default)  
+ 4) cmake/3.14.4                     
+srun: Warning: can't honor --ntasks-per-node set to 40 which doesn't match the requested tasks 256 with the number of requested nodes 7. Ignoring --ntasks-per-node.
+[ Info: Global dimensions: (512, 512, 512)
+[ Info: Repetitions:       100
+[ Info: Writing to results/PencilFFTs_N512_intel_19.0.4.dat
+srun: Warning: can't honor --ntasks-per-node set to 40 which doesn't match the requested tasks 256 with the number of requested nodes 7. Ignoring --ntasks-per-node.
