@@ -73,7 +73,7 @@ struct MPITopology{N}
     function MPITopology{N}(comm_cart::MPI.Comm) where N
         # Get dimensions of MPI topology.
         # This will fail if comm_cart doesn't have Cartesian topology!
-        Ndims = MPI_Cartdim_get(comm_cart)
+        Ndims = MPI.Cartdim_get(comm_cart)
 
         if Ndims != N
             throw(ArgumentError(
@@ -81,9 +81,9 @@ struct MPITopology{N}
         end
 
         dims, coords_local = begin
-            dims_vec, _, coords_vec = MPI_Cart_get(comm_cart, N)
+            dims_vec, _, coords_vec = MPI.Cart_get(comm_cart, N)
             coords_vec .+= 1  # switch to one-based indexing
-            map(X -> ntuple(n -> X[n], Val(N)), (dims_vec, coords_vec))
+            map(X -> ntuple(n -> Int(X[n]), Val(N)), (dims_vec, coords_vec))
         end
 
         subcomms = create_subcomms(Val(N), comm_cart)
@@ -135,12 +135,12 @@ get_comm(t::MPITopology) = t.comm
 
 # Get ranks of N-dimensional Cartesian communicator.
 function get_cart_ranks(::Val{N}, comm::MPI.Comm) where N
-    @assert MPI_Cartdim_get(comm) == N  # communicator should be N-dimensional
+    @assert MPI.Cartdim_get(comm) == N  # communicator should be N-dimensional
     Nproc = MPI.Comm_size(comm)
 
     dims = begin
-        dims_vec, _, _ = MPI_Cart_get(comm, N)
-        ntuple(n -> dims_vec[n], N)
+        dims_vec, _, _ = MPI.Cart_get(comm, N)
+        ntuple(n -> Int(dims_vec[n]), N)
     end
 
     ranks = Array{Int,N}(undef, dims)
@@ -156,7 +156,7 @@ end
 
 # Get ranks of one-dimensional Cartesian sub-communicator.
 function get_cart_ranks_subcomm(subcomm::MPI.Comm)
-    @assert MPI_Cartdim_get(subcomm) == 1  # sub-communicator should be 1D
+    @assert MPI.Cartdim_get(subcomm) == 1  # sub-communicator should be 1D
     Nproc = MPI.Comm_size(subcomm)
 
     ranks = Vector{Int}(undef, Nproc)

@@ -4,33 +4,6 @@
 
 ## These extend MPI.jl/src/topology.jl
 
-function MPI_Cart_get!(comm::MPI.Comm, maxdims::Integer,
-                       dims::MPI.MPIBuffertype{Cint},
-                       periods::MPI.MPIBuffertype{Cint},
-                       coords::MPI.MPIBuffertype{Cint})
-    # int MPI_Cart_get(MPI_Comm comm, int maxdims, int dims[], int periods[],
-    #                  int coords[])
-    MPI.@mpichk ccall((:MPI_Cart_get, MPI.libmpi), Cint,
-                      (MPI.MPI_Comm, Cint, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
-                      comm, maxdims, dims, periods, coords)
-end
-
-function MPI_Cart_get(comm::MPI.Comm, maxdims::Integer)
-    dims = Vector{Cint}(undef, maxdims)
-    periods = Vector{Cint}(undef, maxdims)
-    coords = Vector{Cint}(undef, maxdims)
-    MPI_Cart_get!(comm, maxdims, dims, periods, coords)
-    Int.(dims), Int.(periods), Int.(coords)
-end
-
-function MPI_Cartdim_get(comm::MPI.Comm)
-    ndims = Ref{Cint}()
-    # int MPI_Cartdim_get(MPI_Comm comm, int *ndims)
-    MPI.@mpichk ccall((:MPI_Cartdim_get, MPI.libmpi), Cint,
-                      (MPI.MPI_Comm, Ptr{Cint}), comm, ndims)
-    Int(ndims[])
-end
-
 function MPI_Cart_rank(comm::MPI.Comm, coords::MPI.MPIBuffertype{Cint})
     rank = Ref{Cint}()
     # int MPI_Cart_rank(MPI_Comm comm, const int coords[], int *rank)
