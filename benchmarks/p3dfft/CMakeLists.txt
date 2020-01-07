@@ -29,8 +29,9 @@ add_compile_options(${MPI_CXX_COMPILE_OPTIONS})
 add_compile_definitions(${MPI_CXX_COMPILE_DEFINITIONS})
 
 # Find FFTW.
+# Prefer static libraries (libfftw3.a) because that's what P3DFFT wants.
 set(FFTW3_LIBDIR "" CACHE PATH "FFTW3 library directory")
-find_library(FFTW3_LIB NAMES fftw3 HINTS ${FFTW3_LIBDIR})
+find_library(FFTW3_LIB NAMES libfftw3.a fftw3 HINTS ${FFTW3_LIBDIR})
 if(NOT FFTW3_LIB)
     message(FATAL_ERROR
         "FFTW3 not found! Try setting FFTW3_LIBDIR.")
