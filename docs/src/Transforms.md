@@ -12,12 +12,15 @@ Transforms
 
 ```@docs
 FFT
+FFT!
 BFFT
+BFFT!
 
 RFFT
 BRFFT
 
 R2R
+R2R!
 
 NoTransform
 ```

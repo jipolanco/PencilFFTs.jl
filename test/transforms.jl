@@ -21,36 +21,50 @@ function test_transform_types(size_in)
     transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
     fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
 
-    @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
-                                                    typeof(transforms)}
-    @test binv(Transforms.RFFT()) === Transforms.BRFFT()
+    @testset "General transforms" begin
+        @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
+                                                        typeof(transforms)}
+        @test binv(Transforms.RFFT()) === Transforms.BRFFT()
 
-    transforms_binv = binv.(transforms)
-    size_out = Transforms.length_output.(transforms, size_in)
+        transforms_binv = binv.(transforms)
+        size_out = Transforms.length_output.(transforms, size_in)
 
-    @test transforms_binv ===
+        @test transforms_binv ===
         (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
-    @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
-    @test Transforms.length_output.(transforms_binv, size_out) === size_in
+        @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
+        @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
-    @test PencilFFTs.input_data_type(fft_params) === Float64
+        @test PencilFFTs.input_data_type(fft_params) === Float64
+    end
+
 
     # Test type stability of generated plan_r2r (which, as defined in FFTW.jl,
     # is type unstable!). See comments of `plan` in src/Transforms/r2r.jl.
-    let A = zeros(4, 6, 8)
-        kind = FFTW.REDFT00
+    @testset "r2r transforms" begin
+        kind = FFTW.REDFT01
         transform = Transforms.R2R{kind}()
-        @inferred Transforms.plan(transform, A, 2)
-        @inferred Transforms.plan(transform, A, (1, 3))
-        @inferred Transforms.plan(transform, A)
+        transform! = Transforms.R2R!{kind}()
 
-        # This will fail because length(2:3) is not known by the compiler.
-        @test_throws ErrorException @inferred Transforms.plan(transform, A, 2:3)
-    end
+        let kind_inv = FFTW.REDFT10
+            @test binv(transform) === Transforms.R2R{kind_inv}()
+            @test binv(transform!) === Transforms.R2R!{kind_inv}()
+        end
 
-    for kind in (FFTW.R2HC, FFTW.HC2R)
-        # Unsupported r2r kinds.
-        @test_throws ArgumentError Transforms.R2R{kind}()
+        A = zeros(4, 6, 8)
+        for tr in (transform, transform!)
+            @inferred Transforms.plan(tr, A, 2)
+            @inferred Transforms.plan(tr, A, (1, 3))
+            @inferred Transforms.plan(tr, A)
+
+            # This will fail because length(2:3) is not known by the compiler.
+            @test_throws ErrorException @inferred Transforms.plan(tr, A, 2:3)
+        end
+
+        for kind in (FFTW.R2HC, FFTW.HC2R), T in (Transforms.R2R, Transforms.R2R!)
+            # Unsupported r2r kinds.
+            @test_throws ArgumentError T{kind}()
+            @test_throws ArgumentError T{kind}()
+        end
     end
 
     nothing
@@ -67,6 +81,8 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
     pair_r2r(tr::Transforms.R2R) =
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
+
+    # TODO test c2c and some r2r in-place transforms
 
     pairs = (
              Transforms.FFT() => make_plan(FFTW.plan_fft),
