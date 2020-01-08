@@ -23,6 +23,7 @@ R2R
 R2R!
 
 NoTransform
+NoTransform!
 ```
 
 ## Internals
@@ -34,6 +35,7 @@ What follows is used internally by `PencilFFTs`.
 ```@docs
 AbstractTransform
 IdentityPlan
+IdentityPlan!
 ```
 
 ### Functions

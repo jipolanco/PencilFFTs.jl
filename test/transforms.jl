@@ -37,6 +37,32 @@ function test_transform_types(size_in)
         @test PencilFFTs.input_data_type(fft_params) === Float64
     end
 
+    @testset "NoTransform" begin
+        transform = Transforms.NoTransform()
+        transform! = Transforms.NoTransform!()
+
+        @test binv(transform) === transform
+        @test binv(transform!) === transform!
+
+        x = zeros(4)
+        p = Transforms.plan(transform, x)
+        p! = Transforms.plan(transform!, x)
+
+        @test p * x == x && p * x !== x  # creates copy
+        @test p! * x === x
+
+        y = similar(x)
+        @test mul!(y, p, x) === y == x
+        @test mul!(x, p, x) === x  # this is also allowed
+
+        rand!(x)
+        @test ldiv!(x, p, y) === x == y
+
+        # in-place IdentityPlan applied to out-of-place data
+        @test_throws ArgumentError mul!(y, p!, x)
+        @test mul!(x, p, x) === x
+        @test ldiv!(x, p, x) === x
+    end
 
     # Test type stability of generated plan_r2r (which, as defined in FFTW.jl,
     # is type unstable!). See comments of `plan` in src/Transforms/r2r.jl.

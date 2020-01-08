@@ -13,7 +13,7 @@ module Transforms
 using FFTW
 
 # Operations defined for custom plans (currently IdentityPlan).
-import LinearAlgebra
+using LinearAlgebra
 
 export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
@@ -141,7 +141,7 @@ function length_output end
 Determine input data type for a given transform given the floating point
 precision of the input data.
 
-For some transforms such as `NoTransform`, the input type cannot be identified
+For some transforms such as [`NoTransform`](@ref), the input type cannot be identified
 only from `real_type`. In this case, `Nothing` is returned.
 
 # Example
@@ -215,26 +215,9 @@ expand_dims(::F, ::Val) where {F <: AbstractTransform} =
 
 Base.show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
 
-"""
-    NoTransform()
-
-Identity transform.
-
-Specifies that no transformation should be applied.
-"""
-struct NoTransform <: AbstractTransform end
-binv(::NoTransform) = NoTransform()
-length_output(::NoTransform, length_in::Integer) = length_in
-eltype_output(::NoTransform, ::Type{T}) where T = T
-eltype_input(::NoTransform, ::Type) = Nothing
-plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
-expand_dims(::NoTransform, ::Val{N}) where N =
-    N == 0 ? () : (NoTransform(), expand_dims(NoTransform(), Val(N - 1))...)
-scale_factor(::NoTransform, A, dims) = 1
-
 include("c2c.jl")
 include("r2c.jl")
 include("r2r.jl")
-include("custom_plans.jl")
+include("no_transform.jl")
 
 end
