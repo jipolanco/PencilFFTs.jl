@@ -1,5 +1,5 @@
 """
-    GlobalFFTParams{T, N}
+    GlobalFFTParams{T, N, inplace}
 
 Specifies the global parameters for an N-dimensional distributed transform.
 These include the element type `T` and global data sizes of input and output
@@ -37,7 +37,7 @@ julia> fft_params = PencilFFTs.GlobalFFTParams(size_global, transforms);
 ```
 
 """
-struct GlobalFFTParams{T, N, F <: AbstractTransformList{N}}
+struct GlobalFFTParams{T, N, inplace, F <: AbstractTransformList{N}}
     # Transforms to be applied along each dimension.
     transforms :: F
 
@@ -50,9 +50,16 @@ struct GlobalFFTParams{T, N, F <: AbstractTransformList{N}}
                             ) where {N, T <: FFTReal}
         F = typeof(transforms)
         size_global_out = length_output.(transforms, size_global)
-        new{T, N, F}(transforms, size_global, size_global_out)
+        inplace = is_inplace(transforms...)
+        if inplace === nothing
+            throw(ArgumentError(
+                "cannot combine in-place and out-of-place transforms: $(transforms)"))
+        end
+        new{T, N, inplace, F}(transforms, size_global, size_global_out)
     end
 end
+
+Transforms.is_inplace(g::GlobalFFTParams{T,N,I}) where {T,N,I} = I
 
 function Base.show(io::IO, g::GlobalFFTParams)
     println(io, "Transforms: ", g.transforms)

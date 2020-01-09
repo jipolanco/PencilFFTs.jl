@@ -22,7 +22,7 @@ function test_transform_types(size_in)
         transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
         fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
 
-        @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
+        @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3, false,
                                                         typeof(transforms)}
         @test binv(Transforms.RFFT()) === Transforms.BRFFT()
 
@@ -96,16 +96,23 @@ function test_transform_types(size_in)
     @testset "In-place transforms" begin
         FFT = Transforms.FFT()
         FFT! = Transforms.FFT!()
+
         @inferred Transforms.is_inplace(FFT, FFT, FFT!)
         @inferred Transforms.is_inplace(FFT!, FFT, FFT)
         @inferred Transforms.is_inplace(FFT, FFT, FFT)
         @inferred Transforms.is_inplace(FFT!, FFT!, FFT!)
+
         @test Transforms.is_inplace(FFT, FFT, FFT!) === nothing
         @test Transforms.is_inplace(FFT, FFT!, FFT) === nothing
         @test Transforms.is_inplace(FFT, FFT!, FFT!) === nothing
         @test Transforms.is_inplace(FFT!, FFT, FFT!) === nothing
         @test Transforms.is_inplace(FFT!, FFT!, FFT!) === true
         @test Transforms.is_inplace(FFT, FFT, FFT) === false
+
+        @inferred PencilFFTs.GlobalFFTParams(size_in, (FFT!, FFT!, FFT!))
+
+        # Cannot combine in-place and out-of-place transforms.
+        @test_throws ArgumentError PencilFFTs.GlobalFFTParams(size_in, (FFT, FFT!, FFT!))
     end
 
     nothing
