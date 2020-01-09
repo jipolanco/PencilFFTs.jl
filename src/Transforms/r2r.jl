@@ -63,6 +63,9 @@ end
 
 const AnyR2R{kind} = Union{R2R{kind}, R2R!{kind}} where {kind}
 
+is_inplace(::R2R) = false
+is_inplace(::R2R!) = true
+
 Base.show(io::IO, tr::R2R) = print(io, "R2R{", kind2string(kind(tr)), "}")
 Base.show(io::IO, tr::R2R!) = print(io, "R2R!{", kind2string(kind(tr)), "}")
 

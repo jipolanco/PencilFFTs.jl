@@ -26,6 +26,8 @@ struct BRFFT <: AbstractTransform end
 const TransformR2C = RFFT
 const TransformC2R = BRFFT
 
+is_inplace(::Union{TransformR2C, TransformC2R}) = false
+
 length_output(::TransformR2C, length_in::Integer) = div(length_in, 2) + 1
 length_output(::TransformC2R, length_in::Integer) = 2 * length_in - 2
 

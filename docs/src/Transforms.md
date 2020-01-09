@@ -49,6 +49,7 @@ scale_factor
 eltype_input
 eltype_output
 expand_dims
+is_inplace
 kind
 length_output
 ```

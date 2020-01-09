@@ -61,6 +61,9 @@ binv(::FFT!) = BFFT!()
 binv(::BFFT) = FFT()
 binv(::BFFT!) = FFT!()
 
+is_inplace(::Union{FFT, BFFT}) = false
+is_inplace(::Union{FFT!, BFFT!}) = true
+
 _intprod(x::Int, y::Int...) = x * _intprod(y...)
 _intprod() = one(Int)
 _prod_dims(s::Dims, dims) = _intprod((s[i] for i in dims)...)

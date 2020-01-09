@@ -16,6 +16,9 @@ struct NoTransform! <: AbstractTransform end
 
 const AnyNoTransform = Union{NoTransform, NoTransform!}
 
+is_inplace(::NoTransform) = false
+is_inplace(::NoTransform!) = true
+
 binv(::T) where {T <: AnyNoTransform} = T()
 length_output(::AnyNoTransform, length_in::Integer) = length_in
 eltype_output(::AnyNoTransform, ::Type{T}) where T = T

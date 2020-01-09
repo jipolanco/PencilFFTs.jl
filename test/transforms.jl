@@ -18,10 +18,10 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
 function test_transform_types(size_in)
-    transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-    fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
+    @testset "r2c transforms" begin
+        transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+        fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
 
-    @testset "General transforms" begin
         @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
                                                         typeof(transforms)}
         @test binv(Transforms.RFFT()) === Transforms.BRFFT()
@@ -30,7 +30,7 @@ function test_transform_types(size_in)
         size_out = Transforms.length_output.(transforms, size_in)
 
         @test transforms_binv ===
-        (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
+            (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
         @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
         @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
@@ -91,6 +91,21 @@ function test_transform_types(size_in)
             @test_throws ArgumentError T{kind}()
             @test_throws ArgumentError T{kind}()
         end
+    end
+
+    @testset "In-place transforms" begin
+        FFT = Transforms.FFT()
+        FFT! = Transforms.FFT!()
+        @inferred Transforms.is_inplace(FFT, FFT, FFT!)
+        @inferred Transforms.is_inplace(FFT!, FFT, FFT)
+        @inferred Transforms.is_inplace(FFT, FFT, FFT)
+        @inferred Transforms.is_inplace(FFT!, FFT!, FFT!)
+        @test Transforms.is_inplace(FFT, FFT, FFT!) === nothing
+        @test Transforms.is_inplace(FFT, FFT!, FFT) === nothing
+        @test Transforms.is_inplace(FFT, FFT!, FFT!) === nothing
+        @test Transforms.is_inplace(FFT!, FFT, FFT!) === nothing
+        @test Transforms.is_inplace(FFT!, FFT!, FFT!) === true
+        @test Transforms.is_inplace(FFT, FFT, FFT) === false
     end
 
     nothing

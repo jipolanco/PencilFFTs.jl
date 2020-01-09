@@ -15,7 +15,7 @@ using FFTW
 # Operations defined for custom plans (currently IdentityPlan).
 using LinearAlgebra
 
-export binv, scale_factor
+export binv, scale_factor, is_inplace
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
@@ -73,6 +73,45 @@ RFFT
 ```
 """
 function binv end
+
+"""
+    is_inplace(transform::AbstractTransform)         -> Bool
+    is_inplace(transforms::Vararg{AbtractTransform}) -> Union{Bool, Nothing}
+
+Check whether a transform or a list of transforms is performed in-place.
+
+If the list of transforms has a combination of in-place and out-of-place
+transforms, `nothing` is returned.
+
+# Example
+
+```jldoctest; setup = :(import FFTW)
+julia> is_inplace(Transforms.RFFT())
+false
+
+julia> is_inplace(Transforms.NoTransform!())
+true
+
+julia> is_inplace(Transforms.FFT!(), Transforms.R2R!{FFTW.REDFT01}())
+true
+
+julia> is_inplace(Transforms.FFT(), Transforms.R2R{FFTW.REDFT01}())
+false
+
+julia> is_inplace(Transforms.FFT(), Transforms.R2R!{FFTW.REDFT01}()) |> println
+nothing
+
+```
+"""
+function is_inplace end
+
+@inline function is_inplace(tr::AbstractTransform, tr2::AbstractTransform,
+                            next::Vararg{AbstractTransform})
+    b = is_inplace(tr2, next...)
+    b === nothing && return nothing
+    a = is_inplace(tr)
+    a === b ? a : nothing
+end
 
 """
     scale_factor(transform::AbstractTransform, A, [dims])
