@@ -18,39 +18,61 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
 function test_transform_types(size_in)
-    transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-    fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
+    @testset "r2c transforms" begin
+        transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
+        fft_params = PencilFFTs.GlobalFFTParams(size_in, transforms)
 
-    @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
-                                                    typeof(transforms)}
-    @test binv(Transforms.RFFT()) === Transforms.BRFFT()
+        @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3,
+                                                        typeof(transforms)}
+        @test binv(Transforms.RFFT()) === Transforms.BRFFT()
 
-    transforms_binv = binv.(transforms)
-    size_out = Transforms.length_output.(transforms, size_in)
+        transforms_binv = binv.(transforms)
+        size_out = Transforms.length_output.(transforms, size_in)
 
-    @test transforms_binv ===
-        (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
-    @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
-    @test Transforms.length_output.(transforms_binv, size_out) === size_in
+        @test transforms_binv ===
+            (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
+        @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
+        @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
-    @test PencilFFTs.input_data_type(fft_params) === Float64
+        @test PencilFFTs.input_data_type(fft_params) === Float64
+    end
+
+    @testset "NoTransform" begin
+        transform = Transforms.NoTransform()
+        @test binv(transform) === transform
+
+        x = zeros(4)
+        p = Transforms.plan(transform, x)
+        @test p * x !== x  # creates copy
+        @test p * x == x
+
+        y = similar(x)
+        @test mul!(y, p, x) === y == x
+        @test mul!(x, p, x) === x  # this is also allowed
+
+        rand!(x)
+        @test ldiv!(x, p, y) === x == y
+    end
 
     # Test type stability of generated plan_r2r (which, as defined in FFTW.jl,
     # is type unstable!). See comments of `plan` in src/Transforms/r2r.jl.
-    let A = zeros(4, 6, 8)
-        kind = FFTW.REDFT00
+    @testset "r2r transforms" begin
+        A = zeros(4, 6, 8)
+        kind = FFTW.REDFT01
         transform = Transforms.R2R{kind}()
+        @test binv(transform) === Transforms.R2R{FFTW.REDFT10}()
+
         @inferred Transforms.plan(transform, A, 2)
         @inferred Transforms.plan(transform, A, (1, 3))
         @inferred Transforms.plan(transform, A)
 
         # This will fail because length(2:3) is not known by the compiler.
         @test_throws ErrorException @inferred Transforms.plan(transform, A, 2:3)
-    end
 
-    for kind in (FFTW.R2HC, FFTW.HC2R)
-        # Unsupported r2r kinds.
-        @test_throws ArgumentError Transforms.R2R{kind}()
+        for kind in (FFTW.R2HC, FFTW.HC2R)
+            # Unsupported r2r kinds.
+            @test_throws ArgumentError Transforms.R2R{kind}()
+        end
     end
 
     nothing
