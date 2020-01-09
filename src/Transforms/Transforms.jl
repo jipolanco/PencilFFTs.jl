@@ -13,7 +13,7 @@ module Transforms
 using FFTW
 
 # Operations defined for custom plans (currently IdentityPlan).
-import LinearAlgebra
+using LinearAlgebra
 
 export binv, scale_factor
 export eltype_input, eltype_output, length_output, plan, expand_dims
