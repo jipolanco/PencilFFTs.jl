@@ -22,6 +22,7 @@ allocate_output(::PencilFFTPlan)
 get_comm(::PencilFFTPlan)
 get_scale_factor(::PencilFFTPlan)
 get_timer(::PencilFFTPlan)
+is_inplace(::PencilFFTPlan)
 ```
 
 ## [Measuring performance](@id PencilFFTs.measuring_performance)

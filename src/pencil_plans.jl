@@ -22,6 +22,8 @@ struct PencilPlan1D{Pi <: Pencil,
     scale_factor :: Int  # scale factor for backward transform
 end
 
+Transforms.is_inplace(p::PencilPlan1D) = is_inplace(p.transform)
+
 """
     PencilFFTPlan{T,N,M}
 
@@ -200,6 +202,14 @@ struct PencilFFTPlan{T,
                       args...; kwargs...)
     end
 end
+
+"""
+    Transforms.is_inplace(p::PencilFFTPlan)
+
+Returns `true` if the given plan operates in-place on the input data, `false`
+otherwise.
+"""
+Transforms.is_inplace(p::PencilFFTPlan) = is_inplace(p.global_params)
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
