@@ -60,10 +60,10 @@ message(STATUS "Fortran compiler ID: ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    set(p3dfft_default_flags "-O3 -march=native -DNDEBUG")
+    set(p3dfft_default_flags "-O3 -march=native -DDEBUG")
     list(APPEND p3dfft_config_flags "--enable-gnu")
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    set(p3dfft_default_flags "-O3 -xHost -DNDEBUG")
+    set(p3dfft_default_flags "-O3 -xHost -DDEBUG")
     list(APPEND p3dfft_config_flags "--enable-intel")
 endif()
 
@@ -98,6 +98,9 @@ ExternalProject_Add(p3dfft_build
     # By default, P3DFFT looks for the static library lib/libfftw3.a.
     # This "patch" makes P3DFFT look for "libfftw3.so" instead.
     # PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
+
+    PATCH_COMMAND
+        git apply ${CMAKE_CURRENT_SOURCE_DIR}/p3dfft_fix_timers.patch
 
     BUILD_IN_SOURCE TRUE
 
