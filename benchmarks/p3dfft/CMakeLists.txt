@@ -60,10 +60,10 @@ message(STATUS "Fortran compiler ID: ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    set(p3dfft_default_flags "-O3 -march=native -DDEBUG")
+    set(p3dfft_default_flags "-O3 -march=native -DNDEBUG")
     list(APPEND p3dfft_config_flags "--enable-gnu")
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    set(p3dfft_default_flags "-O3 -xHost -DDEBUG")
+    set(p3dfft_default_flags "-O3 -xHost -DNDEBUG")
     list(APPEND p3dfft_config_flags "--enable-intel")
 endif()
 
