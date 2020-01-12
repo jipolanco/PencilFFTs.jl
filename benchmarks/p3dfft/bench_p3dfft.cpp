@@ -39,6 +39,8 @@ const std::array<std::string, 12> TIMERS_TEXT = {
     "iFFT c2r X",                               // 11
 };
 
+void print_timers(const std::array<double, 12> &timers);
+
 struct PencilSetup {
   const int conf;
   Dims<3> dims_global;
@@ -155,13 +157,20 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   // Gather timing statistics.
   std::array<double, 12> timers;
   Cget_timers(timers.data());
-  for (auto &t : timers) t *= 1000 / repetitions;  // milliseconds
+  for (auto &t : timers) t *= 1e6 / repetitions;  // microseconds
 
   if (rank == 0) {
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
-    std::cout << "\nP3DFFT timers (in milliseconds)"
+    std::cout << "\nP3DFFT timers (in microseconds)"
                  "\n===============================\n";
+    print_timers(timers);
+  }
+
+  return t;
+}
+
+void print_timers(const std::array<double, 12> &timers) {
     for (int i = 0; i < timers.size(); ++i) {
       std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
                 << std::setprecision(5) << std::setw(10) << std::left
@@ -187,18 +196,22 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
     auto fw_pack_unpack = timers[5] + timers[7] - fw_c2c;
     auto bw_pack_unpack = timers[8] + timers[10] - bw_c2c;
 
-    std::cout << "Forwards transforms\n"
+    std::cout << "Forward transforms\n"
               << "  Average Alltoallv = " << fw_alltoallv << "\n"
               << "  Average FFT       = " << fw_fft << "\n"
               << "  Average (un)pack  = " << fw_pack_unpack << "\n";
 
-    std::cout << "\nBackwards transforms\n"
+    std::cout << "\nBackward transforms\n"
               << "  Average Alltoallv = " << bw_alltoallv << "\n"
               << "  Average FFT       = " << bw_fft << "\n"
               << "  Average (un)pack  = " << bw_pack_unpack << "\n";
-  }
 
-  return t;
+    // Verify times.
+    auto fw_total_time = 2 * (fw_alltoallv + fw_pack_unpack) + 3 * fw_fft;
+    auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
+    auto total_time = fw_total_time + bw_total_time;
+    std::cout << "\nTotal from timers: " << total_time / 1000
+              << " ms/iteration\n";
 }
 
 struct BenchOptions {
