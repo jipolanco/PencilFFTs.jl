@@ -157,12 +157,12 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   // Gather timing statistics.
   std::array<double, 12> timers;
   Cget_timers(timers.data());
-  for (auto &t : timers) t *= 1e6 / repetitions;  // microseconds
+  for (auto &t : timers) t *= 1e3 / repetitions;  // milliseconds
 
   if (rank == 0) {
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
-    std::cout << "\nP3DFFT timers (in microseconds)"
+    std::cout << "\nP3DFFT timers (in milliseconds)"
                  "\n===============================\n";
     print_timers(timers);
   }
@@ -173,7 +173,7 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
 void print_timers(const std::array<double, 12> &timers) {
     for (int i = 0; i < timers.size(); ++i) {
       std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
-                << std::setprecision(5) << std::setw(10) << std::left
+                << std::setprecision(5) << std::setw(12) << std::left
                 << timers[i] << TIMERS_TEXT[i] << std::endl;
       if ((i + 1) % 4 == 0)
         std::cout << std::endl;
@@ -210,8 +210,7 @@ void print_timers(const std::array<double, 12> &timers) {
     auto fw_total_time = 2 * (fw_alltoallv + fw_pack_unpack) + 3 * fw_fft;
     auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
     auto total_time = fw_total_time + bw_total_time;
-    std::cout << "\nTotal from timers: " << total_time / 1000
-              << " ms/iteration\n";
+    std::cout << "\nTotal from timers: " << total_time << " ms/iteration\n";
 }
 
 struct BenchOptions {

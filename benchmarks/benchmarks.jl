@@ -252,7 +252,7 @@ function AggregatedTimes(to::TimerOutput, transpose_method)
         others += avgtime(to["normalise"])
     end
 
-    let scale = 1e-3  # convert to μs
+    let scale = 1e-6  # convert to ms
         mpi *= scale / 2   # 2 transposes per iteration
         fft *= scale / 3   # 3 FFTs per iteration
         data *= scale / 2
@@ -269,7 +269,7 @@ function Base.show(io::IO, t::AggregatedTimes)
     maybe_newline = ""
     for p in (string(t.transpose) => t.mpi,
               "FFT" => t.fft, "(un)pack" => t.data, "others" => t.others)
-        @printf io "%s  Average %-10s = %.3f" maybe_newline p.first p.second
+        @printf io "%s  Average %-10s = %.6f ms" maybe_newline p.first p.second
         maybe_newline = "\n"
     end
     io
@@ -286,7 +286,7 @@ function print_timers(to::TimerOutput, iterations, transpose_method)
     println("Forward transforms\n", t_fw)
     println("\nBackward transforms\n", t_bw)
 
-    t_all_measured = sum(time_total.((t_fw, t_bw))) / 1000  # in milliseconds
+    t_all_measured = sum(time_total.((t_fw, t_bw)))  # in milliseconds
 
     # Actual time taken by parallel FFTs.
     t_all = TimerOutputs.tottime(to) / 1e6 / iterations
