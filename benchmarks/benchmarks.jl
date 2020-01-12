@@ -29,7 +29,7 @@ const DIMS_DEFAULT = "128,192,64"
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
-const SEPARATOR = string("\n\n", "*"^80)
+const SEPARATOR = string("\n", "*"^80)
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -173,6 +173,7 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
     plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
                          extra_dims=extra_dims,
                          permute_dims=permute_dims,
+                         fftw_flags=FFTW.ESTIMATE,
                          timer=to, transpose_method=transpose_method)
 
     if isroot
@@ -210,10 +211,72 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
     if isroot
         @printf "Average time: %.8f ms (MPI_Wtime) over %d repetitions\n" τ iterations
         @printf "              %.8f ms (TimerOutputs)\n\n" t_avg
-        println(to, SEPARATOR)
+        print_timers(to, transpose_method)
+        println(SEPARATOR)
     end
 
     τ
+end
+
+struct AggregatedTimes{TM}
+    transpose :: TM
+    mpi  :: Float64  # MPI time in μs
+    fft  :: Float64  # FFTs in μs
+    data :: Float64  # data copies in μs
+end
+
+function AggregatedTimes(to::TimerOutput, transpose_method)
+    repetitions = TimerOutputs.ncalls(to)
+    avgtime(x) = TimerOutputs.time(x) / repetitions
+
+    fft = avgtime(to["FFT"])
+
+    tr = to["transpose!"]
+    data =
+        avgtime(tr["unpack data"]["copy_permuted!"]) +
+        avgtime(tr["pack data"]["copy_range!"])
+
+    if transpose_method === TransposeMethods.IsendIrecv()
+        mpi = avgtime(tr["wait send"]) + avgtime(tr["unpack data"]["wait receive"])
+    elseif transpose_method === TransposeMethods.Alltoallv()
+        mpi = avgtime(tr["MPI.Alltoallv!"])
+    end
+
+    let scale = 1e-3  # convert to μs
+        mpi *= scale / 2   # 2 transposes per iteration
+        fft *= scale / 3   # 3 FFTs per iteration
+        data *= scale / 2
+    end
+
+    AggregatedTimes(transpose_method, mpi, fft, data)
+end
+
+# 2 transpositions + 3 FFTs
+time_total(t::AggregatedTimes) = 2 * (t.mpi + t.data) + 3 * t.fft
+
+function Base.show(io::IO, t::AggregatedTimes)
+    maybe_newline = ""
+    for p in (string(t.transpose) => t.mpi,
+              "FFT" => t.fft, "(un)pack" => t.data)
+        @printf io "%s  Average %-10s = %.3f" maybe_newline p.first p.second
+        maybe_newline = "\n"
+    end
+    io
+end
+
+function print_timers(to::TimerOutput, transpose_method)
+    println(to, "\n")
+
+    t_fw = AggregatedTimes(to["PencilFFTs mul!"], transpose_method)
+    t_bw = AggregatedTimes(to["PencilFFTs ldiv!"], transpose_method)
+
+    println("Forward transforms\n", t_fw)
+    println("\nBackward transforms\n", t_bw)
+
+    t_all = sum(time_total.((t_fw, t_bw))) / 1000  # in milliseconds
+    @printf "\nTotal from timers: %.4f ms/iteration\n" t_all
+
+    nothing
 end
 
 function parse_dimensions(arg::String) :: Dims{3}
