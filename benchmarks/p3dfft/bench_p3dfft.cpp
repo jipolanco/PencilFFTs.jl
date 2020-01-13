@@ -24,19 +24,19 @@ template <int N> using Dims = std::array<int, N>;
 constexpr int DEFAULT_REPETITIONS = 100;
 
 enum TimerEnum {
-    TIMER_fw_Alltoallv_xy = 0,
-    TIMER_fw_Alltoallv_yz,
-    TIMER_bw_Alltoallv_zy,
-    TIMER_bw_Alltoallv_yx,
-    TIMER_fw_r2c_x,
-    TIMER_fw_data_xy,
-    TIMER_fw_c2c_y,
-    TIMER_fw_data_yz_c2c_z,
-    TIMER_bw_data_zy_c2c_z,
-    TIMER_bw_c2c_y,
-    TIMER_bw_data_yx,
-    TIMER_bw_c2r_x,
-    TIMER_COUNT,
+  TIMER_fw_Alltoallv_xy = 0,
+  TIMER_fw_Alltoallv_yz,
+  TIMER_bw_Alltoallv_zy,
+  TIMER_bw_Alltoallv_yx,
+  TIMER_fw_r2c_x,
+  TIMER_fw_data_xy,
+  TIMER_fw_c2c_y,
+  TIMER_fw_data_yz_c2c_z,
+  TIMER_bw_data_zy_c2c_z,
+  TIMER_bw_c2c_y,
+  TIMER_bw_data_yx,
+  TIMER_bw_c2r_x,
+  TIMER_COUNT,
 };
 
 static_assert(TIMER_COUNT == 12, "");
@@ -161,7 +161,14 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   }
 
   // Initialise timers
-  Cset_timers();
+  std::array<double, TIMER_COUNT> timers;
+  Cset_timers();  // reset timers to zero
+
+  // Verify that timers = 0
+  Cget_timers(timers.data());
+  for (auto t : timers)
+    if (t != 0.0)
+      throw std::runtime_error("timers were not correctly reset.");
 
   double t = -MPI_Wtime();
   for (int n = 0; n < repetitions; ++n) {
@@ -170,18 +177,15 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
     Cp3dfft_btran_c2r(uo_ptr, ui_final.data(), op_b);
   }
   t += MPI_Wtime();
-  t *= 1000 / repetitions;  // time in ms
+  t *= 1e3 / repetitions;  // time in ms
 
   // Gather timing statistics.
-  std::array<double, TIMER_COUNT> timers;
   Cget_timers(timers.data());
   for (auto &t : timers) t *= 1e3 / repetitions;  // milliseconds
 
   if (rank == 0) {
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
-    std::cout << "\nP3DFFT timers (in milliseconds)"
-                 "\n===============================\n";
     print_timers(timers);
   }
 
@@ -190,6 +194,8 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
 
 void print_timers(const std::array<double, TIMER_COUNT> &timers) {
     double tsum = 0.0;
+    std::cout << "\nP3DFFT timers (in milliseconds)"
+                 "\n===============================\n";
     for (int i = 0; i < timers.size(); ++i) {
       tsum += timers[i];
       std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
