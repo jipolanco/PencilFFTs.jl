@@ -215,11 +215,11 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers) {
     auto fw_fft = (fw_r2c + 2 * fw_c2c) / 3;
     auto bw_fft = (bw_c2r + 2 * bw_c2c) / 3;
 
-    // Pack + unpack time. We subtract the estimated time of FFTs in Z.
-    auto fw_pack_unpack = timers[TIMER_fw_data_xy] +
-                          timers[TIMER_fw_data_yz_c2c_z] - fw_c2c;
-    auto bw_pack_unpack = timers[TIMER_bw_data_yx] +
-                          timers[TIMER_bw_data_zy_c2c_z] - bw_c2c;
+    // Average pack + unpack time. We subtract the estimated time of FFTs in Z.
+    auto fw_pack_unpack = (timers[TIMER_fw_data_xy] +
+                           timers[TIMER_fw_data_yz_c2c_z] - fw_c2c) / 2;
+    auto bw_pack_unpack = (timers[TIMER_bw_data_yx] +
+                           timers[TIMER_bw_data_zy_c2c_z] - bw_c2c) / 2;
 
     std::cout << "Forward transforms\n"
               << "  Average Alltoallv = " << fw_alltoallv << "\n"
