@@ -36,10 +36,11 @@ enum TimerEnum {
   TIMER_bw_c2c_y,
   TIMER_bw_data_yx,
   TIMER_bw_c2r_x,
+  TIMER_normalise,  // this is added by me
   TIMER_COUNT,
 };
 
-static_assert(TIMER_COUNT == 12, "");
+static_assert(TIMER_COUNT == 13, "");
 
 // Description of P3DFFT timers (see also P3DFFT_timers.md).
 const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
@@ -55,6 +56,7 @@ const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
     "iFFT c2c Y",                               // 9
     "pack + unpack data (X <- Y)",              // 10
     "iFFT c2r X",                               // 11
+    "normalise",                                // 12
 };
 
 void print_timers(const std::array<double, TIMER_COUNT> &timers,
@@ -163,6 +165,7 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
 
   // Initialise timers
   std::array<double, TIMER_COUNT> timers;
+  timers.fill(0);
   Cset_timers();  // reset timers to zero
 
   // Verify that timers = 0
@@ -174,7 +177,9 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   double t = -MPI_Wtime();
   for (int n = 0; n < repetitions; ++n) {
     Cp3dfft_ftran_r2c(ui.data(), uo_ptr, op_f);
+    timers[TIMER_normalise] = -MPI_Wtime();
     normalise(uo, pencil_x.dims_global);
+    timers[TIMER_normalise] += MPI_Wtime();
     Cp3dfft_btran_c2r(uo_ptr, ui_final.data(), op_b);
   }
   t += MPI_Wtime();
@@ -202,7 +207,7 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers,
     tsum += timers[i];
     std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
               << std::setprecision(5) << std::setw(12) << std::left << timers[i]
-              << TIMERS_TEXT[i] << std::endl;
+              << TIMERS_TEXT.at(i) << std::endl;
     if ((i + 1) % 4 == 0)
       std::cout << std::endl;
   }
@@ -229,6 +234,8 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers,
   auto bw_pack_unpack =
       (timers[TIMER_bw_data_yx] + timers[TIMER_bw_data_zy_c2c_z] - bw_c2c) / 2;
 
+  auto time_norm = timers[TIMER_normalise];
+
   std::cout << "Forward transforms\n"
             << "  Average Alltoallv = " << fw_alltoallv << "\n"
             << "  Average FFT       = " << fw_fft << "\n"
@@ -237,12 +244,13 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers,
   std::cout << "\nBackward transforms\n"
             << "  Average Alltoallv = " << bw_alltoallv << "\n"
             << "  Average FFT       = " << bw_fft << "\n"
-            << "  Average (un)pack  = " << bw_pack_unpack << "\n";
+            << "  Average (un)pack  = " << bw_pack_unpack << "\n"
+            << "  Average normalise = " << time_norm << "\n";
 
   // Verify times.
   auto fw_total_time = 2 * (fw_alltoallv + fw_pack_unpack) + 3 * fw_fft;
   auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
-  auto total_time = fw_total_time + bw_total_time;
+  auto total_time = fw_total_time + bw_total_time + time_norm;
 
   auto t_missing = time_global - total_time;
   auto percent_missing = (1 - total_time / time_global) * 100;
