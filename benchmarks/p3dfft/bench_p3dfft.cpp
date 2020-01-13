@@ -23,8 +23,26 @@ template <int N> using Dims = std::array<int, N>;
 
 constexpr int DEFAULT_REPETITIONS = 100;
 
+enum TimerEnum {
+    TIMER_fw_Alltoallv_xy = 0,
+    TIMER_fw_Alltoallv_yz,
+    TIMER_bw_Alltoallv_zy,
+    TIMER_bw_Alltoallv_yx,
+    TIMER_fw_r2c_x,
+    TIMER_fw_data_xy,
+    TIMER_fw_c2c_y,
+    TIMER_fw_data_yz_c2c_z,
+    TIMER_bw_data_zy_c2c_z,
+    TIMER_bw_c2c_y,
+    TIMER_bw_data_yx,
+    TIMER_bw_c2r_x,
+    TIMER_COUNT,
+};
+
+static_assert(TIMER_COUNT == 12, "");
+
 // Description of P3DFFT timers (see also P3DFFT_timers.md).
-const std::array<std::string, 12> TIMERS_TEXT = {
+const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
     "MPI_Alltoallv (X -> Y)",                   // 0
     "MPI_Alltoallv (Y -> Z)",                   // 1
     "MPI_Alltoallv (Y <- Z)",                   // 2
@@ -39,7 +57,7 @@ const std::array<std::string, 12> TIMERS_TEXT = {
     "iFFT c2r X",                               // 11
 };
 
-void print_timers(const std::array<double, 12> &timers);
+void print_timers(const std::array<double, TIMER_COUNT> &timers);
 
 struct PencilSetup {
   const int conf;
@@ -155,7 +173,7 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   t *= 1000 / repetitions;  // time in ms
 
   // Gather timing statistics.
-  std::array<double, 12> timers;
+  std::array<double, TIMER_COUNT> timers;
   Cget_timers(timers.data());
   for (auto &t : timers) t *= 1e3 / repetitions;  // milliseconds
 
@@ -170,31 +188,38 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   return t;
 }
 
-void print_timers(const std::array<double, 12> &timers) {
+void print_timers(const std::array<double, TIMER_COUNT> &timers) {
+    double tsum = 0.0;
     for (int i = 0; i < timers.size(); ++i) {
+      tsum += timers[i];
       std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
                 << std::setprecision(5) << std::setw(12) << std::left
                 << timers[i] << TIMERS_TEXT[i] << std::endl;
       if ((i + 1) % 4 == 0)
         std::cout << std::endl;
     }
+    std::cout << "TOTAL  " << std::setprecision(8) << std::left << tsum << "\n\n";
 
     // Average some timings for easier comparison with PencilFFTs.
-    auto fw_alltoallv = (timers[0] + timers[1]) / 2;
-    auto bw_alltoallv = (timers[2] + timers[3]) / 2;
+    auto fw_alltoallv = (timers[TIMER_fw_Alltoallv_xy] +
+                         timers[TIMER_fw_Alltoallv_yz]) / 2;
+    auto bw_alltoallv = (timers[TIMER_bw_Alltoallv_zy] +
+                         timers[TIMER_bw_Alltoallv_yx]) / 2;
 
-    auto fw_r2c = timers[4];  // FFT X
-    auto fw_c2c = timers[6];  // FFT Y
-    auto bw_c2c = timers[9];  // iFFT Y
-    auto bw_c2r = timers[11]; // iFFT X
+    auto fw_r2c = timers[TIMER_fw_r2c_x];  // FFT X
+    auto fw_c2c = timers[TIMER_fw_c2c_y];  // FFT Y
+    auto bw_c2c = timers[TIMER_bw_c2c_y];  // iFFT Y
+    auto bw_c2r = timers[TIMER_bw_c2r_x];  // iFFT X
 
     // Assume that FFTs in Z cost the same as FFTs in Y.
     auto fw_fft = (fw_r2c + 2 * fw_c2c) / 3;
     auto bw_fft = (bw_c2r + 2 * bw_c2c) / 3;
 
     // Pack + unpack time. We subtract the estimated time of FFTs in Z.
-    auto fw_pack_unpack = timers[5] + timers[7] - fw_c2c;
-    auto bw_pack_unpack = timers[8] + timers[10] - bw_c2c;
+    auto fw_pack_unpack = timers[TIMER_fw_data_xy] +
+                          timers[TIMER_fw_data_yz_c2c_z] - fw_c2c;
+    auto bw_pack_unpack = timers[TIMER_bw_data_yx] +
+                          timers[TIMER_bw_data_zy_c2c_z] - bw_c2c;
 
     std::cout << "Forward transforms\n"
               << "  Average Alltoallv = " << fw_alltoallv << "\n"
