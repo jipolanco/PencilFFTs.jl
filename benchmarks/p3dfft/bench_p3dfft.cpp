@@ -57,7 +57,8 @@ const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
     "iFFT c2r X",                               // 11
 };
 
-void print_timers(const std::array<double, TIMER_COUNT> &timers);
+void print_timers(const std::array<double, TIMER_COUNT> &timers,
+                  double time_global);
 
 struct PencilSetup {
   const int conf;
@@ -186,62 +187,69 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
   if (rank == 0) {
     std::cout << "Average time over " << repetitions << " iterations: " << t
               << " ms" << std::endl;
-    print_timers(timers);
+    print_timers(timers, t);
   }
 
   return t;
 }
 
-void print_timers(const std::array<double, TIMER_COUNT> &timers) {
-    double tsum = 0.0;
-    std::cout << "\nP3DFFT timers (in milliseconds)"
-                 "\n===============================\n";
-    for (int i = 0; i < timers.size(); ++i) {
-      tsum += timers[i];
-      std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
-                << std::setprecision(5) << std::setw(12) << std::left
-                << timers[i] << TIMERS_TEXT[i] << std::endl;
-      if ((i + 1) % 4 == 0)
-        std::cout << std::endl;
-    }
-    std::cout << "TOTAL  " << std::setprecision(8) << std::left << tsum << "\n\n";
+void print_timers(const std::array<double, TIMER_COUNT> &timers,
+                  double time_global) {
+  double tsum = 0.0;
+  std::cout << "\nP3DFFT timers (in milliseconds)"
+               "\n===============================\n";
+  for (int i = 0; i < timers.size(); ++i) {
+    tsum += timers[i];
+    std::cout << " (" << std::setw(2) << std::right << (i + 1) << ")  "
+              << std::setprecision(5) << std::setw(12) << std::left << timers[i]
+              << TIMERS_TEXT[i] << std::endl;
+    if ((i + 1) % 4 == 0)
+      std::cout << std::endl;
+  }
+  std::cout << "TOTAL  " << std::setprecision(8) << std::left << tsum << "\n\n";
 
-    // Average some timings for easier comparison with PencilFFTs.
-    auto fw_alltoallv = (timers[TIMER_fw_Alltoallv_xy] +
-                         timers[TIMER_fw_Alltoallv_yz]) / 2;
-    auto bw_alltoallv = (timers[TIMER_bw_Alltoallv_zy] +
-                         timers[TIMER_bw_Alltoallv_yx]) / 2;
+  // Average some timings for easier comparison with PencilFFTs.
+  auto fw_alltoallv =
+      (timers[TIMER_fw_Alltoallv_xy] + timers[TIMER_fw_Alltoallv_yz]) / 2;
+  auto bw_alltoallv =
+      (timers[TIMER_bw_Alltoallv_zy] + timers[TIMER_bw_Alltoallv_yx]) / 2;
 
-    auto fw_r2c = timers[TIMER_fw_r2c_x];  // FFT X
-    auto fw_c2c = timers[TIMER_fw_c2c_y];  // FFT Y
-    auto bw_c2c = timers[TIMER_bw_c2c_y];  // iFFT Y
-    auto bw_c2r = timers[TIMER_bw_c2r_x];  // iFFT X
+  auto fw_r2c = timers[TIMER_fw_r2c_x]; // FFT X
+  auto fw_c2c = timers[TIMER_fw_c2c_y]; // FFT Y
+  auto bw_c2c = timers[TIMER_bw_c2c_y]; // iFFT Y
+  auto bw_c2r = timers[TIMER_bw_c2r_x]; // iFFT X
 
-    // Assume that FFTs in Z cost the same as FFTs in Y.
-    auto fw_fft = (fw_r2c + 2 * fw_c2c) / 3;
-    auto bw_fft = (bw_c2r + 2 * bw_c2c) / 3;
+  // Assume that FFTs in Z cost the same as FFTs in Y.
+  auto fw_fft = (fw_r2c + 2 * fw_c2c) / 3;
+  auto bw_fft = (bw_c2r + 2 * bw_c2c) / 3;
 
-    // Average pack + unpack time. We subtract the estimated time of FFTs in Z.
-    auto fw_pack_unpack = (timers[TIMER_fw_data_xy] +
-                           timers[TIMER_fw_data_yz_c2c_z] - fw_c2c) / 2;
-    auto bw_pack_unpack = (timers[TIMER_bw_data_yx] +
-                           timers[TIMER_bw_data_zy_c2c_z] - bw_c2c) / 2;
+  // Average pack + unpack time. We subtract the estimated time of FFTs in Z.
+  auto fw_pack_unpack =
+      (timers[TIMER_fw_data_xy] + timers[TIMER_fw_data_yz_c2c_z] - fw_c2c) / 2;
+  auto bw_pack_unpack =
+      (timers[TIMER_bw_data_yx] + timers[TIMER_bw_data_zy_c2c_z] - bw_c2c) / 2;
 
-    std::cout << "Forward transforms\n"
-              << "  Average Alltoallv = " << fw_alltoallv << "\n"
-              << "  Average FFT       = " << fw_fft << "\n"
-              << "  Average (un)pack  = " << fw_pack_unpack << "\n";
+  std::cout << "Forward transforms\n"
+            << "  Average Alltoallv = " << fw_alltoallv << "\n"
+            << "  Average FFT       = " << fw_fft << "\n"
+            << "  Average (un)pack  = " << fw_pack_unpack << "\n";
 
-    std::cout << "\nBackward transforms\n"
-              << "  Average Alltoallv = " << bw_alltoallv << "\n"
-              << "  Average FFT       = " << bw_fft << "\n"
-              << "  Average (un)pack  = " << bw_pack_unpack << "\n";
+  std::cout << "\nBackward transforms\n"
+            << "  Average Alltoallv = " << bw_alltoallv << "\n"
+            << "  Average FFT       = " << bw_fft << "\n"
+            << "  Average (un)pack  = " << bw_pack_unpack << "\n";
 
-    // Verify times.
-    auto fw_total_time = 2 * (fw_alltoallv + fw_pack_unpack) + 3 * fw_fft;
-    auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
-    auto total_time = fw_total_time + bw_total_time;
-    std::cout << "\nTotal from timers: " << total_time << " ms/iteration\n";
+  // Verify times.
+  auto fw_total_time = 2 * (fw_alltoallv + fw_pack_unpack) + 3 * fw_fft;
+  auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
+  auto total_time = fw_total_time + bw_total_time;
+
+  auto t_missing = time_global - total_time;
+  auto percent_missing = (1 - total_time / time_global) * 100;
+
+  std::cout << "\nTotal from timers: " << total_time << " ms/iteration ("
+            << t_missing << " ms / " << std::setprecision(4) << percent_missing
+            << "% missing)\n";
 }
 
 struct BenchOptions {
