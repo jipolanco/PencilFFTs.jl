@@ -126,14 +126,50 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
                          extra_dims=extra_dims)
 
     dims_all = (size_in..., extra_dims...)
+    dims_fft = 1:length(size_in)
 
     @testset "In-place transforms 3D" begin
         @inferred allocate_input(plan)
         @inferred allocate_output(plan)
 
-        let vi = allocate_input(plan), vo = allocate_output(plan)
-            @test vi isa Pencils.ManyPencilArray
+        vi = allocate_input(plan)
+        @test vi isa Pencils.ManyPencilArray
+
+        let vo = allocate_output(plan)
             @test typeof(vi) === typeof(vo)
+        end
+
+        u = first(vi)  # input PencilArray
+        v = last(vi)   # output PencilArray
+
+        randn!(u)
+        u_initial = copy(u)
+        ug = gather(u, root)  # for comparison with serial FFT
+
+        if ug !== nothing
+            p = FFTW.plan_fft!(ug, dims_fft)
+        end
+
+        # TODO use nicer syntax when it's implemented!
+        PencilFFTs._apply_plans!(Val(FFTW.FORWARD), plan, vi)
+        @test !(u ≈ u_initial)  # `u` was modified!
+
+        # Now `v` contains the transformed data.
+        vg = gather(v, root)
+        if ug !== nothing && vg !== nothing
+            p * ug  # apply serial in-place FFT
+            @test ug ≈ vg
+        end
+
+        PencilFFTs._apply_plans!(Val(FFTW.BACKWARD), plan, vi)
+
+        # Now `u` contains the initial data (approximately).
+        @test u ≈ u_initial
+
+        ug_again = gather(u, root)
+        if ug !== nothing && ug_again !== nothing
+            p \ ug  # apply serial in-place FFT
+            @test ug ≈ ug_again
         end
     end
 
@@ -151,8 +187,6 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
     pair_r2r(tr::Transforms.R2R) =
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
-
-    # TODO test c2c and some r2r in-place transforms
 
     pairs = (
              Transforms.FFT() => make_plan(FFTW.plan_fft),

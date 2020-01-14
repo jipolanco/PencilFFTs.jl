@@ -1,4 +1,5 @@
 const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
+const PlanArrayPair{P,A} = Pair{P,A} where {P <: PencilPlan1D, A <: PencilArray}
 
 # This allows to treat plans as scalars when broadcasting.
 # This means that, if u = (u1, u2, u3) is a tuple of PencilArrays
@@ -75,12 +76,14 @@ _get_pencils_and_plan(::Val{FFTW.FORWARD}, p::PencilPlan1D) =
 _get_pencils_and_plan(::Val{FFTW.BACKWARD}, p::PencilPlan1D) =
     (p.pencil_out, p.pencil_in, p.bfft_plan)
 
+# Out-of-place version
 function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
                        y::PencilArray, x::PencilArray,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
+    @assert !is_inplace(full_plan) && !is_inplace(plan)
     Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
 
-    # Transpose pencil if required.
+    # Transpose data if required.
     u = if pencil(x) === Pi
         x
     else
@@ -100,6 +103,63 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
 end
 
 _apply_plans!(::Val, ::PencilFFTPlan, y::PencilArray, x::PencilArray) = y
+
+# In-place version
+function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
+                       A::ManyPencilArray)
+    @assert is_inplace(full_plan)
+    pairs = _make_pairs(full_plan.plans, A.arrays)
+
+    # Backward transforms are applied in reverse order.
+    pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
+
+    _apply_plans!(dir, full_plan, nothing, pp...)
+
+    if dir === Val(FFTW.BACKWARD)
+        # Scale transform.
+        ldiv!(full_plan.scale_factor, first(A))
+    end
+
+    A
+end
+
+function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
+                       u_prev::Union{Nothing, PencilArray},
+                       pair::PlanArrayPair, next_pairs...)
+    plan = pair.first
+    u = pair.second
+    Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
+
+    @assert is_inplace(full_plan) && is_inplace(plan)
+    @assert pencil(u) === plan.pencil_in === plan.pencil_out
+
+    # Buffers should take no memory for in-place transforms.
+    @assert length(full_plan.ibuf) == length(full_plan.obuf) == 0
+
+    if u_prev !== nothing
+        # Transpose data from previous configuration.
+        @assert pointer(u_prev) === pointer(u)  # they're aliased!
+        transpose!(u, u_prev, method=full_plan.transpose_method)
+    end
+
+    # Perform in-place FFT
+    @timeit_debug full_plan.timer "FFT!" fftw_plan * parent(u)
+
+    _apply_plans!(dir, full_plan, u, next_pairs...)
+end
+
+_apply_plans!(::Val, ::PencilFFTPlan, u_prev::PencilArray) = u_prev
+
+_split_first(a, b...) = (a, b)  # (x, y, z, w) -> (x, (y, z, w))
+
+function _make_pairs(plans::Tuple{Vararg{PencilPlan1D,N}},
+                     arrays::Tuple{Vararg{PencilArray,N}}) where {N}
+    p, p_next = _split_first(plans...)
+    a, a_next = _split_first(arrays...)
+    (p => a, _make_pairs(p_next, a_next)...)
+end
+
+_make_pairs(::Tuple{}, ::Tuple{}) = ()
 
 function _check_arrays(p::PencilFFTPlan, xin, xout)
     if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
