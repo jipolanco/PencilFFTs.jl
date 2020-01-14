@@ -186,6 +186,12 @@ struct PencilFFTPlan{T,
         plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> p.scale_factor, plans)
 
+        # If the plan is in-place, the buffers won't be needed anymore, so we
+        # free the memory.
+        if is_inplace(transforms...)
+            resize!.((ibuf, obuf), 0)
+        end
+
         N = Nt + Ne
         G = typeof(g)
         P = typeof(plans)
@@ -421,9 +427,9 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     The input and output `PencilArray`s should be respectively accessed by
     calling [`first(::ManyPencilArray)`](@ref) and
     [`last(::ManyPencilArray)`](@ref).
-    
+
     #### Example
-    
+
     Suppose `p` is an in-place `PencilFFTPlan`. Then,
     ```julia
     @assert is_inplace(p)
