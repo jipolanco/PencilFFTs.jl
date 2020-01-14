@@ -87,8 +87,8 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
 
     @test_throws ErrorException @inferred A[2]  # type not inferred
 
-    @test A[Val(2)] === A[2] === A.arrays[2]
-    @test A[Val(1)] === first(A)
+    @test A[Val(1)] === first(A) === A[Val(UInt8(1))] === A[1]
+    @test A[Val(2)] === A[2] === A.arrays[2] === A[Val(Int32(2))]
     @test A[Val(M)] === last(A)
 
     @test_throws BoundsError A[Val(0)]

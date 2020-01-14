@@ -95,7 +95,7 @@ Base.getindex(A::ManyPencilArray, i) = A[Val(i)]
 @inline function _getindex(::Val{i}, a, t::Vararg) where {i}
     i :: Integer
     i <= 0 && throw(BoundsError("index must be >= 1"))
-    i === 1 && return a
+    i == 1 && return a
     _getindex(Val(i - 1), t...)
 end
 
