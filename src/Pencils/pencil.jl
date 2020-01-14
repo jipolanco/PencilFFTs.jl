@@ -141,12 +141,14 @@ function _sort_dimensions(dims::Dims{N}) where N
 end
 
 function Base.show(io::IO, p::Pencil)
+    perm = get_permutation(p)
+    perm_str = perm === nothing ? "None" : string(extract(perm))
     print(io,
           """
           Decomposition of $(ndims(p))D data
               Data dimensions: $(size_global(p)) [$(eltype(p))]
               Decomposed dimensions: $(get_decomposition(p))
-              Data permutation: $(get_permutation(p))""")
+              Data permutation: $(perm_str)""")
 end
 
 """
