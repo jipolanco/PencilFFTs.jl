@@ -93,7 +93,7 @@ function test_transform_types(size_in)
         end
     end
 
-    @testset "In-place transforms" begin
+    @testset "In-place transforms 1D" begin
         FFT = Transforms.FFT()
         FFT! = Transforms.FFT!()
 
@@ -113,6 +113,31 @@ function test_transform_types(size_in)
 
         # Cannot combine in-place and out-of-place transforms.
         @test_throws ArgumentError PencilFFTs.GlobalFFTParams(size_in, (FFT, FFT!, FFT!))
+    end
+
+    nothing
+end
+
+function test_inplace(comm, proc_dims, size_in; extra_dims=())
+    root = 0
+
+    transforms = Transforms.FFT!()  # in-place c2c FFT
+    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm;
+                         extra_dims=extra_dims)
+
+    dims_all = (size_in..., extra_dims...)
+
+    @testset "In-place transforms 3D" begin
+        @inferred allocate_input(plan)
+        @inferred allocate_output(plan)
+
+        let vi = allocate_input(plan), vo = allocate_output(plan)
+            @test vi isa Pencils.ManyPencilArray
+            @test typeof(vi) === typeof(vo)
+            for x in (vi, vo)
+                @test size(first(x)) === size(last(x)) === dims_all
+            end
+        end
     end
 
     nothing
@@ -222,8 +247,9 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
         end
     end
 
-    test_transforms(comm, pdims, size_in, extra_dims=(3, ))
-    test_transforms(comm, pdims, size_in)
+    for f in (test_inplace, test_transforms), extra_dims in ((), (3, ))
+        f(comm, pdims, size_in, extra_dims=extra_dims)
+    end
 
     redirect_stdout(stdout)  # undo redirection
 
