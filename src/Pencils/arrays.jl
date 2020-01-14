@@ -230,6 +230,17 @@ Return array wrapped by a `PencilArray`.
 Base.parent(x::PencilArray) = x.data
 
 """
+    pointer(x::PencilArray)
+
+Return pointer to the start of the underlying data.
+
+Use with caution: this may not make a lot of sense if the underlying data is not
+contiguous or strided (e.g. if the `PencilArray` is wrapping a non-strided
+`SubArray`).
+"""
+Base.pointer(x::PencilArray) = pointer(parent(x))
+
+"""
     ndims_extra(x::PencilArray)
     ndims_extra(x::PencilArrayCollection)
 
