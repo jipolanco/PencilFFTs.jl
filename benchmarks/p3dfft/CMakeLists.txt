@@ -99,6 +99,9 @@ ExternalProject_Add(p3dfft_build
     # This "patch" makes P3DFFT look for "libfftw3.so" instead.
     # PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
 
+    PATCH_COMMAND
+        git apply ${CMAKE_CURRENT_SOURCE_DIR}/p3dfft_fix_timers.patch
+
     BUILD_IN_SOURCE TRUE
 
     CONFIGURE_COMMAND aclocal --force
