@@ -148,6 +148,7 @@ eltype(::Pencil)
 get_comm(::Pencil)
 get_decomposition(::Pencil)
 get_permutation(::Pencil)
+length(::Pencil)
 ndims(::Pencil)
 range_local(::Pencil{N}) where N
 size_global(::Pencil)
