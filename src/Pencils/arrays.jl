@@ -234,9 +234,9 @@ Base.parent(x::PencilArray) = x.data
 
 Return pointer to the start of the underlying data.
 
-Use with caution: this may not make a lot of sense if the underlying data is not
-contiguous or strided (e.g. if the `PencilArray` is wrapping a non-strided
-`SubArray`).
+Use with caution: this may not make a lot of sense (and may even fail) if the
+underlying data is not contiguous or strided (e.g. if the `PencilArray` is
+wrapping a non-strided `SubArray`).
 """
 Base.pointer(x::PencilArray) = pointer(parent(x))
 
