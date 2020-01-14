@@ -197,6 +197,8 @@ function main()
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
 
+    MPI.Comm_rank(comm) == 0 || redirect_stdout(open(DEV_NULL, "w"))
+
     # Let MPI_Dims_create choose the 2D decomposition.
     pdims_2d = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
