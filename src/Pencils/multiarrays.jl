@@ -8,10 +8,12 @@ This can be useful to perform in-place operations on `PencilArray` data.
 
 ---
 
-    ManyPencilArray(pencils...)
+    ManyPencilArray(pencils...; extra_dims=())
 
 Create a `ManyPencilArray` container that can hold data associated to all the
 given [`Pencil`](@ref)s.
+
+The optional `extra_dims` argument is the same as for [`PencilArray`](@ref).
 """
 struct ManyPencilArray{M, T,
                        Arrays <: Tuple{Vararg{PencilArray,M}},
@@ -20,27 +22,29 @@ struct ManyPencilArray{M, T,
     arrays :: Arrays
 
     function ManyPencilArray(
-            pencils::Vararg{Pencil{N,X,T}, M} where {N,X}) where {M,T}
-        # TODO support extra_dims
-        data_length = max(length.(pencils)...)
+            pencils::Vararg{Pencil{N,X,T}, M} where {N,X};
+            extra_dims::Dims=(),
+           ) where {M,T}
+        data_length = max(length.(pencils)...) * prod(extra_dims)
         data = Vector{T}(undef, data_length)
-        arrays = _make_arrays(data, pencils...)
+        arrays = _make_arrays(data, extra_dims, pencils...)
         A = typeof(arrays)
         new{M,T,A}(data, arrays)
     end
 end
 
-function _make_arrays(data::Vector, p::Pencil, pens::Vararg{Pencil})
-    dims = size_local(p, permute=true)
+function _make_arrays(data::Vector, extra_dims::Dims, p::Pencil,
+                      pens::Vararg{Pencil})
+    dims = (size_local(p, permute=true)..., extra_dims...)
     n = prod(dims)
-    @assert n == length(p)
+    @assert n == length(p) * prod(extra_dims)
     vec = view(data, Base.OneTo(n))
     arr = reshape(vec, dims)
     A = PencilArray(p, arr)
-    (A, _make_arrays(data, pens...)...)
+    (A, _make_arrays(data, extra_dims, pens...)...)
 end
 
-_make_arrays(::Vector) = ()
+_make_arrays(::Vector, ::Dims) = ()
 
 """
     length(A::ManyPencilArray)

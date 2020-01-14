@@ -94,6 +94,14 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
     @test_throws BoundsError A[Val(0)]
     @test_throws BoundsError A[Val(M + 1)]
 
+    @testset "Extra dimensions" begin
+        e = (3, 2)
+        @inferred ManyPencilArray(pencils...; extra_dims=e)
+        A = ManyPencilArray(pencils...; extra_dims=e)
+        @test extra_dims(first(A)) === extra_dims(last(A)) === e
+        @test ndims_extra(first(A)) == ndims_extra(last(A)) == length(e)
+    end
+
     nothing
 end
 
