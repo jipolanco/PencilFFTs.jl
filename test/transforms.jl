@@ -134,9 +134,6 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
         let vi = allocate_input(plan), vo = allocate_output(plan)
             @test vi isa Pencils.ManyPencilArray
             @test typeof(vi) === typeof(vo)
-            for x in (vi, vo)
-                @test size(first(x)) === size(last(x)) === dims_all
-            end
         end
     end
 
