@@ -216,6 +216,8 @@ ManyPencilArray
 
 ### Methods
 
+#### PencilArray
+
 ```@docs
 extra_dims(::PencilArray)
 get_comm(::MaybePencilArrayCollection)
@@ -228,9 +230,15 @@ pencil(::PencilArray)
 range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
 size_global(::MaybePencilArrayCollection)
+```
+
+#### ManyPencilArray
+
+```@docs
 first(::ManyPencilArray)
-last(::ManyPencilArray)
 getindex(::ManyPencilArray)
+last(::ManyPencilArray)
+length(::ManyPencilArray)
 ```
 
 ## Global MPI operations
