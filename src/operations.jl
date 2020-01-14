@@ -13,7 +13,7 @@ function LinearAlgebra.mul!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
                                              To <: RealOrComplex{T}}
     @timeit_debug p.timer "PencilFFTs mul!" begin
         _check_arrays(p, src, dst)
-        _apply_plans!(Val(FFTW.FORWARD), dst, src, p, p.plans...)
+        _apply_plans!(Val(FFTW.FORWARD), p, dst, src, p.plans...)
     end
 end
 
@@ -35,7 +35,7 @@ function LinearAlgebra.ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
         plans = reverse(p.plans)  # plans are applied from right to left
         # TODO can I fuse transform + scaling into one operation? (maybe using
         # callbacks?)
-        _apply_plans!(Val(FFTW.BACKWARD), dst, src, p, plans...)
+        _apply_plans!(Val(FFTW.BACKWARD), p, dst, src, plans...)
         ldiv!(p.scale_factor, dst)  # normalise transform
     end
 end
@@ -69,18 +69,16 @@ for f in (:*, :\)
         $f.(p, src)
 end
 
-function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
-                       full_plan::PencilFFTPlan,
+_get_pencils_and_plan(::Val{FFTW.FORWARD}, p::PencilPlan1D) =
+    (p.pencil_in, p.pencil_out, p.fft_plan)
+
+_get_pencils_and_plan(::Val{FFTW.BACKWARD}, p::PencilPlan1D) =
+    (p.pencil_out, p.pencil_in, p.bfft_plan)
+
+function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
+                       y::PencilArray, x::PencilArray,
                        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
-    if dir === Val(FFTW.FORWARD)
-        Pi = plan.pencil_in
-        Po = plan.pencil_out
-        fftw_plan = plan.fft_plan
-    elseif dir === Val(FFTW.BACKWARD)
-        Pi = plan.pencil_out
-        Po = plan.pencil_in
-        fftw_plan = plan.bfft_plan
-    end
+    Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
 
     # Transpose pencil if required.
     u = if pencil(x) === Pi
@@ -96,15 +94,12 @@ function _apply_plans!(dir::Val, y::PencilArray, x::PencilArray,
         _temporary_pencil_array(Po, full_plan.obuf, full_plan.extra_dims)
     end
 
-    @debug("Apply 1D plan", fftw_plan, get_permutation(Pi), size(parent(u)),
-           size(parent(v)))
-
     @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
-    _apply_plans!(dir, y, v, full_plan, next_plans...)
+    _apply_plans!(dir, full_plan, y, v, next_plans...)
 end
 
-_apply_plans!(::Val, y::PencilArray, x::PencilArray, ::PencilFFTPlan) = y
+_apply_plans!(::Val, ::PencilFFTPlan, y::PencilArray, x::PencilArray) = y
 
 function _check_arrays(p::PencilFFTPlan, xin, xout)
     if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
