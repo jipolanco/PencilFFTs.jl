@@ -75,6 +75,28 @@ function test_array_wrappers(p::Pencil)
     nothing
 end
 
+function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
+    @inferred ManyPencilArray(pencils...)
+
+    A = ManyPencilArray(pencils...)
+
+    @inferred first(A)
+    @inferred last(A)
+    @inferred A[Val(2)]
+    @inferred A[Val(M)]
+
+    @test_throws ErrorException @inferred A[2]  # type not inferred
+
+    @test A[Val(2)] === A[2] === A.arrays[2]
+    @test A[Val(1)] === first(A)
+    @test A[Val(M)] === last(A)
+
+    @test_throws BoundsError A[Val(0)]
+    @test_throws BoundsError A[Val(M + 1)]
+
+    nothing
+end
+
 function compare_distributed_arrays(u_local::PencilArray, v_local::PencilArray)
     comm = get_comm(u_local)
     root = 0
@@ -117,6 +139,10 @@ function main()
     pen1 = Pencil(topo, Nxyz, (2, 3))
     pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Val((2, 3, 1)))
     pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Val((3, 2, 1)))
+
+    @testset "ManyPencilArray" begin
+        test_multiarrays(pen1, pen2, pen3)
+    end
 
     # Note: the permutation of pen2 was chosen such that the inverse permutation
     # is different.

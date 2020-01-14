@@ -16,6 +16,7 @@ import LinearAlgebra
 
 export Pencil, PencilArray, MPITopology
 export PencilArrayCollection
+export ManyPencilArray
 export pencil
 export gather
 export get_comm, get_decomposition, get_permutation, get_timer
@@ -35,6 +36,7 @@ import .MPITopologies: get_comm
 # Type definitions
 include("pencil.jl")       # Pencil
 include("arrays.jl")       # PencilArray
+include("multiarrays.jl")  # ManyPencilArray
 include("global_view.jl")  # GlobalPencilArray
 include("permuted_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndices
 

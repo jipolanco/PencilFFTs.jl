@@ -211,6 +211,7 @@ gradient_method_global).
 PencilArray
 PencilArrayCollection
 MaybePencilArrayCollection
+ManyPencilArray
 ```
 
 ### Methods
@@ -227,6 +228,9 @@ pencil(::PencilArray)
 range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
 size_global(::MaybePencilArrayCollection)
+first(::ManyPencilArray)
+last(::ManyPencilArray)
+getindex(::ManyPencilArray)
 ```
 
 ## Global MPI operations
