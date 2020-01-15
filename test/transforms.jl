@@ -96,8 +96,9 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
 
-    pairs = if FAST_TESTS && (T === Float32 || !isempty(extra_dims))
-        # Only test one transform with Float32 or extra_dims.
+    pairs = if FAST_TESTS &&
+            (T === Float32 || !isempty(extra_dims) || length(proc_dims) == 1)
+        # Only test one transform with Float32 / extra_dims / 1D decomposition.
         (Transforms.RFFT() => make_plan(FFTW.plan_rfft), )
     else
         (
@@ -191,8 +192,17 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
         end
     end
 
-    for T in (Float64, Float32), extra_dims in ((), (3, ))
-        test_transforms(T, comm, pdims, size_in, extra_dims=extra_dims)
+    if FAST_TESTS && length(pdims) == 1
+        # Only test one case for 1D decomposition.
+        types = (Float64, )
+        extra_dims = ((), )
+    else
+        types = (Float64, Float32)
+        extra_dims = ((), (3, ))
+    end
+
+    for T in types, edims in extra_dims
+        test_transforms(T, comm, pdims, size_in, extra_dims=edims)
     end
 
     redirect_stdout(stdout)  # undo redirection
@@ -211,13 +221,17 @@ function main()
 
     MPI.Comm_rank(comm) == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
+    pdims_1d = (Nproc, )  # 1D ("slab") decomposition
+
     # Let MPI_Dims_create choose the 2D decomposition.
     pdims_2d = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
         pdims[1], pdims[2]
     end
 
-    test_pencil_plans(size_in, pdims_2d)
+    for p in (pdims_1d, pdims_2d)
+        test_pencil_plans(size_in, p)
+    end
 
     MPI.Finalize()
 end
