@@ -63,6 +63,7 @@ Transforms.is_inplace(g::GlobalFFTParams{T,N,I}) where {T,N,I} = I
 
 function Base.show(io::IO, g::GlobalFFTParams)
     println(io, "Transforms: ", g.transforms)
+    println(io, "Input type: ", input_data_type(g))
     println(io, "Global dimensions: ",
             g.size_global_in, "  ->  ", g.size_global_out)
     nothing
