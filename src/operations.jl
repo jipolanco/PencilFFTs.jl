@@ -108,12 +108,12 @@ _apply_plans!(::Val, ::PencilFFTPlan, y::PencilArray, x::PencilArray) = y
 function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
                        A::ManyPencilArray)
     @assert is_inplace(full_plan)
-    pairs = _make_pairs(full_plan.plans, A.arrays)
+    pairs = zip(full_plan.plans, A.arrays)
 
     # Backward transforms are applied in reverse order.
-    pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
+    iter = dir === Val(FFTW.BACKWARD) ? Iterators.reverse(pairs) : pairs
 
-    _apply_plans!(dir, full_plan, nothing, pp...)
+    _apply_plans!(dir, full_plan, nothing, iter)
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
@@ -125,9 +125,13 @@ end
 
 function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
                        u_prev::Union{Nothing, PencilArray},
-                       pair::PlanArrayPair, next_pairs...)
-    plan = pair.first
-    u = pair.second
+                       iter...)
+    @assert 1 <= length(iter) <= 2  # (iterator, ) / (iterator, state)
+
+    it = iterate(iter...)
+    it === nothing && return
+    (plan, u), state_new = it
+
     Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
 
     @assert is_inplace(full_plan) && is_inplace(plan)
@@ -145,21 +149,8 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
     # Perform in-place FFT
     @timeit_debug full_plan.timer "FFT!" fftw_plan * parent(u)
 
-    _apply_plans!(dir, full_plan, u, next_pairs...)
+    _apply_plans!(dir, full_plan, u, first(iter), state_new)
 end
-
-_apply_plans!(::Val, ::PencilFFTPlan, u_prev::PencilArray) = u_prev
-
-_split_first(a, b...) = (a, b)  # (x, y, z, w) -> (x, (y, z, w))
-
-function _make_pairs(plans::Tuple{Vararg{PencilPlan1D,N}},
-                     arrays::Tuple{Vararg{PencilArray,N}}) where {N}
-    p, p_next = _split_first(plans...)
-    a, a_next = _split_first(arrays...)
-    (p => a, _make_pairs(p_next, a_next)...)
-end
-
-_make_pairs(::Tuple{}, ::Tuple{}) = ()
 
 function _check_arrays(p::PencilFFTPlan, xin, xout)
     if xin !== nothing && first(p.plans).pencil_in !== pencil(xin)
