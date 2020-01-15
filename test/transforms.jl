@@ -48,7 +48,8 @@ function test_transform_types(size_in)
         p = Transforms.plan(transform, x)
         p! = Transforms.plan(transform!, x)
 
-        @test p * x == x && p * x !== x  # creates copy
+        @test p * x !== x  # creates copy
+        @test p * x == x
         @test p! * x === x
 
         y = similar(x)
