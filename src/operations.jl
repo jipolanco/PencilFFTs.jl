@@ -34,10 +34,13 @@ function LinearAlgebra.ldiv!(dst::PencilArray{To,N}, p::PencilFFTPlan{T,N},
     @timeit_debug p.timer "PencilFFTs ldiv!" begin
         _check_arrays(p, dst, src)
         plans = reverse(p.plans)  # plans are applied from right to left
+
         # TODO can I fuse transform + scaling into one operation? (maybe using
         # callbacks?)
         _apply_plans!(Val(FFTW.BACKWARD), p, dst, src, plans...)
-        ldiv!(p.scale_factor, dst)  # normalise transform
+
+        # Normalise transform
+        @timeit_debug p.timer "normalise" ldiv!(p.scale_factor, dst)
     end
 end
 

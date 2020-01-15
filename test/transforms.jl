@@ -15,7 +15,12 @@ const DATA_DIMS = (64, 40, 32)
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
-const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
+const FAST_TESTS = !("--all" in ARGS)
+
+# Only test a few r2r kinds in "fast" tests.
+# Otherwise, test all of them.
+const TEST_KINDS_R2R = FAST_TESTS ?
+    (FFTW.REDFT00, FFTW.REDFT01) : Transforms.R2R_SUPPORTED_KINDS
 
 function test_transform_types(size_in)
     @testset "r2c transforms" begin
@@ -179,7 +184,8 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
     nothing
 end
 
-function test_transforms(comm, proc_dims, size_in; extra_dims=())
+function test_transforms(::Type{T}, comm, proc_dims, size_in;
+                         extra_dims=()) where {T}
     root = 0
 
     plan_kw = (:extra_dims => extra_dims, )
@@ -191,21 +197,26 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
     pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
 
-    pairs = (
-             Transforms.FFT() => make_plan(FFTW.plan_fft),
-             Transforms.RFFT() => make_plan(FFTW.plan_rfft),
-             Transforms.BFFT() => make_plan(FFTW.plan_bfft),
-             pairs_r2r...,
-             (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-                => make_plan(FFTW.plan_rfft, dims=2:3),
-             (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
-                => make_plan(FFTW.plan_fft, dims=(1, 3)),
-             (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
-                => make_plan(FFTW.plan_fft, dims=1),
-             Transforms.BRFFT() => make_plan(FFTW.plan_brfft),  # not yet supported
-            )
+    pairs = if FAST_TESTS && (T === Float32 || !isempty(extra_dims))
+        # Only test one transform with Float32 or extra_dims.
+        (Transforms.RFFT() => make_plan(FFTW.plan_rfft), )
+    else
+        (
+         Transforms.FFT() => make_plan(FFTW.plan_fft),
+         Transforms.RFFT() => make_plan(FFTW.plan_rfft),
+         Transforms.BFFT() => make_plan(FFTW.plan_bfft),
+         pairs_r2r...,
+         (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
+         => make_plan(FFTW.plan_rfft, dims=2:3),
+         (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
+         => make_plan(FFTW.plan_fft, dims=(1, 3)),
+         (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
+         => make_plan(FFTW.plan_fft, dims=1),
+         Transforms.BRFFT() => make_plan(FFTW.plan_brfft),  # not yet supported
+        )
+    end
 
-    @testset "$(p.first) -- $T" for p in pairs, T in (Float32, Float64)
+    @testset "$(p.first) -- $T" for p in pairs
         if p.first === Transforms.BRFFT()
             # FIXME...
             # In this case, I need to change the order of the transforms
@@ -282,8 +293,11 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
         end
     end
 
-    for f in (test_inplace, test_transforms), extra_dims in ((), (3, ))
-        f(comm, pdims, size_in, extra_dims=extra_dims)
+    for extra_dims in ((), (3, ))
+        test_inplace(comm, pdims, size_in, extra_dims=extra_dims)
+        for T in (Float64, Float32)
+            test_transforms(T, comm, pdims, size_in, extra_dims=extra_dims)
+        end
     end
 
     redirect_stdout(stdout)  # undo redirection
@@ -300,8 +314,7 @@ function main()
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
 
-    myrank = MPI.Comm_rank(comm)
-    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+    MPI.Comm_rank(comm) == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
     # Let MPI_Dims_create choose the 2D decomposition.
     pdims_2d = let pdims = zeros(Int, 2)
