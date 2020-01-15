@@ -125,6 +125,8 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm;
                          extra_dims=extra_dims)
 
+    println("\n", "-"^60, "\n\n", plan, "\n")
+
     dims_all = (size_in..., extra_dims...)
     dims_fft = 1:length(size_in)
 
@@ -240,9 +242,10 @@ function test_transforms(comm, proc_dims, size_in; extra_dims=())
         vg = gather(v, root)
 
         if ug !== nothing && vg !== nothing
-            p = fftw_planner(ug)
-            vg_serial = p * ug
-            @test vg ≈ vg_serial
+            let p = fftw_planner(ug)
+                vg_serial = p * ug
+                @test vg ≈ vg_serial
+            end
         end
 
         MPI.Barrier(comm)
@@ -295,6 +298,9 @@ function main()
 
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
+
+    myrank = MPI.Comm_rank(comm)
+    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
     # Let MPI_Dims_create choose the 2D decomposition.
     pdims_2d = let pdims = zeros(Int, 2)
