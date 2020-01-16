@@ -30,6 +30,8 @@ The two pencil configurations must be compatible for transposition:
   not in `(1, 2)`. If the decomposed dimensions are the same, then no
   transposition is performed, and data is just copied if needed.
 
+The `src` and `dest` arrays may be aliased (they can share memory space).
+
 # Performance tuning
 
 The `method` argument allows to choose between transposition implementations.
@@ -54,44 +56,24 @@ function transpose!(
 
     Pi = pencil(src)
     Po = pencil(dest)
-    timer = Pi.timer
+    timer = get_timer(Pi)
 
     @timeit_debug timer "transpose!" begin
-
-    # Verifications
-    if src.extra_dims !== dest.extra_dims
-        throw(ArgumentError(
-            "incompatible number of extra dimensions of PencilArrays: " *
-            "$(src.extra_dims) != $(dest.extra_dims)"))
-    end
-    assert_compatible(Pi, Po)
-
-    # Note: the `decomp_dims` tuples of both pencils must differ by at most one
-    # value (as just checked by `assert_compatible`). The transposition is
-    # performed along the dimension R where that difference happens.
-    R = findfirst(Pi.decomp_dims .!= Po.decomp_dims)
-
-    if R === nothing
-        # Both pencil configurations are identical, so we just copy the data,
-        # permuting dimensions if needed.
-        ui = parent(src)
-        uo = parent(dest)
-        if same_permutation(get_permutation(Pi), get_permutation(Po))
-            @timeit_debug timer "copy!" copy!(uo, ui)
-        elseif parent(src) !== parent(dest)
-            perm_base = relative_permutation(Pi, Po)
-            perm = append_to_permutation(perm_base, Val(length(src.extra_dims)))
-            @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
-        else
-            # TODO...
-            error("in-place dimension permutations not yet supported!")
+        # Verifications
+        if src.extra_dims !== dest.extra_dims
+            throw(ArgumentError(
+                "incompatible number of extra dimensions of PencilArrays: " *
+                "$(src.extra_dims) != $(dest.extra_dims)"))
         end
-    else
-        # MPI data transposition.
+
+        assert_compatible(Pi, Po)
+
+        # Note: the `decomp_dims` tuples of both pencils must differ by at most
+        # one value (as just checked by `assert_compatible`). The transposition
+        # is performed along the dimension R where that difference happens.
+        R = findfirst(Pi.decomp_dims .!= Po.decomp_dims)
         transpose_impl!(R, dest, src, method=method)
     end
-
-    end  # @timeit_debug
 
     dest
 end
@@ -130,15 +112,43 @@ function unsafe_as_array(::Type{T}, x::Vector{UInt8}, dims) where T
     A
 end
 
+# Only local transposition.
+function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
+                         kwargs...) where {T, N}
+    Pi = pencil(in)
+    Po = pencil(out)
+    timer = get_timer(Pi)
+
+    # Both pencil configurations are identical, so we just copy the data,
+    # permuting dimensions if needed.
+    @assert size(in) === size(out)
+    ui = parent(in)
+    uo = parent(out)
+
+    if same_permutation(get_permutation(Pi), get_permutation(Po))
+        @timeit_debug timer "copy!" copy!(uo, ui)
+    elseif ui !== uo && pointer(ui) !== pointer(uo)
+        perm_base = relative_permutation(Pi, Po)
+        perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
+        @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
+    else
+        # TODO...
+        error("in-place dimension permutations not yet supported!")
+    end
+
+    out
+end
+
+# Transposition among MPI processes in a subcommunicator.
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
 function transpose_impl!(
             R::Int, out::PencilArray{T,N}, in::PencilArray{T,N};
             method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
         ) where {T, N}
-    Pi = in.pencil
-    Po = out.pencil
-    timer = Pi.timer
+    Pi = pencil(in)
+    Po = pencil(out)
+    timer = get_timer(Pi)
 
     use_alltoallv = method === TransposeMethods.Alltoallv()
     @assert use_alltoallv || method === TransposeMethods.IsendIrecv()
