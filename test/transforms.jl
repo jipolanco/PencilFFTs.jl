@@ -95,7 +95,6 @@ function test_transform_types(size_in)
         for kind in (FFTW.R2HC, FFTW.HC2R), T in (Transforms.R2R, Transforms.R2R!)
             # Unsupported r2r kinds.
             @test_throws ArgumentError T{kind}()
-            @test_throws ArgumentError T{kind}()
         end
     end
 
@@ -124,11 +123,12 @@ function test_transform_types(size_in)
     nothing
 end
 
-function test_inplace(comm, proc_dims, size_in; extra_dims=())
+function test_inplace(::Type{T}, comm, proc_dims, size_in;
+                      extra_dims=()) where {T}
     root = 0
 
     transforms = Transforms.FFT!()  # in-place c2c FFT
-    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm;
+    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, T;
                          extra_dims=extra_dims)
 
     println("\n", "-"^60, "\n\n", plan, "\n")
@@ -154,10 +154,6 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
         u_initial = copy(u)
         ug = gather(u, root)  # for comparison with serial FFT
 
-        if ug !== nothing
-            p = FFTW.plan_fft!(ug, dims_fft)
-        end
-
         # TODO use nicer syntax when it's implemented!
         PencilFFTs._apply_plans!(Val(FFTW.FORWARD), plan, vi)
         @test !(u ≈ u_initial)  # `u` was modified!
@@ -165,6 +161,7 @@ function test_inplace(comm, proc_dims, size_in; extra_dims=())
         # Now `v` contains the transformed data.
         vg = gather(v, root)
         if ug !== nothing && vg !== nothing
+            p = FFTW.plan_fft!(ug, dims_fft)
             p * ug  # apply serial in-place FFT
             @test ug ≈ vg
         end
@@ -266,11 +263,8 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
     nothing
 end
 
-function test_pencil_plans(size_in::Tuple, pdims::Tuple)
+function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     @assert length(size_in) >= 3
-    comm = MPI.COMM_WORLD
-    myrank = MPI.Comm_rank(comm)
-    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
 
@@ -293,14 +287,14 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple)
         end
     end
 
-    for extra_dims in ((), (3, ))
-        test_inplace(comm, pdims, size_in, extra_dims=extra_dims)
-        for T in (Float64, Float32)
-            test_transforms(T, comm, pdims, size_in, extra_dims=extra_dims)
-        end
-    end
 
-    redirect_stdout(stdout)  # undo redirection
+    types = (Float64, Float32)
+    extra_dims = ((), (3, ))
+
+    for T in types, edims in extra_dims
+        test_inplace(T, comm, pdims, size_in, extra_dims=edims)
+        test_transforms(T, comm, pdims, size_in, extra_dims=edims)
+    end
 
     nothing
 end
@@ -322,7 +316,7 @@ function main()
         pdims[1], pdims[2]
     end
 
-    test_pencil_plans(size_in, pdims_2d)
+    test_pencil_plans(size_in, pdims_2d, comm)
 
     MPI.Finalize()
 end
