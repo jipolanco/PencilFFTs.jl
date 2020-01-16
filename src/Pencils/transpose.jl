@@ -127,42 +127,47 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
 
     if same_permutation(get_permutation(Pi), get_permutation(Po))
         @timeit_debug timer "copy!" copy!(uo, ui)
-    elseif ui !== uo && pointer(ui) !== pointer(uo)
-        perm_base = relative_permutation(Pi, Po)
-        perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
-        @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
     else
-        @timeit_debug timer "permute_inplace!" permute_inplace!(out, in)
+        @timeit_debug timer "permute_local!" permute_local!(out, in)
     end
 
     out
 end
 
-# Permute dimensions, assuming that the arrays are aliased.
-function permute_inplace!(out::PencilArray{T,N},
-                          in::PencilArray{T,N}) where {T, N}
-    # TODO optimise?
-    # For now we permute into a temporary buffer, and then we copy to `out`.
+function permute_local!(out::PencilArray{T,N},
+                        in::PencilArray{T,N}) where {T, N}
     Pi = pencil(in)
     Po = pencil(out)
 
-    perm_base = relative_permutation(Pi, Po)
-    perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
+    perm = let perm_base = relative_permutation(Pi, Po)
+        p = append_to_permutation(perm_base, Val(length(in.extra_dims)))
+        extract(p) :: Tuple
+    end
 
     ui = parent(in)
     uo = parent(out)
 
-    # Reuse `recv_buf` used for MPI transposes.
-    buf = let x = Pi.recv_buf
-        n = length(uo)
-        dims = size(uo)
-        resize!(x, sizeof(T) * n)
-        vec = unsafe_as_array(T, x, n)
-        reshape(vec, dims)
-    end
+    # TODO the arrays may be aliased even if they don't start at the same
+    # address...
+    inplace = (ui === uo) || (pointer(ui) === pointer(uo))
 
-    permutedims!(buf, ui, extract(perm))
-    copy!(uo, buf)
+    if inplace
+        # TODO optimise in-place version?
+        # For now we permute into a temporary buffer, and then we copy to `out`.
+        # We reuse `recv_buf` used for MPI transposes.
+        buf = let x = Pi.recv_buf
+            n = length(uo)
+            dims = size(uo)
+            resize!(x, sizeof(T) * n)
+            vec = unsafe_as_array(T, x, n)
+            reshape(vec, dims)
+        end
+        permutedims!(buf, ui, perm)
+        copy!(uo, buf)
+    else
+        # Permute directly onto the output.
+        permutedims!(uo, ui, perm)
+    end
 
     out
 end
