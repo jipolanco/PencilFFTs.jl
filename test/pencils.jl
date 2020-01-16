@@ -76,6 +76,7 @@ function test_array_wrappers(p::Pencil)
 end
 
 function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
+    @assert M >= 3
     @inferred ManyPencilArray(pencils...)
 
     A = ManyPencilArray(pencils...)
@@ -94,12 +95,29 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
     @test_throws BoundsError A[Val(0)]
     @test_throws BoundsError A[Val(M + 1)]
 
-    @testset "Extra dimensions" begin
+    @testset "In-place extra dimensions" begin
         e = (3, 2)
         @inferred ManyPencilArray(pencils...; extra_dims=e)
         A = ManyPencilArray(pencils...; extra_dims=e)
         @test extra_dims(first(A)) === extra_dims(last(A)) === e
         @test ndims_extra(first(A)) == ndims_extra(last(A)) == length(e)
+    end
+
+    @testset "In-place transpose" begin
+        u = A[Val(1)]
+        v = A[Val(2)]
+        w = A[Val(3)]
+
+        randn!(u)
+        u_orig = copy(u)
+
+        transpose!(v, u)  # this also modifies `u`!
+        @test compare_distributed_arrays(u_orig, v)
+
+        # In the 1D decomposition case, this is a local transpose, since v and w
+        # only differ in the permutation.
+        transpose!(w, v)
+        @test compare_distributed_arrays(u_orig, w)
     end
 
     nothing
@@ -265,20 +283,23 @@ function main()
     # Test slab (1D) decomposition.
     @testset "1D decomposition" begin
         topo = MPITopology(comm, (Nproc, ))
+
         pen1 = Pencil(topo, Nxyz, (1, ))
         pen2 = Pencil(pen1, decomp_dims=(2, ))
+
+        # Same decomposed dimension as pen2, but different permutation.
+        pen3 = Pencil(pen2, permute=Val((3, 2, 1)))
+
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
+        u3 = PencilArray(pen3)
+
         randn!(rng, u1)
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
 
-        # Same decomposed dimension as pen2, but different permutation.
-        let pen = Pencil(pen2, decomp_dims=(2, ), permute=Val((3, 2, 1)))
-            v = PencilArray(pen)
-            transpose!(v, u2)
-            @test compare_distributed_arrays(u1, v)
-        end
+        transpose!(u3, u2)
+        @test compare_distributed_arrays(u1, u3)
 
         # Test transposition between two identical configurations.
         transpose!(u2, u2)
@@ -289,6 +310,8 @@ function main()
             transpose!(v, u2)
             @test compare_distributed_arrays(u1, v)
         end
+
+        test_multiarrays(pen1, pen2, pen3)
     end
 
     begin
