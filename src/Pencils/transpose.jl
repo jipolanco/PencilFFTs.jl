@@ -132,9 +132,37 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
         perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
         @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
     else
-        # TODO...
-        error("in-place dimension permutations not yet supported!")
+        @timeit_debug timer "permute_inplace!" permute_inplace!(out, in)
     end
+
+    out
+end
+
+# Permute dimensions, assuming that the arrays are aliased.
+function permute_inplace!(out::PencilArray{T,N},
+                          in::PencilArray{T,N}) where {T, N}
+    # TODO optimise?
+    # For now we permute into a temporary buffer, and then we copy to `out`.
+    Pi = pencil(in)
+    Po = pencil(out)
+
+    perm_base = relative_permutation(Pi, Po)
+    perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
+
+    ui = parent(in)
+    uo = parent(out)
+
+    # Reuse `recv_buf` used for MPI transposes.
+    buf = let x = Pi.recv_buf
+        n = length(uo)
+        dims = size(uo)
+        resize!(x, sizeof(T) * n)
+        vec = unsafe_as_array(T, x, n)
+        reshape(vec, dims)
+    end
+
+    permutedims!(buf, ui, extract(perm))
+    copy!(uo, buf)
 
     out
 end
