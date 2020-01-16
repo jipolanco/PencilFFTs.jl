@@ -147,9 +147,7 @@ function permute_local!(out::PencilArray{T,N},
     ui = parent(in)
     uo = parent(out)
 
-    # TODO the arrays may be aliased even if they don't start at the same
-    # address...
-    inplace = (ui === uo) || (pointer(ui) === pointer(uo))
+    inplace = Base.mightalias(ui, uo)
 
     if inplace
         # TODO optimise in-place version?

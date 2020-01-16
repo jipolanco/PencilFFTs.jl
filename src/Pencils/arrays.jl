@@ -229,16 +229,8 @@ Return array wrapped by a `PencilArray`.
 """
 Base.parent(x::PencilArray) = x.data
 
-"""
-    pointer(x::PencilArray)
-
-Return pointer to the start of the underlying data.
-
-Use with caution: this may not make a lot of sense (and may even fail) if the
-underlying data is not contiguous or strided (e.g. if the `PencilArray` is
-wrapping a non-strided `SubArray`).
-"""
-Base.pointer(x::PencilArray) = pointer(parent(x))
+# This enables aliasing detection (e.g. using Base.mightalias) on PencilArrays.
+Base.dataids(x::PencilArray) = Base.dataids(parent(x))
 
 """
     ndims_extra(x::PencilArray)

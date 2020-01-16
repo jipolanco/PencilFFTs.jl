@@ -141,7 +141,7 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
 
     if u_prev !== nothing
         # Transpose data from previous configuration.
-        @assert pointer(u_prev) === pointer(u)  # they're aliased!
+        @assert Base.mightalias(u_prev, u)  # they're aliased!
         transpose!(u, u_prev, method=full_plan.transpose_method)
     end
 
