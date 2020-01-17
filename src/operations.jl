@@ -6,6 +6,12 @@ const PlanArrayPair{P,A} = Pair{P,A} where {P <: PencilPlan1D, A <: PencilArray}
 # transforms.
 const FFTArray{T,N} = Union{PencilArray{T,N}, ManyPencilArray{T,N}} where {T,N}
 
+# Collections of FFTArray (e.g. for vector components), for broadcasting plans
+# to each array. These types are basically those returned by `allocate_input`
+# and `allocate_output` when optional arguments are passed.
+const FFTArrayCollection =
+    Union{Tuple{Vararg{A}}, AbstractArray{A}} where {A <: FFTArray}
+
 # This allows to treat plans as scalars when broadcasting.
 # This means that, if u = (u1, u2, u3) is a tuple of PencilArrays
 # compatible with p, then p .* u does what one would expect, that is, it
@@ -93,8 +99,7 @@ function _check_pencils(p::PencilFFTPlan, Ain::PencilArray, Aout::PencilArray)
 end
 
 ## Operations for collections.
-# TODO collections of ManyPencilArray? (maybe define a "collection" trait...)
-function check_compatible(a::PencilArrayCollection, b::PencilArrayCollection)
+function check_compatible(a::FFTArrayCollection, b::FFTArrayCollection)
     Na = length(a)
     Nb = length(b)
     if Na != Nb
@@ -104,13 +109,13 @@ function check_compatible(a::PencilArrayCollection, b::PencilArrayCollection)
 end
 
 for f in (:mul!, :ldiv!)
-    @eval LinearAlgebra.$f(dst::PencilArrayCollection, p::PencilFFTPlan,
-                           src::PencilArrayCollection) =
+    @eval LinearAlgebra.$f(dst::FFTArrayCollection, p::PencilFFTPlan,
+                           src::FFTArrayCollection) =
         (check_compatible(dst, src); $f.(dst, p, src))
 end
 
 for f in (:*, :\)
-    @eval Base.$f(p::PencilFFTPlan, src::PencilArrayCollection) =
+    @eval Base.$f(p::PencilFFTPlan, src::FFTArrayCollection) =
         $f.(p, src)
 end
 

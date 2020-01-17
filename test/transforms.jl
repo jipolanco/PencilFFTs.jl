@@ -11,7 +11,7 @@ using Random
 using Test
 using TimerOutputs
 
-const DATA_DIMS = (64, 40, 32)
+const DATA_DIMS = (24, 12, 6)
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
@@ -195,6 +195,20 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
         if ug !== nothing && ug_again !== nothing
             p \ ug  # apply serial in-place FFT
             @test ug ≈ ug_again
+        end
+
+        let components = ((Val(3), ), (3, 2))
+            @testset "Components: $comp" for comp in components
+                vi = allocate_input(plan, comp...)
+                u = first.(vi)
+                v = last.(vi)
+                randn!.(u)
+                u_initial = copy.(u)
+                plan * vi
+                @test !all(u_initial .≈ u)
+                plan \ vi
+                @test all(u_initial .≈ u)
+            end
         end
     end
 
