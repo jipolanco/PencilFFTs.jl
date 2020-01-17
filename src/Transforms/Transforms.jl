@@ -15,7 +15,7 @@ using FFTW
 # Operations defined for custom plans (currently IdentityPlan).
 using LinearAlgebra
 
-export binv, scale_factor
+export binv, scale_factor, is_inplace
 export eltype_input, eltype_output, length_output, plan, expand_dims
 
 const FFTReal = FFTW.fftwReal  # = Union{Float32, Float64}
@@ -73,6 +73,45 @@ RFFT
 ```
 """
 function binv end
+
+"""
+    is_inplace(transform::AbstractTransform)         -> Bool
+    is_inplace(transforms::Vararg{AbtractTransform}) -> Union{Bool, Nothing}
+
+Check whether a transform or a list of transforms is performed in-place.
+
+If the list of transforms has a combination of in-place and out-of-place
+transforms, `nothing` is returned.
+
+# Example
+
+```jldoctest; setup = :(import FFTW)
+julia> is_inplace(Transforms.RFFT())
+false
+
+julia> is_inplace(Transforms.NoTransform!())
+true
+
+julia> is_inplace(Transforms.FFT!(), Transforms.R2R!{FFTW.REDFT01}())
+true
+
+julia> is_inplace(Transforms.FFT(), Transforms.R2R{FFTW.REDFT01}())
+false
+
+julia> is_inplace(Transforms.FFT(), Transforms.R2R!{FFTW.REDFT01}()) |> println
+nothing
+
+```
+"""
+function is_inplace end
+
+@inline function is_inplace(tr::AbstractTransform, tr2::AbstractTransform,
+                            next::Vararg{AbstractTransform})
+    b = is_inplace(tr2, next...)
+    b === nothing && return nothing
+    a = is_inplace(tr)
+    a === b ? a : nothing
+end
 
 """
     scale_factor(transform::AbstractTransform, A, [dims])
@@ -141,7 +180,7 @@ function length_output end
 Determine input data type for a given transform given the floating point
 precision of the input data.
 
-For some transforms such as `NoTransform`, the input type cannot be identified
+For some transforms such as [`NoTransform`](@ref), the input type cannot be identified
 only from `real_type`. In this case, `Nothing` is returned.
 
 # Example
@@ -215,26 +254,9 @@ expand_dims(::F, ::Val) where {F <: AbstractTransform} =
 
 Base.show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
 
-"""
-    NoTransform()
-
-Identity transform.
-
-Specifies that no transformation should be applied.
-"""
-struct NoTransform <: AbstractTransform end
-binv(::NoTransform) = NoTransform()
-length_output(::NoTransform, length_in::Integer) = length_in
-eltype_output(::NoTransform, ::Type{T}) where T = T
-eltype_input(::NoTransform, ::Type) = Nothing
-plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
-expand_dims(::NoTransform, ::Val{N}) where N =
-    N == 0 ? () : (NoTransform(), expand_dims(NoTransform(), Val(N - 1))...)
-scale_factor(::NoTransform, A, dims) = 1
-
 include("c2c.jl")
 include("r2c.jl")
 include("r2r.jl")
-include("custom_plans.jl")
+include("no_transform.jl")
 
 end

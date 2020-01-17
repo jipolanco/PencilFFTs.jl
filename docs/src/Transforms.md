@@ -12,14 +12,18 @@ Transforms
 
 ```@docs
 FFT
+FFT!
 BFFT
+BFFT!
 
 RFFT
 BRFFT
 
 R2R
+R2R!
 
 NoTransform
+NoTransform!
 ```
 
 ## Internals
@@ -31,6 +35,7 @@ What follows is used internally by `PencilFFTs`.
 ```@docs
 AbstractTransform
 IdentityPlan
+IdentityPlan!
 ```
 
 ### Functions
@@ -44,6 +49,7 @@ scale_factor
 eltype_input
 eltype_output
 expand_dims
+is_inplace
 kind
 length_output
 ```

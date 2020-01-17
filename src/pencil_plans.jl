@@ -22,6 +22,8 @@ struct PencilPlan1D{Pi <: Pencil,
     scale_factor :: Int  # scale factor for backward transform
 end
 
+Transforms.is_inplace(p::PencilPlan1D) = is_inplace(p.transform)
+
 """
     PencilFFTPlan{T,N,M}
 
@@ -184,6 +186,12 @@ struct PencilFFTPlan{T,
         plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> p.scale_factor, plans)
 
+        # If the plan is in-place, the buffers won't be needed anymore, so we
+        # free the memory.
+        if is_inplace(transforms...)
+            resize!.((ibuf, obuf), 0)
+        end
+
         N = Nt + Ne
         G = typeof(g)
         P = typeof(plans)
@@ -200,6 +208,14 @@ struct PencilFFTPlan{T,
                       args...; kwargs...)
     end
 end
+
+"""
+    Transforms.is_inplace(p::PencilFFTPlan)
+
+Returns `true` if the given plan operates in-place on the input data, `false`
+otherwise.
+"""
+Transforms.is_inplace(p::PencilFFTPlan) = is_inplace(p.global_params)
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
@@ -402,9 +418,50 @@ given plan.
 
 The second and third forms respectively allocate an array of `PencilArray`s of
 size `dims`, and a tuple of `N` `PencilArray`s.
+
+!!! note "In-place plans"
+
+    If `p` is an in-place plan, a [`ManyPencilArray`](@ref) is allocated. This
+    type holds `PencilArray` wrappers for the input and output transforms (as
+    well as for intermediate transforms) which share the same space in memory.
+    The input and output `PencilArray`s should be respectively accessed by
+    calling [`first(::ManyPencilArray)`](@ref) and
+    [`last(::ManyPencilArray)`](@ref).
+
+    #### Example
+
+    Suppose `p` is an in-place `PencilFFTPlan`. Then,
+    ```julia
+    @assert is_inplace(p)
+    A = allocate_input(p) :: ManyPencilArray
+    v_in = first(A)       :: PencilArray  # input data view
+    v_out = last(A)       :: PencilArray  # output data view
+    ```
+
+    Also note that in-place plans must be performed directly on the returned
+    `ManyPencilArray`, and not on the contained `PencilArray` views:
+    ```julia
+    p * A       # perform forward transform in-place
+    p \\ A       # perform backward transform in-place
+    # p * v_in  # not allowed!!
+    ```
 """
-allocate_input(p::PencilFFTPlan) = PencilArray(first(p.plans).pencil_in,
-                                               p.extra_dims)
+allocate_input(p::PencilFFTPlan) = allocate_input(Val(is_inplace(p)), p)
+
+allocate_input(inplace::Val{false}, p::PencilFFTPlan) =
+    PencilArray(first(p.plans).pencil_in, p.extra_dims)
+
+function allocate_input(inplace::Val{true}, p::PencilFFTPlan)
+    pencils = map(pp -> pp.pencil_in, p.plans)
+
+    # Note that for each 1D plan, the input and output pencils are the same.
+    # This is because the datatype stays the same for in-place transforms
+    # (in-place real-to-complex transforms are not supported!).
+    @assert pencils === map(pp -> pp.pencil_out, p.plans)
+
+    ManyPencilArray(pencils...; extra_dims=p.extra_dims)
+end
+
 allocate_input(p::PencilFFTPlan, dims...) =
     _allocate_many(allocate_input, p, dims...)
 
@@ -416,11 +473,19 @@ allocate_input(p::PencilFFTPlan, dims...) =
 Allocate uninitialised [`PencilArray`](@ref) that can hold output data for the
 given plan.
 
-The second and third forms respectively allocate an array of `PencilArray`s of
-size `dims`, and a tuple of `N` `PencilArray`s.
+If `p` is an in-place plan, a [`ManyPencilArray`](@ref) is allocated.
+
+See [`allocate_input`](@ref) for details.
 """
-allocate_output(p::PencilFFTPlan) = PencilArray(last(p.plans).pencil_out,
-                                                p.extra_dims)
+allocate_output(p::PencilFFTPlan) = allocate_output(Val(is_inplace(p)), p)
+
+allocate_output(inplace::Val{false}, p::PencilFFTPlan) =
+    PencilArray(last(p.plans).pencil_out, p.extra_dims)
+
+# For in-place plans, the output and input are the same ManyPencilArray.
+allocate_output(inplace::Val{true}, p::PencilFFTPlan) =
+    allocate_input(inplace, p)
+
 allocate_output(p::PencilFFTPlan, dims...) =
     _allocate_many(allocate_output, p, dims...)
 

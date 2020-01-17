@@ -229,6 +229,9 @@ Return array wrapped by a `PencilArray`.
 """
 Base.parent(x::PencilArray) = x.data
 
+# This enables aliasing detection (e.g. using Base.mightalias) on PencilArrays.
+Base.dataids(x::PencilArray) = Base.dataids(parent(x))
+
 """
     ndims_extra(x::PencilArray)
     ndims_extra(x::PencilArrayCollection)
@@ -356,7 +359,11 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
 
     if rank != root
         # Wait for data to be sent, then return.
-        send_req = MPI.Isend(data, root, mpi_tag, comm)
+        # NOTE: When `data` is a ReshapedArray, I can't pass it directly to
+        # MPI.Isend.
+        # (I could probably do it in the current master of MPI.jl.)
+        buf = collect(data)
+        send_req = MPI.Isend(buf, root, mpi_tag, comm)
         MPI.Wait!(send_req)
         return nothing
     end

@@ -11,9 +11,19 @@ See also
 struct FFT <: AbstractTransform end
 
 """
+    FFT!()
+
+In-place version of [`FFT`](@ref).
+
+See also
+[`AbstractFFTs.fft!`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.fft!).
+"""
+struct FFT! <: AbstractTransform end
+
+"""
     BFFT()
 
-Unnormalised inverse (backward) complex-to-complex FFT.
+Unnormalised backward complex-to-complex FFT.
 
 Like `AbstractFFTs.bfft`, this transform is not normalised.
 To obtain the inverse transform, divide the output by the length of the
@@ -24,7 +34,17 @@ See also
 """
 struct BFFT <: AbstractTransform end
 
-const TransformC2C = Union{FFT, BFFT}
+"""
+    BFFT()
+
+In-place version of [`BFFT`](@ref).
+
+See also
+[`AbstractFFTs.bfft!`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.bfft!).
+"""
+struct BFFT! <: AbstractTransform end
+
+const TransformC2C = Union{FFT, FFT!, BFFT, BFFT!}
 
 length_output(::TransformC2C, length_in::Integer) = length_in
 eltype_output(::TransformC2C,
@@ -32,10 +52,17 @@ eltype_output(::TransformC2C,
 eltype_input(::TransformC2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 plan(::FFT, args...; kwargs...) = FFTW.plan_fft(args...; kwargs...)
+plan(::FFT!, args...; kwargs...) = FFTW.plan_fft!(args...; kwargs...)
 plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
+plan(::BFFT!, args...; kwargs...) = FFTW.plan_bfft!(args...; kwargs...)
 
 binv(::FFT) = BFFT()
+binv(::FFT!) = BFFT!()
 binv(::BFFT) = FFT()
+binv(::BFFT!) = FFT!()
+
+is_inplace(::Union{FFT, BFFT}) = false
+is_inplace(::Union{FFT!, BFFT!}) = true
 
 _intprod(x::Int, y::Int...) = x * _intprod(y...)
 _intprod() = one(Int)

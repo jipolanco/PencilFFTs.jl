@@ -148,6 +148,7 @@ eltype(::Pencil)
 get_comm(::Pencil)
 get_decomposition(::Pencil)
 get_permutation(::Pencil)
+length(::Pencil)
 ndims(::Pencil)
 range_local(::Pencil{N}) where N
 size_global(::Pencil)
@@ -210,9 +211,12 @@ gradient_method_global).
 PencilArray
 PencilArrayCollection
 MaybePencilArrayCollection
+ManyPencilArray
 ```
 
 ### Methods
+
+#### PencilArray
 
 ```@docs
 extra_dims(::PencilArray)
@@ -226,6 +230,15 @@ pencil(::PencilArray)
 range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
 size_global(::MaybePencilArrayCollection)
+```
+
+#### ManyPencilArray
+
+```@docs
+first(::ManyPencilArray)
+getindex(::ManyPencilArray)
+last(::ManyPencilArray)
+length(::ManyPencilArray)
 ```
 
 ## Global MPI operations

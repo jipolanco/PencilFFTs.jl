@@ -127,13 +127,44 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
 
     if same_permutation(get_permutation(Pi), get_permutation(Po))
         @timeit_debug timer "copy!" copy!(uo, ui)
-    elseif ui !== uo && pointer(ui) !== pointer(uo)
-        perm_base = relative_permutation(Pi, Po)
-        perm = append_to_permutation(perm_base, Val(length(in.extra_dims)))
-        @timeit_debug timer "permutedims!" permutedims!(uo, ui, extract(perm))
     else
-        # TODO...
-        error("in-place dimension permutations not yet supported!")
+        @timeit_debug timer "permute_local!" permute_local!(out, in)
+    end
+
+    out
+end
+
+function permute_local!(out::PencilArray{T,N},
+                        in::PencilArray{T,N}) where {T, N}
+    Pi = pencil(in)
+    Po = pencil(out)
+
+    perm = let perm_base = relative_permutation(Pi, Po)
+        p = append_to_permutation(perm_base, Val(length(in.extra_dims)))
+        extract(p) :: Tuple
+    end
+
+    ui = parent(in)
+    uo = parent(out)
+
+    inplace = Base.mightalias(ui, uo)
+
+    if inplace
+        # TODO optimise in-place version?
+        # For now we permute into a temporary buffer, and then we copy to `out`.
+        # We reuse `recv_buf` used for MPI transposes.
+        buf = let x = Pi.recv_buf
+            n = length(uo)
+            dims = size(uo)
+            resize!(x, sizeof(T) * n)
+            vec = unsafe_as_array(T, x, n)
+            reshape(vec, dims)
+        end
+        permutedims!(buf, ui, perm)
+        copy!(uo, buf)
+    else
+        # Permute directly onto the output.
+        permutedims!(uo, ui, perm)
     end
 
     out

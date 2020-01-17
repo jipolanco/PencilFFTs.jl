@@ -202,6 +202,13 @@ Get tuple with decomposed dimensions of the given pencil configuration.
 get_decomposition(p::Pencil) = p.decomp_dims
 
 """
+    length(p::Pencil)
+
+Get linear length of data associated to the local pencil layout.
+"""
+Base.length(p::Pencil) = prod(size_local(p))
+
+"""
     range_local(p::Pencil; permute=false)
 
 Local data range held by the pencil.
