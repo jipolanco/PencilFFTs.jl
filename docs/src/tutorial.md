@@ -61,6 +61,10 @@ It is also possible to enable fine-grained performance measurements via the
 [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package, as
 described in [Measuring performance](@ref PencilFFTs.measuring_performance).
 
+In-place transforms are supported for complex-to-complex and real-to-real FFTs,
+using transform types such as [`Transforms.FFT!`](@ref) and
+[`Transforms.R2R!`](@ref).
+
 ## Allocating data
 
 Next, we want to apply the plan on some data.
@@ -112,8 +116,6 @@ Note that, consistently with `AbstractFFTs`,
 normalisation is performed at the end of a backward transform, so that the
 original data is recovered when applying a forward followed by a backward
 transform.
-
-Also note that, at this moment, in-place transforms are not supported.
 
 ## Accessing and modifying data
 
