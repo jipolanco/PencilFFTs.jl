@@ -10,7 +10,6 @@ CurrentModule = PencilFFTs
 ## Types
 
 ```@docs
-GlobalFFTParams
 PencilFFTPlan
 ```
 
@@ -59,6 +58,12 @@ plan = PencilFFTPlan(..., timer=to)
 # [do stuff with `plan`...]
 
 print_timer(to)
+```
+
+## Internals
+
+```@docs
+GlobalFFTParams
 ```
 
 ## Index
