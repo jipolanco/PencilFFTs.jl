@@ -1,8 +1,9 @@
 """
-    ManyPencilArray{M,T}
+    ManyPencilArray{T,N,M}
 
 Container holding `M` different [`PencilArray`](@ref) views to the same
-underlying data buffer of type `T`.
+underlying data buffer. All views share the same element type `T` and
+dimensionality `N`.
 
 This can be useful to perform in-place operations on `PencilArray` data.
 
@@ -15,21 +16,25 @@ given [`Pencil`](@ref)s.
 
 The optional `extra_dims` argument is the same as for [`PencilArray`](@ref).
 """
-struct ManyPencilArray{M, T,
-                       Arrays <: Tuple{Vararg{PencilArray,M}},
-                      }
+struct ManyPencilArray{
+        T,  # element type of each array
+        N,  # number of dimensions of each array (including extra_dims)
+        M,  # number of arrays
+        Arrays <: Tuple{Vararg{PencilArray,M}},
+       }
     data :: Vector{T}
     arrays :: Arrays
 
     function ManyPencilArray(
-            pencils::Vararg{Pencil{N,X,T}, M} where {N,X};
+            pencils::Vararg{Pencil{Np,X,T}, M} where {X};
             extra_dims::Dims=(),
-           ) where {M,T}
+           ) where {Np,M,T}
         data_length = max(length.(pencils)...) * prod(extra_dims)
         data = Vector{T}(undef, data_length)
         arrays = _make_arrays(data, extra_dims, pencils...)
         A = typeof(arrays)
-        new{M,T,A}(data, arrays)
+        N = Np + length(extra_dims)
+        new{T,N,M,A}(data, arrays)
     end
 end
 
@@ -46,12 +51,15 @@ end
 
 _make_arrays(::Vector, ::Dims) = ()
 
+Base.ndims(A::ManyPencilArray{N}) where {N} = N
+Base.eltype(A::ManyPencilArray{N,T}) where {N,T} = T
+
 """
     length(A::ManyPencilArray)
 
 Returns the number of [`PencilArray`](@ref)s wrapped by `A`.
 """
-Base.length(A::ManyPencilArray{M}) where {M} = M
+Base.length(A::ManyPencilArray{N,T,M}) where {N,T,M} = M
 
 """
     first(A::ManyPencilArray)

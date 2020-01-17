@@ -131,6 +131,10 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, T;
                          extra_dims=extra_dims)
 
+    # Out-of-place plan, just for verifying that we throw errors.
+    plan_oop = PencilFFTPlan(size_in, Transforms.FFT(), proc_dims, comm, T;
+                             extra_dims=extra_dims)
+
     println("\n", "-"^60, "\n\n", plan, "\n")
 
     dims_all = (size_in..., extra_dims...)
@@ -154,8 +158,24 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
         u_initial = copy(u)
         ug = gather(u, root)  # for comparison with serial FFT
 
-        # TODO use nicer syntax when it's implemented!
-        PencilFFTs._apply_plans!(Val(FFTW.FORWARD), plan, vi)
+        # Input array type ManyPencilArray{...} incompatible with out-of-place
+        # plans.
+        @test_throws ArgumentError plan_oop * vi
+
+        # Out-of-place plan applied to in-place data.
+        @test_throws ArgumentError mul!(v, plan_oop, u)
+
+        let vi_other = allocate_input(plan)
+            # Input and output arrays for in-place plan must be the same.
+            @test_throws ArgumentError mul!(vi_other, plan, vi)
+        end
+
+        # Input array type incompatible with in-place plans.
+        @test_throws ArgumentError plan * u
+        @test_throws ArgumentError plan \ v
+
+        @assert PencilFFTs.is_inplace(plan)
+        plan * vi               # apply in-place forward transform
         @test !(u ≈ u_initial)  # `u` was modified!
 
         # Now `v` contains the transformed data.
@@ -166,7 +186,7 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
             @test ug ≈ vg
         end
 
-        PencilFFTs._apply_plans!(Val(FFTW.BACKWARD), plan, vi)
+        plan \ vi  # apply in-place backward transform
 
         # Now `u` contains the initial data (approximately).
         @test u ≈ u_initial
