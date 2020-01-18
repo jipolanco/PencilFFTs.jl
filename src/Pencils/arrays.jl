@@ -360,9 +360,10 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
     if rank != root
         # Wait for data to be sent, then return.
         # NOTE: When `data` is a ReshapedArray, I can't pass it directly to
-        # MPI.Isend.
-        # (I could probably do it in the current master of MPI.jl.)
-        buf = collect(data)
+        # MPI.Isend, because Base.cconvert(MPIPtr, ::ReshapedArray) is not
+        # defined.
+        # (Maybe it works in the current master of MPI.jl?)
+        buf = data isa Base.ReshapedArray ? parent(data) : data
         send_req = MPI.Isend(buf, root, mpi_tag, comm)
         MPI.Wait!(send_req)
         return nothing
