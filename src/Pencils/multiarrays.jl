@@ -81,7 +81,7 @@ Base.last(A::ManyPencilArray) = last(A.arrays)
 
 Returns the i-th [`PencilArray`](@ref) wrapped by `A`.
 
-If possible, the `Val{i}` form should be prefered, as it is more efficient and
+If possible, the `Val{i}` form should be preferred, as it is more efficient and
 it allows the compiler to know the return type.
 
 See also [`first(::ManyPencilArray)`](@ref), [`last(::ManyPencilArray)`](@ref).
