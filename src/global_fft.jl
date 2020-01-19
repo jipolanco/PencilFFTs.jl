@@ -70,21 +70,21 @@ function Base.show(io::IO, g::GlobalFFTParams)
 end
 
 # Determine input data type for multidimensional transform.
-# It will return Nothing if the data type can't be resolved from the transform
-# list. This will be the case if `g.transforms` is only made of `NoTransform`s
-# or real-to-real transforms (which also work on complex data).
 input_data_type(g::GlobalFFTParams{T}) where T =
-    input_data_type(T, g.transforms...) :: DataType
+    _input_data_type(T, g.transforms...) :: DataType
 
-function input_data_type(::Type{T}, transform::AbstractTransform,
-                         next_transforms::Vararg{AbstractTransform}) where T
+function _input_data_type(::Type{T}, transform::AbstractTransform,
+                          next_transforms::Vararg{AbstractTransform}) where {T}
     Tin = eltype_input(transform, T) :: DataType
     if Tin === Nothing
-        # Check the next transform type.
-        return input_data_type(T, next_transforms...)
+        # This is the case if `transform` can take both real and complex data
+        # (for instance for `NoTransform` or `R2R`).
+        # We check the next transform type.
+        return _input_data_type(T, next_transforms...)
     end
     Tin
 end
 
-input_data_type(::Type{T}, transform::AbstractTransform) where T =
-    eltype_input(transform, T)
+# If all calls to `eltype_input` return Nothing, then we return the given real
+# type. This will be the case for combinations of real-to-real transforms.
+_input_data_type(::Type{T}) where {T} = T

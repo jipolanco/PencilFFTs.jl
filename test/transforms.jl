@@ -237,6 +237,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
          Transforms.FFT() => make_plan(FFTW.plan_fft),
          Transforms.RFFT() => make_plan(FFTW.plan_rfft),
          Transforms.BFFT() => make_plan(FFTW.plan_bfft),
+         Transforms.NoTransform() => nothing,
          pairs_r2r...,
          (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
          => make_plan(FFTW.plan_rfft, dims=2:3),
@@ -285,7 +286,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
         ug = gather(u, root)
         vg = gather(v, root)
 
-        if ug !== nothing && vg !== nothing
+        if ug !== nothing && vg !== nothing && fftw_planner !== nothing
             let p = fftw_planner(ug)
                 vg_serial = p * ug
                 @test vg ≈ vg_serial
@@ -306,19 +307,19 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     @testset "Transform types" begin
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
             @inferred PencilFFTPlan(size_in, transforms, pdims, comm)
-            @inferred PencilFFTs.input_data_type(Float64, transforms...)
+            @inferred PencilFFTs._input_data_type(Float64, transforms...)
         end
 
         let transforms = (Transforms.NoTransform(), Transforms.FFT())
-            @test PencilFFTs.input_data_type(Float32, transforms...) ===
+            @test PencilFFTs._input_data_type(Float32, transforms...) ===
                 ComplexF32
-            @inferred PencilFFTs.input_data_type(Float32, transforms...)
+            @inferred PencilFFTs._input_data_type(Float32, transforms...)
         end
 
         let transforms = (Transforms.NoTransform(), Transforms.NoTransform())
-            @test PencilFFTs.input_data_type(Float32, transforms...) ===
-                Nothing
-            @inferred PencilFFTs.input_data_type(Float32, transforms...)
+            @test PencilFFTs._input_data_type(Float32, transforms...) ===
+                Float32
+            @inferred PencilFFTs._input_data_type(Float32, transforms...)
         end
     end
 
