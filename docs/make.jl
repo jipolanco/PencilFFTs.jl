@@ -25,7 +25,7 @@ let with_checks = !MAKE_FAST
             "Home" => "index.md",
             "tutorial.md",
             "More examples" => [
-                # "examples/init_vector_field.md",
+                "examples/in-place.md",
                 "examples/gradient.md",
             ],
             "Library" => [
