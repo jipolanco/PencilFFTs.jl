@@ -98,8 +98,8 @@ true
 julia> is_inplace(Transforms.FFT(), Transforms.R2R{FFTW.REDFT01}())
 false
 
-julia> is_inplace(Transforms.FFT(), Transforms.R2R!{FFTW.REDFT01}()) |> println
-nothing
+julia> is_inplace(Transforms.FFT(), Transforms.R2R!{FFTW.REDFT01}()) === nothing
+true
 
 ```
 """
@@ -180,17 +180,20 @@ function length_output end
 Determine input data type for a given transform given the floating point
 precision of the input data.
 
-For some transforms such as [`NoTransform`](@ref), the input type cannot be identified
-only from `real_type`. In this case, `Nothing` is returned.
+Some transforms, such as [`R2R`](@ref) and [`NoTransform`](@ref), can take both
+real and complex data. For those kinds of transforms, `Nothing` is returned.
 
 # Example
 
-```jldoctest
+```jldoctest; setup = :(import FFTW)
 julia> eltype_input(Transforms.FFT(), Float32)
 Complex{Float32}
 
 julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
+
+julia> eltype_input(Transforms.R2R{FFTW.REDFT01}(), Float64)
+Nothing
 
 julia> eltype_input(Transforms.NoTransform(), Float64)
 Nothing

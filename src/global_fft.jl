@@ -71,17 +71,16 @@ end
 
 # Determine input data type for multidimensional transform.
 # It will return Nothing if the data type can't be resolved from the transform
-# list. This will be the case if `g.transforms` is only made of `NoTransform`s.
+# list. This will be the case if `g.transforms` is only made of `NoTransform`s
+# or real-to-real transforms (which also work on complex data).
 input_data_type(g::GlobalFFTParams{T}) where T =
     input_data_type(T, g.transforms...) :: DataType
 
 function input_data_type(::Type{T}, transform::AbstractTransform,
                          next_transforms::Vararg{AbstractTransform}) where T
     Tin = eltype_input(transform, T) :: DataType
-    @debug "input_data_type" Tin transform next_transforms
     if Tin === Nothing
         # Check the next transform type.
-        @assert transform isa Transforms.NoTransform
         return input_data_type(T, next_transforms...)
     end
     Tin
