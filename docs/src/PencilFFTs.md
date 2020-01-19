@@ -33,7 +33,7 @@ Minimal example:
 ```julia
 using MPI
 using PencilFFTs
-using TimerOutput
+using TimerOutputs
 
 # Enable timing of `PencilFFTs` functions
 TimerOutputs.enable_debug_timings(PencilFFTs)
