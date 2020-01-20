@@ -9,7 +9,7 @@ The differences are illustrated in the sections below.
 A working implementation of this example can be found in
 [`examples/in-place.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/in-place.jl).
 
-## Creating in-place plans
+## Creating plans
 
 To create an in-place plan, pass an in-place transform such as
 [`Transforms.FFT!`](@ref) or [`Transforms.R2R!`](@ref) to
@@ -39,8 +39,9 @@ plan = PencilFFTPlan(dims, transform, proc_dims, comm)
 ```
 
 Note that in-place real-to-complex transforms are not currently supported.
+(In other words, the `RFFT!` transform type is not defined.)
 
-## Allocating in-place data
+## Allocating data
 
 As with out-of-place plans, data should be allocated using
 [`allocate_input`](@ref).
@@ -57,7 +58,7 @@ A = allocate_input(plan)
 Note that [`allocate_output`](@ref) also works for in-place plans, but it
 returns exactly the same thing as `allocate_input`.
 
-As shown in the next section, in-place plans are applied on the returned
+As shown in the next section, in-place plans must be applied on the returned
 `ManyPencilArray`.
 On the other hand, one usually wants to access and modify data, and for this
 one needs the `PencilArray` views contained in the `ManyPencilArray`.
@@ -72,7 +73,7 @@ u_in = first(A)  # input data view
 randn!(u_in)
 ```
 
-## Applying in-place plans
+## Applying plans
 
 Like in `FFTW.jl`, one can perform in-place transforms using the `*` and
 `\ ` operators.
@@ -95,5 +96,5 @@ Finally, we can perform a backward transform and do stuff with the input view:
 ```julia
 plan \ A  # perform in-place backward transform
 
-# Now we can do stuff with the input view `u_in`...
+# Now we can again do stuff with the input view `u_in`...
 ```

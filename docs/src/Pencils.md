@@ -214,9 +214,7 @@ MaybePencilArrayCollection
 ManyPencilArray
 ```
 
-### Methods
-
-#### PencilArray
+### PencilArray methods
 
 ```@docs
 extra_dims(::PencilArray)
@@ -232,7 +230,7 @@ size(::PencilArray)
 size_global(::MaybePencilArrayCollection)
 ```
 
-#### ManyPencilArray
+### ManyPencilArray methods
 
 ```@docs
 first(::ManyPencilArray)

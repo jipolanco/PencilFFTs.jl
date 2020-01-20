@@ -61,10 +61,6 @@ It is also possible to enable fine-grained performance measurements via the
 [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package, as
 described in [Measuring performance](@ref PencilFFTs.measuring_performance).
 
-In-place transforms are supported for complex-to-complex and real-to-real FFTs,
-using transform types such as [`Transforms.FFT!`](@ref) and
-[`Transforms.R2R!`](@ref).
-
 ## Allocating data
 
 Next, we want to apply the plan on some data.
@@ -92,6 +88,11 @@ v = allocate_output(plan)
 ```
 This is only required if one wants to apply the plans using a preallocated
 output (with `mul!`, see right below).
+
+The data types returned by [`allocate_input`](@ref) and
+[`allocate_output`](@ref) are slightly different when working with in-place
+transforms.
+See the [in-place example](@ref In-place-transforms) for details.
 
 ## Applying plans
 
@@ -170,22 +171,8 @@ provide an introduction to working with MPI-distributed data in the form of
 In addition to the examples,
 some useful scripts are available in the `test/` directory of the
 `PencilFFTs` repo.
-
 In particular, the
 [`test/taylor_green.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/test/taylor_green.jl)
-example is a fluid dynamics application around the
+example is a (very simple) fluid dynamics application around the
 [Taylor--Green](https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex)
 vortex flow.
-The example shows how to:
-
-- initialise a 3D vector field $\bm{v}$ that is compatible with
-  [`PencilFFTPlan`](@ref)s,
-- iterate efficiently over [`PencilArray`](@ref)s,
-- apply forward and backward 3D parallel FFTs,
-- compute the divergence ($\bm{∇} ⋅ \bm{v}$) and the curl ($\bm{∇} × \bm{v}$) of
-  a vector field $\bm{v}$ in Fourier space.
-
-The example uses a few tools (`Grids` and `FourierOperations` modules) defined
-under the
-[`test/include`](https://github.com/jipolanco/PencilFFTs.jl/tree/master/test/include)
-directory, which are specifically written for real-to-complex FFTs.
