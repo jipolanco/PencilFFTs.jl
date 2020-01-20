@@ -176,7 +176,7 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
 
         @assert PencilFFTs.is_inplace(plan)
         plan * vi               # apply in-place forward transform
-        @test !(u ≈ u_initial)  # `u` was modified!
+        @test isempty(u) || !(u ≈ u_initial)  # `u` was modified!
 
         # Now `v` contains the transformed data.
         vg = gather(v, root)
@@ -204,8 +204,14 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
                 v = last.(vi)
                 randn!.(u)
                 u_initial = copy.(u)
+
+                # In some cases, generally when data is split among too many
+                # processes, the local process may have no data.
+                empty = isempty(first(u))
+
                 plan * vi
-                @test !all(u_initial .≈ u)
+                @test empty || !all(u_initial .≈ u)
+
                 plan \ vi
                 @test all(u_initial .≈ u)
             end
