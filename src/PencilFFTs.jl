@@ -7,10 +7,10 @@ using LinearAlgebra
 using Reexport
 using TimerOutputs
 
-include("Pencils/Pencils.jl")
+include("PencilArrays/PencilArrays.jl")
 include("Transforms/Transforms.jl")
 
-@reexport using .Pencils
+@reexport using .PencilArrays
 @reexport using .Transforms
 
 # For convenience...
@@ -21,7 +21,7 @@ export PencilFFTPlan
 export allocate_input, allocate_output, get_scale_factor
 
 # Functions to be extended for PencilFFTs types.
-import .Pencils: get_comm, get_timer
+import .PencilArrays: get_comm, get_timer
 
 const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 

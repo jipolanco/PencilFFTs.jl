@@ -1,13 +1,13 @@
-# [MPI-distributed data](@id Pencils_module)
+# [MPI-distributed data](@id PencilArrays_module)
 
 ```@meta
-CurrentModule = PencilFFTs.Pencils
+CurrentModule = PencilFFTs.PencilArrays
 ```
 
-The distribution of global data among MPI processes is managed by the [`Pencils`](@ref) module.
+The distribution of global data among MPI processes is managed by the [`PencilArrays`](@ref) module.
 This module may be used independently of the FFT functionality.
 
-The [`Pencils`](@ref) module defines types that describe [an MPI Cartesian
+The [`PencilArrays`](@ref) module defines types that describe [an MPI Cartesian
 topology](@ref sec:mpi_topology) and [the decomposition of data over MPI
 processes](@ref sec:pencil_configs).
 The module also defines [array wrappers](@ref Array-wrappers), most notably the
@@ -15,7 +15,7 @@ The module also defines [array wrappers](@ref Array-wrappers), most notably the
 with MPI-decomposed data.
 
 ```@docs
-Pencils
+PencilArrays
 ```
 
 ## [MPI topology](@id sec:mpi_topology)
@@ -123,7 +123,7 @@ which corresponds to the permutation `(2, 3, 1)`.
 
 Permutations are passed to the `Pencil` constructor via the `permute` keyword
 argument.
-For performance reasons, in the `Pencils` module, dimension permutations are
+For performance reasons, in the `PencilArrays` module, dimension permutations are
 compile-time constants, and thus permutations should be specified as [value
 types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)
 wrapping a tuple.
@@ -158,7 +158,7 @@ to_local(::Pencil)
 
 ## Array wrappers
 
-The `Pencils` module also defines a [`PencilArray`](@ref) type that wraps
+The `PencilArrays` module also defines a [`PencilArray`](@ref) type that wraps
 an `AbstractArray` while including pencil decomposition information.
 
 ### Construction
@@ -244,14 +244,14 @@ length(::ManyPencilArray)
 One of the most time-consuming parts of a large-scale computation involving
 multidimensional FFTs, is the global data transpositions between different MPI
 decomposition configurations.
-In `Pencils`, this is performed by the [`transpose!`](@ref) function, which
+In `PencilArrays`, this is performed by the [`transpose!`](@ref) function, which
 takes two `PencilArray`s, typically associated to two different configurations.
 The implementation performs comparably to similar implementations in
 lower-level languages (see [Benchmarks](@ref)).
 
 Also provided is a [`gather`](@ref) function that creates a single global array
 from decomposed data.
-This can be useful for tests (in fact, it is used in the `Pencils` tests to
+This can be useful for tests (in fact, it is used in the `PencilArrays` tests to
 verify the correctness of the transpositions), but shouldn't be used with large
 datasets.
 It is generally useful for small problems where the global size of the data can
@@ -262,19 +262,19 @@ transpose!
 gather
 ```
 
-## [Measuring performance](@id Pencils.measuring_performance)
+## [Measuring performance](@id PencilArrays.measuring_performance)
 
-It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)` after loading `PencilFFTs`. For more details see the [TimerOutputs docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
+It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)` after loading `PencilFFTs`. For more details see the [TimerOutputs docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
 
 ```julia
 using MPI
-using PencilFFTs.Pencils
+using PencilFFTs.PencilArrays
 using TimerOutputs
 
-# Enable timing of `Pencils` functions
-TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)
+# Enable timing of `PencilArrays` functions
+TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)
 
 MPI.Init()
 
@@ -301,7 +301,7 @@ print_timer(to)
 ## Index
 
 ```@index
-Pages = ["Pencils.md"]
+Pages = ["PencilArrays.md"]
 Order = [:module, :type, :constant, :function]
 ```
 

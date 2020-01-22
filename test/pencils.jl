@@ -1,6 +1,8 @@
 #!/usr/bin/env julia
 
-using PencilFFTs.Pencils
+using PencilFFTs.PencilArrays
+
+const PA = PencilArrays
 
 using MPI
 
@@ -28,7 +30,6 @@ function test_array_wrappers(p::Pencil)
     T = eltype(p)
     u = PencilArray(p)
     perm = get_permutation(p)
-    permute = Pencils.permute_indices
 
     @test eltype(u) === eltype(u.data) === T
     @test length.(axes(u)) === size(u)
@@ -50,7 +51,7 @@ function test_array_wrappers(p::Pencil)
         vp = parent(v)
         randn!(vp)
         I = size(v) .>> 1  # non-permuted indices
-        J = permute(I, perm)
+        J = PA.permute_indices(I, perm)
         @test v[I...] == vp[J...]  # the parent takes permuted indices
     end
 
@@ -172,7 +173,7 @@ function main()
 
     # Note: the permutation of pen2 was chosen such that the inverse permutation
     # is different.
-    @assert pen2.perm !== Pencils.inverse_permutation(pen2.perm)
+    @assert pen2.perm !== PA.inverse_permutation(pen2.perm)
 
     @testset "Pencil constructor checks" begin
         # Too many decomposed directions
@@ -200,29 +201,29 @@ function main()
     end
 
     @testset "auxiliary functions" begin
-        @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) ===
+        @test PencilArrays.complete_dims(Val(5), (2, 3), (42, 12)) ===
             (1, 42, 12, 1, 1)
         @test get_permutation(pen1) === nothing
         @test get_permutation(pen2) === Val((2, 3, 1))
 
-        @test Pencils.relative_permutation(pen2, pen3) === Val((2, 1, 3))
+        @test PA.relative_permutation(pen2, pen3) === Val((2, 1, 3))
 
         let a = Val((2, 1, 3)), b = Val((3, 2, 1))
-            @test Pencils.permute_indices((:a, :b, :c), Val((2, 3, 1))) ===
+            @test PA.permute_indices((:a, :b, :c), Val((2, 3, 1))) ===
                 (:b, :c, :a)
-            a2b = Pencils.relative_permutation(a, b)
-            @test Pencils.permute_indices(a, a2b) === b
+            a2b = PA.relative_permutation(a, b)
+            @test PA.permute_indices(a, a2b) === b
 
             if BENCHMARK_ARRAYS
                 let x = (12, 42, 2)
                     print("@btime permute_indices...")
-                    @btime Pencils.permute_indices($x, $a)
+                    @btime PA.permute_indices($x, $a)
                 end
             end
 
             x = Val((3, 1, 2))
-            x2nothing = Pencils.relative_permutation(x, nothing)
-            @test Pencils.permute_indices(x, x2nothing) === Val((1, 2, 3))
+            x2nothing = PA.relative_permutation(x, nothing)
+            @test PA.permute_indices(x, x2nothing) === Val((1, 2, 3))
         end
     end
 
@@ -315,31 +316,31 @@ function main()
     end
 
     begin
-        MPITopologies = Pencils.MPITopologies
+        MPITopologies = PencilArrays.MPITopologies
         periods = zeros(Int, length(proc_dims))
         comm_cart = MPI.Cart_create(comm, collect(proc_dims), periods, false)
         @inferred MPITopologies.create_subcomms(Val(2), comm_cart)
-        @inferred Pencils.MPITopology{2}(comm_cart)
+        @inferred PencilArrays.MPITopology{2}(comm_cart)
         @inferred MPITopologies.get_cart_ranks_subcomm(pen1.topology.subcomms[1])
 
-        @inferred Pencils.to_local(pen2, (1:2, 1:2, 1:2), permute=true)
+        @inferred PencilArrays.to_local(pen2, (1:2, 1:2, 1:2), permute=true)
 
-        @inferred Pencils.size_local(pen2, permute=true)
+        @inferred PencilArrays.size_local(pen2, permute=true)
 
         @inferred PencilArray(pen2)
         @inferred PencilArray(pen2, (3, 4))
 
-        @inferred Pencils.permute_indices(Nxyz, Val((2, 3, 1)))
-        @inferred Pencils.relative_permutation(Val((1, 2, 3)), Val((2, 3, 1)))
-        @inferred Pencils.relative_permutation(Val((1, 2, 3)), nothing)
+        @inferred PA.permute_indices(Nxyz, Val((2, 3, 1)))
+        @inferred PA.relative_permutation(Val((1, 2, 3)), Val((2, 3, 1)))
+        @inferred PA.relative_permutation(Val((1, 2, 3)), nothing)
 
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
 
         @inferred Nothing gather(u2)
         @inferred transpose!(u2, u1)
-        @inferred Pencils.transpose_impl!(1, u2, u1)
-        @inferred Pencils._get_remote_indices(1, (2, 3), 8)
+        @inferred PA.transpose_impl!(1, u2, u1)
+        @inferred PA._get_remote_indices(1, (2, 3), 8)
     end
 
     MPI.Finalize()

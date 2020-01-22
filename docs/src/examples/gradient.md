@@ -300,7 +300,7 @@ In
 [`examples/gradient.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl),
 additional implementations using local indices can be found which rely on
 a more advanced understanding of permutations and on the internals of the
-`Pencils` module.
+[`PencilArrays`](@ref) module.
 See for instance `gradient_local_parent!`, which directly works with the raw
 data stored in Julia `Array`s; or `gradient_local_linear!`, which completely
 avoids `CartesianIndices` while staying generic and efficient. We have found
@@ -309,7 +309,7 @@ above.
 
 ## Summary
 
-The `Pencils` module provides different alternatives to deal with
+The `PencilArrays` module provides different alternatives to deal with
 MPI-distributed data that may be subject to dimension permutations.
 In particular, one can choose to work with *global* indices (first two
 examples) or with *local* indices (third example).

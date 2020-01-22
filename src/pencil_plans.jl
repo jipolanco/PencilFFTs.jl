@@ -83,7 +83,7 @@ along each dimension.
   data transpositions. See the [`transpose!`](@ref) docs for details.
 
 - `timer` should be a `TimerOutput` object.
-  See [Measuring performance](@ref Pencils.measuring_performance) for details.
+  See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 
 # Experimental arguments
 
@@ -93,7 +93,7 @@ The following options are **experimental** and may disappear in the future.
   that should not be transformed. These dimensions will be added to the rightmost
   (i.e. slowest) indices of the arrays. Extra dimensions can be used to contain,
   for instance, multiple vector field components in a single array.
-  See [`Pencils.PencilArray`](@ref) for more details.
+  See [`PencilArrays.PencilArray`](@ref) for more details.
 
   **NOTE:** An alternative to `extra_dims` is to create a tuple or an array of
   `PencilArray`s, e.g. one per vector component.
@@ -140,7 +140,7 @@ struct PencilFFTPlan{T,
     # Scale factor to be applied after backwards transforms.
     scale_factor :: Int
 
-    # `method` parameter passed to `Pencils.transpose!`
+    # `method` parameter passed to `transpose!`
     transpose_method :: TransposeMethod
 
     # Temporary data buffers.
@@ -348,7 +348,7 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
         # (leftmost) index, then the result of `findfirst` should be 1.
-        findfirst(==(n), Pencils.extract(perm)) :: Int
+        findfirst(==(n), PencilArrays.extract(perm)) :: Int
     end
 
     # Create temporary arrays with the dimensions required for forward and

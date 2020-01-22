@@ -145,7 +145,7 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
         @inferred allocate_output(plan)
 
         vi = allocate_input(plan)
-        @test vi isa Pencils.ManyPencilArray
+        @test vi isa PencilArrays.ManyPencilArray
 
         let vo = allocate_output(plan)
             @test typeof(vi) === typeof(vo)

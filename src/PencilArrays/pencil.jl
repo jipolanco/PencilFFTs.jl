@@ -28,7 +28,7 @@ reasons, since it may be preferable (e.g. for FFTs) that the data is contiguous
 along the pencil direction.
 
 It is also possible to pass a `TimerOutput` to the constructor. See
-[Measuring performance](@ref Pencils.measuring_performance) for details.
+[Measuring performance](@ref PencilArrays.measuring_performance) for details.
 
 # Examples
 
@@ -164,7 +164,7 @@ Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T} = T
 
 Get `TimerOutput` attached to a `Pencil`.
 
-See [Measuring performance](@ref Pencils.measuring_performance) for details.
+See [Measuring performance](@ref PencilArrays.measuring_performance) for details.
 """
 get_timer(p::Pencil) = p.timer
 

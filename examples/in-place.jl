@@ -38,7 +38,7 @@ function main()
     # Allocate data for the plan.
     # This returns a `ManyPencilArray` container that holds multiple
     # `PencilArray` views.
-    A = allocate_input(plan) :: Pencils.ManyPencilArray
+    A = allocate_input(plan) :: PencilArrays.ManyPencilArray
 
     # The input output `PencilArray`s are recovered using `first` and
     # `last`.

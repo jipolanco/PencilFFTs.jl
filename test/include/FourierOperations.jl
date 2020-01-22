@@ -2,7 +2,7 @@ module FourierOperations
 
 export divergence, curl!, sqnorm
 
-using PencilFFTs.Pencils
+using PencilFFTs.PencilArrays
 using Reexport
 
 include("Grids.jl")

@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 using PencilFFTs
-using PencilFFTs.Pencils
+using PencilFFTs.PencilArrays
 
 import FFTW
 using MPI
@@ -15,7 +15,7 @@ using Profile
 using Random
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
-TimerOutputs.enable_debug_timings(Pencils)
+TimerOutputs.enable_debug_timings(PencilArrays)
 
 FFTW.set_num_threads(1)
 

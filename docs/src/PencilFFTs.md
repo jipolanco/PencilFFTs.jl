@@ -1,6 +1,6 @@
 # Distributed FFTs
 
-Distributed FFTs are built on top of the [`Pencils`](@ref) and the
+Distributed FFTs are built on top of the [`PencilArrays`](@ref) and the
 [`Transforms`](@ref) modules, and are implemented in the `PencilFFTs` module.
 
 ```@meta
@@ -26,7 +26,7 @@ is_inplace(::PencilFFTPlan)
 
 ## [Measuring performance](@id PencilFFTs.measuring_performance)
 
-It is possible to measure the time spent in different sections of the distributed transforms using the [TimerOutput](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs)` and `TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)` after loading `PencilFFTs`. For more details see the [TimerOutput docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
+It is possible to measure the time spent in different sections of the distributed transforms using the [TimerOutput](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs)` and `TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)` after loading `PencilFFTs`. For more details see the [TimerOutput docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
 
@@ -37,7 +37,7 @@ using TimerOutputs
 
 # Enable timing of `PencilFFTs` functions
 TimerOutputs.enable_debug_timings(PencilFFTs)
-TimerOutputs.enable_debug_timings(PencilFFTs.Pencils)
+TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)
 
 MPI.Init()
 

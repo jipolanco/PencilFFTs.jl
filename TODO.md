@@ -25,7 +25,7 @@
 - Permuted dimensions and CartesianIndices: visiting order of array and of grid
   must be the same.
 
-## Pencils
+## PencilArrays
 
 - transpositions: optimise `copy_permuted!` using something similar to P3DFFT2
   "loop blocking factors", or like `permutedims!` for `PermutedDimsArray`.

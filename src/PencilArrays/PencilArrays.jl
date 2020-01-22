@@ -4,7 +4,7 @@ Module for multidimensional data decomposition using MPI.
 Handles different decomposition configurations and data transpositions between
 them. Also defines relevant data structures for handling distributed data.
 """
-module Pencils
+module PencilArrays
 
 using MPI
 using OffsetArrays

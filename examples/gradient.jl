@@ -32,6 +32,8 @@ using AbstractFFTs: fftfreq, rfftfreq
 using Printf: @printf
 using Random: randn!
 
+const PA = PencilFFTs.PencilArrays
+
 const INPUT_DIMS = (64, 32, 64)
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
@@ -135,11 +137,11 @@ function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
     ∇θ_p = parent.(∇θ_hat)
 
     perm = get_permutation(θ_hat)
-    iperm = Pencils.inverse_permutation(perm)
+    iperm = PA.inverse_permutation(perm)
 
     @inbounds for (n, I) in enumerate(CartesianIndices(θ_p))
         # Unpermute indices to (i, j, k)
-        J = Pencils.permute_indices(I, iperm)
+        J = PA.permute_indices(I, iperm)
 
         # Wave number vector associated to current Cartesian index.
         i, j, k = Tuple(J)  # local indices
@@ -167,13 +169,13 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
     # Fourier space is (z, y, x) instead of (x, y, z), but this is never assumed
     # below. The wave numbers must be permuted accordingly.
     perm = get_permutation(θ_hat)  # e.g. Val((3, 2, 1))
-    kvec_perm = Pencils.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
+    kvec_perm = PA.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
 
     # Create wave number iterator.
     kvec_iter = Iterators.product(kvec_perm...)
 
     # Inverse permutation, to pass from (kz, ky, kx) to (kx, ky, kz).
-    iperm = Pencils.inverse_permutation(perm)
+    iperm = PA.inverse_permutation(perm)
 
     @inbounds for (n, kvec_n) in enumerate(kvec_iter)
         # Apply inverse permutation to the current wave number vector.
@@ -181,7 +183,7 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
         # compile-time constant!
         # (This can be verified by comparing the performance of this function
         # with the "explicit" variant of `gradient_local_linear`, below.)
-        κ = Pencils.permute_indices(kvec_n, iperm)  # = (kx, ky, kz)
+        κ = PA.permute_indices(kvec_n, iperm)  # = (kx, ky, kz)
 
         u = im * θ_hat[n]
 

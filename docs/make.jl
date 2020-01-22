@@ -6,8 +6,8 @@ const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(PencilFFTs, :DocTestSetup,
                     :(using PencilFFTs); recursive=false)
-DocMeta.setdocmeta!(PencilFFTs.Pencils, :DocTestSetup,
-                    :(using PencilFFTs.Pencils); recursive=true)
+DocMeta.setdocmeta!(PencilFFTs.PencilArrays, :DocTestSetup,
+                    :(using PencilFFTs.PencilArrays); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
                     :(using PencilFFTs.Transforms); recursive=true)
 
@@ -31,7 +31,7 @@ let with_checks = !MAKE_FAST
             "Library" => [
                 "PencilFFTs.md",
                 "Transforms.md",
-                "Pencils.md",
+                "PencilArrays.md",
             ],
             "benchmarks.md",
         ],

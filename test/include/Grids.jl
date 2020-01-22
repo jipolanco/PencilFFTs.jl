@@ -4,7 +4,8 @@ export PhysicalGrid, FourierGrid
 export LocalGridIterator, PhysicalGridIterator, FourierGridIterator
 import Base: @propagate_inbounds
 
-using PencilFFTs.Pencils
+using PencilFFTs.PencilArrays
+const PA = PencilArrays
 
 using AbstractFFTs: Frequencies, fftfreq, rfftfreq
 
@@ -28,7 +29,7 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             LinRange{T}(first(l), last(l), d + 1)
         end
         dims = dims_in
-        iperm = Pencils.inverse_permutation(perm)
+        iperm = PA.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
     end
@@ -51,7 +52,7 @@ struct FourierGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             n == 1 ? rfftfreq(M, fs)::F : fftfreq(M, fs)::F
         end
         dims = dims_in
-        iperm = Pencils.inverse_permutation(perm)
+        iperm = PA.inverse_permutation(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
     end
@@ -116,14 +117,14 @@ struct LocalGridIterator{
         end
 
         iperm = grid.iperm
-        perm = Pencils.inverse_permutation(iperm)
+        perm = PA.inverse_permutation(iperm)
 
         # Note: grid[range] returns non-permuted coordinates from a non-permuted
         # `range`.
         # We want the coordinates permuted. This way we can iterate in the
         # right memory order, according to the current dimension permutation.
         # Then, we unpermute the coordinates at each call to `iterate`.
-        grid_perm = Pencils.permute_indices(grid[range], perm)
+        grid_perm = PA.permute_indices(grid[range], perm)
         iter = Iterators.product(grid_perm...)
 
         G = typeof(grid)
@@ -134,7 +135,7 @@ struct LocalGridIterator{
     end
 end
 
-LocalGridIterator(grid::AbstractGrid, u::Pencils.MaybePencilArrayCollection) =
+LocalGridIterator(grid::AbstractGrid, u::PA.MaybePencilArrayCollection) =
     LocalGridIterator(grid, pencil(u))
 
 LocalGridIterator(grid::AbstractGrid, p::Pencil) =
@@ -149,7 +150,7 @@ Base.eltype(::Type{G} where G <: LocalGridIterator{T}) where {T} = T
     next === nothing && return nothing
     coords_perm, state_new = next  # `coords_perm` is permuted, e.g. (z, y, x)
     # We return unpermuted coordinates, e.g. (x, y, z)
-    Pencils.permute_indices(coords_perm, g.iperm), state_new
+    PA.permute_indices(coords_perm, g.iperm), state_new
 end
 
 const FourierGridIterator{T, N} =
