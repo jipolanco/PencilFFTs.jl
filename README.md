@@ -3,6 +3,7 @@
 [![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/stable/)
 [![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/dev/)
 [![Build status](https://travis-ci.com/jipolanco/PencilFFTs.jl.svg?branch=master)](https://travis-ci.com/jipolanco/PencilFFTs.jl)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3618782.svg)](https://doi.org/10.5281/zenodo.3618782)
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
