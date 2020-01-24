@@ -127,11 +127,11 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
     nothing
 end
 
-# TODO also test LinearIndices
 function check_cartesian_order(u::PencilArray)
     # Check that Cartesian indices iterate in memory order.
     for (n, I) in enumerate(CartesianIndices(u))
-        u[n] == u[I] || return false
+        l = LinearIndices(u)[I]
+        u[n] == u[I] == u[l] || return false
     end
     true
 end
