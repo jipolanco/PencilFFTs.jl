@@ -87,6 +87,8 @@ function append_to_permutation(::Val{p}, ::Val{M}) where {p, M}
     Val((p..., ntuple(i -> N + i, Val(M))...))
 end
 
+append_to_permutation(::Nothing, ::Val) = nothing
+
 # This is useful for base functions that don't accept permutations as value
 # types (like `permutedims!`).
 extract(::Val{p}) where {p} = p

@@ -326,7 +326,13 @@ Get index permutation associated to the given `PencilArray`.
 
 Returns `nothing` if there is no associated permutation.
 """
-get_permutation(x::MaybePencilArrayCollection) = get_permutation(pencil(x))
+function get_permutation(x::MaybePencilArrayCollection)
+    perm = get_permutation(pencil(x))
+
+    # Account for extra dimensions.
+    E = ndims_extra(x)
+    append_to_permutation(perm, Val(E))
+end
 
 """
     gather(x::PencilArray, [root::Integer=0])

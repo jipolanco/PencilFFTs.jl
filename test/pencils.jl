@@ -34,6 +34,9 @@ function test_array_wrappers(p::Pencil)
     @test eltype(u) === eltype(u.data) === T
     @test length.(axes(u)) === size(u)
 
+    randn!(u)
+    @test check_cartesian_order(u)
+
     if BENCHMARK_ARRAYS
         for S in (IndexLinear, IndexCartesian)
             @info "Filling arrays using $S (Array, PencilArray)" get_permutation(p)
@@ -122,6 +125,15 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
     end
 
     nothing
+end
+
+# TODO also test LinearIndices
+function check_cartesian_order(u::PencilArray)
+    # Check that Cartesian indices iterate in memory order.
+    for (n, I) in enumerate(CartesianIndices(u))
+        u[n] == u[I] || return false
+    end
+    true
 end
 
 function compare_distributed_arrays(u_local::PencilArray, v_local::PencilArray)
@@ -278,6 +290,10 @@ function main()
         transpose!(u3, u2)
         @test compare_distributed_arrays(u2, u3)
 
+        for v in (u1, u2, u3)
+            @test check_cartesian_order(v)
+        end
+
         @inferred global_view(u1)
     end
 
@@ -301,6 +317,7 @@ function main()
 
         transpose!(u3, u2)
         @test compare_distributed_arrays(u1, u3)
+        @test check_cartesian_order(u3)
 
         # Test transposition between two identical configurations.
         transpose!(u2, u2)
