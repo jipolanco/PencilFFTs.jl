@@ -350,12 +350,12 @@ function main()
     MPI.Init()
 
     size_in = DATA_DIMS
-    test_transform_types(size_in)
-
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
 
     MPI.Comm_rank(comm) == 0 || redirect_stdout(open(DEV_NULL, "w"))
+
+    test_transform_types(size_in)
 
     pdims_1d = (Nproc, )  # 1D ("slab") decomposition
 
