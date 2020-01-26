@@ -129,9 +129,10 @@ end
 
 function check_cartesian_order(u::PencilArray)
     # Check that Cartesian indices iterate in memory order.
+    p = parent(u)
     for (n, I) in enumerate(CartesianIndices(u))
         l = LinearIndices(u)[I]
-        u[n] == u[I] == u[l] || return false
+        u[n] == p[n] == u[I] == u[l] || return false
     end
     true
 end

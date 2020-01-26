@@ -19,15 +19,11 @@ function divergence(uF_local::VectorField{T},
                     grid::FourierGrid) where {T <: Complex}
     div2 = real(zero(T))
 
-    uF = map(global_view, uF_local)
+    uF = global_view.(uF_local)
     ux = first(uF)
 
-    # Note: when the indices of `uF` are permuted, this is not the most
-    # efficient implementation because the arrays are traversed in logical
-    # order, not in memory order (this is the behaviour of `CartesianIndices`).
-    @inbounds for I in CartesianIndices(ux)
+    @inbounds for (l, I) in enumerate(CartesianIndices(ux))
         k = grid[I]  # (kx, ky, kz)
-        l = LinearIndices(ux)[I]
         div = zero(T)
         for n in eachindex(k)
             v = 1im * k[n] * uF[n][l]

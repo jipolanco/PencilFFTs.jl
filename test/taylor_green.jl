@@ -7,7 +7,10 @@ using PencilFFTs
 
 import MPI
 
+using BenchmarkTools
 using Test
+
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 0.1
 
 include("include/FourierOperations.jl")
 using .FourierOperations
@@ -31,12 +34,11 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
     u = global_view.(u_local)
 
-    @inbounds for I in CartesianIndices(u[1])
+    @inbounds for (n, I) in enumerate(CartesianIndices(u[1]))
         x, y, z = g[I]
-        l = LinearIndices(u[1])[I]  # compute linear index just once
-        u[1][l] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
-        u[2][l] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
-        u[3][l] = 0
+        u[1][n] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
+        u[2][n] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
+        u[3][n] = 0
     end
 
     u_local
@@ -122,16 +124,44 @@ function main()
     gF_local = LocalGridIterator(gF_global, uF)
     ωF = similar.(uF)
 
-    let div2 = divergence(uF, gF_local)
+    @testset "Taylor-Green" begin
+        let u_glob = similar.(u)
+            # Compare with initialisation using global indices
+            taylor_green!(u_glob, g_global)
+            @test all(u .≈ u_glob)
+        end
+
+        div2 = divergence(uF, gF_local)
+
+        # Compare local and global versions of divergence
+        @test div2 == divergence(uF, gF_global)
+
+        print("divergence local...  ")
+        @btime divergence($uF, $gF_local)
+
+        print("divergence global... ")
+        @btime divergence($uF, $gF_global)
+
         div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
         @test div2_mean ≈ 0 atol=1e-16
+
+        curl!(ωF, uF, gF_local)
+        ω = plan \ ωF
+
+        # Test global version of curl
+        ωF_glob = similar.(ωF)
+        curl!(ωF_glob, uF, gF_global)
+        @test all(ωF_glob .== ωF)
+
+        print("curl! local...       ")
+        @btime curl!($ωF, $uF, $gF_local)
+
+        print("curl! global...      ")
+        @btime curl!($ωF_glob, $uF, $gF_global)
+
+        ω_err = check_vorticity_TG(ω, g_local, comm)
+        @test ω_err ≈ 0 atol=1e-16
     end
-
-    curl!(ωF, uF, gF_local)
-    ω = plan \ ωF
-
-    ω_err = check_vorticity_TG(ω, g_local, comm)
-    @test ω_err ≈ 0 atol=1e-16
 
     if SAVE_VTK
         fields_to_vtk(g_local, "TG_proc_$(rank + 1)of$(Nproc)",
