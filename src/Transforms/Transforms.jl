@@ -30,6 +30,30 @@ Specifies a one-dimensional FFT-based transform.
 abstract type AbstractTransform end
 
 """
+    AbstractCustomPlan
+
+Abstract type defining a custom plan, to be used as an alternative to FFTW
+plans (`FFTW.FFTWPlan`).
+
+The only custom plan defined in this module is [`IdentityPlan`](@ref).
+The user can define other custom plans that are also subtypes of
+`AbstractCustomPlan`.
+
+Note that [`plan`](@ref) returns a subtype of either `FFTW.FFTWPlan` or
+`AbstractCustomPlan`.
+"""
+abstract type AbstractCustomPlan end
+
+"""
+    Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
+
+Union type representing any plan returned by [`plan`](@ref).
+
+See also [`AbstractCustomPlan`](@ref).
+"""
+const Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
+
+"""
     plan(transform::AbstractTransform, A, [dims];
          flags=FFTW.ESTIMATE, timelimit=Inf)
 
@@ -37,7 +61,8 @@ Create plan to transform array `A` along dimensions `dims`.
 
 If `dims` is not specified, all dimensions of `A` are transformed.
 
-This function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan creation functions.
+For FFT plans, this function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan
+creation functions.
 For more details on the function arguments, see
 [`AbstractFFTs.plan_fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft).
 """

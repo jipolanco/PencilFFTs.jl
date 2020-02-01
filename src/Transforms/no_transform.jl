@@ -35,7 +35,7 @@ plan(::NoTransform!, A, dims; kwargs...) = IdentityPlan!()
 
 Type of plan associated to [`NoTransform`](@ref).
 """
-struct IdentityPlan end
+struct IdentityPlan <: AbstractCustomPlan end
 
 LinearAlgebra.mul!(y, ::IdentityPlan, x) = (y === x) ? y : copy!(y, x)
 LinearAlgebra.ldiv!(y, ::IdentityPlan, x) = mul!(y, IdentityPlan(), x)

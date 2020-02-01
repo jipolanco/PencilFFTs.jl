@@ -33,9 +33,11 @@ What follows is used internally by `PencilFFTs`.
 ### Types
 
 ```@docs
+AbstractCustomPlan
 AbstractTransform
 IdentityPlan
 IdentityPlan!
+Plan
 ```
 
 ### Functions

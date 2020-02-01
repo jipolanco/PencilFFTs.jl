@@ -1,12 +1,11 @@
-const FFTWPlanOrIdentity = Union{FFTW.FFTWPlan, Transforms.IdentityPlan}
 const ValBool = Union{Val{false}, Val{true}}
 
 # One-dimensional distributed FFT plan.
 struct PencilPlan1D{Pi <: Pencil,
                     Po <: Pencil,
                     Tr <: AbstractTransform,
-                    FFTPlanF <: FFTWPlanOrIdentity,
-                    FFTPlanB <: FFTWPlanOrIdentity,
+                    FFTPlanF <: Transforms.Plan,
+                    FFTPlanB <: Transforms.Plan,
                    }
     # Each pencil pair describes the decomposition of input and output FFT
     # data. The two pencils will be different for transforms that do not
