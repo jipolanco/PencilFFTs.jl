@@ -144,7 +144,6 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
 end
 
 function test_transform(plan::PencilFFTPlan, args...; kwargs...)
-
     println("\n", "-"^60, "\n\n", plan, "\n")
 
     @inferred allocate_input(plan)
@@ -359,6 +358,55 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     nothing
 end
 
+# Test N-dimensional transforms decomposing along M dimensions.
+function test_dimensionality(dims::Dims{N}, ::Val{M}, comm) where {N, M}
+    @assert M < N
+    pdims = make_pdims(Val(M), MPI.Comm_size(comm))
+
+    @testset "Decompose $M/$N dims" begin
+        # Out-of-place transform.
+        let transform = Transforms.RFFT()
+            plan = PencilFFTPlan(dims, transform, pdims, comm)
+            test_transform(plan, FFTW.plan_rfft)
+        end
+
+        # In-place transform.
+        let transform = Transforms.FFT!()
+            plan = PencilFFTPlan(dims, transform, pdims, comm)
+            plan_oop = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm)
+            test_transform(plan, FFTW.plan_fft!, plan_oop)
+        end
+
+    end
+
+    nothing
+end
+
+function test_dimensionality(comm)
+    # 1D decomposition of 2D problem.
+    test_dimensionality((11, 15), Val(1), comm)
+
+    let dims = (11, 7, 13)
+        test_dimensionality(dims, Val(1), comm)  # slab decomposition
+        test_dimensionality(dims, Val(2), comm)  # pencil decomposition
+    end
+
+    let dims = (9, 7, 5, 12)
+        test_dimensionality(dims, Val(1), comm)
+        test_dimensionality(dims, Val(2), comm)
+        test_dimensionality(dims, Val(3), comm)  # 3D decomposition of 4D problem
+    end
+
+    nothing
+end
+
+function make_pdims(::Val{M}, Nproc) where {M}
+    # Let MPI.Dims_create! choose the decomposition.
+    pdims = zeros(Int, M)
+    MPI.Dims_create!(Nproc, pdims)
+    ntuple(d -> pdims[d], Val(M))
+end
+
 function main()
     MPI.Init()
 
@@ -368,14 +416,10 @@ function main()
     silence_stdout(comm)
 
     test_transform_types(size_in)
+    test_dimensionality(comm)
 
     pdims_1d = (Nproc, )  # 1D ("slab") decomposition
-
-    # Let MPI_Dims_create choose the 2D decomposition.
-    pdims_2d = let pdims = zeros(Int, 2)
-        MPI.Dims_create!(Nproc, pdims)
-        pdims[1], pdims[2]
-    end
+    pdims_2d = make_pdims(Val(2), Nproc)
 
     for p in (pdims_1d, pdims_2d)
         test_pencil_plans(size_in, p, comm)
