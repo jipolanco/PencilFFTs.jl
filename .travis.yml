@@ -44,6 +44,9 @@ jobs:
 before_install:
   - sudo apt-get -y install mpich libmpich-dev
 
+after_success:
+  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; data = process_folder(); Codecov.submit(data); Coveralls.submit(data)'
+
 addons:
   apt:
     update: true  # runs apt-get update
