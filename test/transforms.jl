@@ -126,8 +126,6 @@ end
 
 function test_inplace(::Type{T}, comm, proc_dims, size_in;
                       extra_dims=()) where {T}
-    root = 0
-
     transforms = Transforms.FFT!()  # in-place c2c FFT
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, T;
                          extra_dims=extra_dims)
@@ -136,86 +134,131 @@ function test_inplace(::Type{T}, comm, proc_dims, size_in;
     plan_oop = PencilFFTPlan(size_in, Transforms.FFT(), proc_dims, comm, T;
                              extra_dims=extra_dims)
 
-    println("\n", "-"^60, "\n\n", plan, "\n")
-
-    dims_all = (size_in..., extra_dims...)
     dims_fft = 1:length(size_in)
 
     @testset "In-place transforms 3D" begin
-        @inferred allocate_input(plan)
-        @inferred allocate_output(plan)
+        test_transform(plan, x -> FFTW.plan_fft!(x, dims_fft), plan_oop)
+    end
 
-        vi = allocate_input(plan)
-        @test vi isa PencilArrays.ManyPencilArray
+    nothing
+end
 
-        let vo = allocate_output(plan)
-            @test typeof(vi) === typeof(vo)
+function test_transform(plan::PencilFFTPlan, args...; kwargs...)
+
+    println("\n", "-"^60, "\n\n", plan, "\n")
+
+    @inferred allocate_input(plan)
+    @inferred allocate_input(plan, 2, 3)
+    @inferred allocate_input(plan, Val(3))
+    @inferred allocate_output(plan)
+
+    test_transform(Val(is_inplace(plan)), plan, args...; kwargs...)
+end
+
+function test_transform(inplace::Val{true}, plan::PencilFFTPlan,
+                        serial_planner::Function, plan_oop::PencilFFTPlan;
+                        root=0)
+    @assert !is_inplace(plan_oop)
+
+    vi = allocate_input(plan)
+    @test vi isa PencilArrays.ManyPencilArray
+
+    let vo = allocate_output(plan)
+        @test typeof(vi) === typeof(vo)
+    end
+
+    u = first(vi)  # input PencilArray
+    v = last(vi)   # output PencilArray
+
+    randn!(u)
+    u_initial = copy(u)
+    ug = gather(u, root)  # for comparison with serial FFT
+
+    # Input array type ManyPencilArray{...} incompatible with out-of-place
+    # plans.
+    @test_throws ArgumentError plan_oop * vi
+
+    # Out-of-place plan applied to in-place data.
+    @test_throws ArgumentError mul!(v, plan_oop, u)
+
+    let vi_other = allocate_input(plan)
+        # Input and output arrays for in-place plan must be the same.
+        @test_throws ArgumentError mul!(vi_other, plan, vi)
+    end
+
+    # Input array type incompatible with in-place plans.
+    @test_throws ArgumentError plan * u
+    @test_throws ArgumentError plan \ v
+
+    @assert PencilFFTs.is_inplace(plan)
+    plan * vi               # apply in-place forward transform
+    @test isempty(u) || !(u ≈ u_initial)  # `u` was modified!
+
+    # Now `v` contains the transformed data.
+    vg = gather(v, root)
+    if ug !== nothing && vg !== nothing
+        p = serial_planner(ug)
+        p * ug  # apply serial in-place FFT
+        @test ug ≈ vg
+    end
+
+    plan \ vi  # apply in-place backward transform
+
+    # Now `u` contains the initial data (approximately).
+    @test u ≈ u_initial
+
+    ug_again = gather(u, root)
+    if ug !== nothing && ug_again !== nothing
+        p \ ug  # apply serial in-place FFT
+        @test ug ≈ ug_again
+    end
+
+    let components = ((Val(3), ), (3, 2))
+        @testset "Components: $comp" for comp in components
+            vi = allocate_input(plan, comp...)
+            u = first.(vi)
+            v = last.(vi)
+            randn!.(u)
+            u_initial = copy.(u)
+
+            # In some cases, generally when data is split among too many
+            # processes, the local process may have no data.
+            empty = isempty(first(u))
+
+            plan * vi
+            @test empty || !all(u_initial .≈ u)
+
+            plan \ vi
+            @test all(u_initial .≈ u)
         end
+    end
 
-        u = first(vi)  # input PencilArray
-        v = last(vi)   # output PencilArray
+    nothing
+end
 
-        randn!(u)
-        u_initial = copy(u)
-        ug = gather(u, root)  # for comparison with serial FFT
+function test_transform(inplace::Val{false}, plan::PencilFFTPlan,
+                        serial_planner::Function; root=0)
+    u = allocate_input(plan)
+    v = allocate_output(plan)
 
-        # Input array type ManyPencilArray{...} incompatible with out-of-place
-        # plans.
-        @test_throws ArgumentError plan_oop * vi
+    @test u isa PencilArray
 
-        # Out-of-place plan applied to in-place data.
-        @test_throws ArgumentError mul!(v, plan_oop, u)
+    randn!(u)
 
-        let vi_other = allocate_input(plan)
-            # Input and output arrays for in-place plan must be the same.
-            @test_throws ArgumentError mul!(vi_other, plan, vi)
-        end
+    mul!(v, plan, u)
+    uprime = similar(u)
+    ldiv!(uprime, plan, v)
 
-        # Input array type incompatible with in-place plans.
-        @test_throws ArgumentError plan * u
-        @test_throws ArgumentError plan \ v
+    @test u ≈ uprime
 
-        @assert PencilFFTs.is_inplace(plan)
-        plan * vi               # apply in-place forward transform
-        @test isempty(u) || !(u ≈ u_initial)  # `u` was modified!
+    # Compare result with serial FFT.
+    ug = gather(u, root)
+    vg = gather(v, root)
 
-        # Now `v` contains the transformed data.
-        vg = gather(v, root)
-        if ug !== nothing && vg !== nothing
-            p = FFTW.plan_fft!(ug, dims_fft)
-            p * ug  # apply serial in-place FFT
-            @test ug ≈ vg
-        end
-
-        plan \ vi  # apply in-place backward transform
-
-        # Now `u` contains the initial data (approximately).
-        @test u ≈ u_initial
-
-        ug_again = gather(u, root)
-        if ug !== nothing && ug_again !== nothing
-            p \ ug  # apply serial in-place FFT
-            @test ug ≈ ug_again
-        end
-
-        let components = ((Val(3), ), (3, 2))
-            @testset "Components: $comp" for comp in components
-                vi = allocate_input(plan, comp...)
-                u = first.(vi)
-                v = last.(vi)
-                randn!.(u)
-                u_initial = copy.(u)
-
-                # In some cases, generally when data is split among too many
-                # processes, the local process may have no data.
-                empty = isempty(first(u))
-
-                plan * vi
-                @test empty || !all(u_initial .≈ u)
-
-                plan \ vi
-                @test all(u_initial .≈ u)
-            end
+    if ug !== nothing && vg !== nothing
+        let p = serial_planner(ug)
+            vg_serial = p * ug
+            @test vg ≈ vg_serial
         end
     end
 
@@ -224,8 +267,6 @@ end
 
 function test_transforms(::Type{T}, comm, proc_dims, size_in;
                          extra_dims=()) where {T}
-    root = 0
-
     plan_kw = (:extra_dims => extra_dims, )
     N = length(size_in)
 
@@ -244,14 +285,14 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
          Transforms.FFT() => make_plan(FFTW.plan_fft),
          Transforms.RFFT() => make_plan(FFTW.plan_rfft),
          Transforms.BFFT() => make_plan(FFTW.plan_bfft),
-         Transforms.NoTransform() => nothing,
+         Transforms.NoTransform() => (x -> Transforms.IdentityPlan()),
          pairs_r2r...,
          (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-         => make_plan(FFTW.plan_rfft, dims=2:3),
+             => make_plan(FFTW.plan_rfft, dims=2:3),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
-         => make_plan(FFTW.plan_fft, dims=(1, 3)),
+             => make_plan(FFTW.plan_fft, dims=(1, 3)),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
-         => make_plan(FFTW.plan_fft, dims=1),
+             => make_plan(FFTW.plan_fft, dims=1),
          Transforms.BRFFT() => make_plan(FFTW.plan_brfft),  # not yet supported
         )
     end
@@ -271,36 +312,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
         plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
                              plan_kw...)
         fftw_planner = p.second
-
-        println("\n", "-"^60, "\n\n", plan, "\n")
-
-        @inferred allocate_input(plan)
-        @inferred allocate_input(plan, 2, 3)
-        @inferred allocate_input(plan, Val(3))
-        @inferred allocate_output(plan)
-        u = allocate_input(plan)
-        v = allocate_output(plan)
-
-        randn!(u)
-
-        mul!(v, plan, u)
-        uprime = similar(u)
-        ldiv!(uprime, plan, v)
-
-        @test u ≈ uprime
-
-        # Compare result with serial FFT.
-        ug = gather(u, root)
-        vg = gather(v, root)
-
-        if ug !== nothing && vg !== nothing && fftw_planner !== nothing
-            let p = fftw_planner(ug)
-                vg_serial = p * ug
-                @test vg ≈ vg_serial
-            end
-        end
-
-        MPI.Barrier(comm)
+        test_transform(plan, fftw_planner)
     end
 
     nothing
