@@ -12,9 +12,10 @@ using LinearAlgebra
 using Random
 using Test
 
-const BENCHMARK_ARRAYS = false
-const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
+include("include/MPITools.jl")
+using .MPITools
 
+const BENCHMARK_ARRAYS = false
 
 Indexation(::Type{IndexLinear}) = LinearIndices
 Indexation(::Type{IndexCartesian}) = CartesianIndices
@@ -162,9 +163,8 @@ function main()
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
-    root = 0
 
-    myrank == root || redirect_stdout(open(DEV_NULL, "w"))
+    silence_stdout(comm)
 
     rng = MersenneTwister(42 + myrank)
 

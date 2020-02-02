@@ -14,11 +14,12 @@ using Test
 include("include/FourierOperations.jl")
 using .FourierOperations
 
+include("include/MPITools.jl")
+using .MPITools
+
 const DATA_DIMS_EVEN = (42, 24, 16)
 const DATA_DIMS_ODD = DATA_DIMS_EVEN .- 1
 const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
-
-const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 # Compute and compare ⟨ |u|² ⟩ in physical and spectral space.
 function test_global_average(u, uF, plan::PencilFFTPlan,
@@ -208,8 +209,7 @@ end
 function main()
     MPI.Init()
 
-    myrank = MPI.Comm_rank(MPI.COMM_WORLD)
-    myrank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+    silence_stdout(MPI.COMM_WORLD)
 
     test_rfft(DATA_DIMS_EVEN)
     println()

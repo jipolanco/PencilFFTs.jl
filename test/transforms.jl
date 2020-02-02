@@ -11,9 +11,10 @@ using Random
 using Test
 using TimerOutputs
 
-const DATA_DIMS = (24, 12, 6)
+include("include/MPITools.jl")
+using .MPITools
 
-const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
+const DATA_DIMS = (24, 12, 6)
 
 const FAST_TESTS = !("--all" in ARGS)
 
@@ -352,8 +353,7 @@ function main()
     size_in = DATA_DIMS
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
-
-    MPI.Comm_rank(comm) == 0 || redirect_stdout(open(DEV_NULL, "w"))
+    silence_stdout(comm)
 
     test_transform_types(size_in)
 

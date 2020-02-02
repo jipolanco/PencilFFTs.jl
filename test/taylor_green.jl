@@ -16,6 +16,9 @@ include("include/FourierOperations.jl")
 using .FourierOperations
 import .FourierOperations: VectorField
 
+include("include/MPITools.jl")
+using .MPITools
+
 const SAVE_VTK = false
 
 if SAVE_VTK
@@ -27,8 +30,6 @@ const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 
 const TG_U0 = 3.0
 const TG_K0 = 2.0
-
-const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 # Initialise TG flow (global view version).
 function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
@@ -103,7 +104,7 @@ function main()
     Nproc = MPI.Comm_size(comm)
     rank = MPI.Comm_rank(comm)
 
-    rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+    silence_stdout(comm)
 
     pdims_2d = let pdims = zeros(Int, 2)
         MPI.Dims_create!(Nproc, pdims)
