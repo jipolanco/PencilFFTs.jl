@@ -1,5 +1,8 @@
 language: julia
 
+codecov: true
+coveralls: true
+
 os:
   - linux
 
@@ -22,9 +25,7 @@ script:
   - julia --project=@. -e 'import Pkg;
                            Pkg.instantiate();
                            using PencilFFTs'
-  # Note: code coverage (at least using Coverage.jl) apparently doesn't work
-  # with parallel code.
-  - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(; coverage=false)'
+  - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(coverage=true)'
 
 jobs:
   allow_failures:
