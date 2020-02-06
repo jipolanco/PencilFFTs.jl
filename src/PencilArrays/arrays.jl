@@ -34,11 +34,7 @@ pencil.
 !!! note "Extra dimensions"
 
     The data array can have one or more extra dimensions to the right (slow
-    indices).
-    For instance, these may correspond to vector or tensor components.
-    These dimensions are not affected by permutations.
-    **Support for extra dimensions is experimental and may dissapear in the
-    future!**.
+    indices), which are not affected by index permutations.
 
     ##### Example
 
@@ -54,7 +50,7 @@ pencil.
 
     PencilArray(pencil::Pencil, [extra_dims=()])
 
-Allocate uninitialised `PencilArray` that can hold data in the local pencil.
+Allocate an uninitialised `PencilArray` that can hold data in the local pencil.
 
 Extra dimensions, for instance representing vector components, can be specified.
 These dimensions are added to the rightmost (slowest) indices of the resulting
