@@ -420,6 +420,43 @@ function test_dimensionality(comm)
     nothing
 end
 
+# Test incompatibilities between plans and inputs.
+function test_incompatibility(comm)
+    pdims = (MPI.Comm_size(comm), )
+    dims = (10, 8)
+    dims_other = (6, 8)
+
+    @testset "Incompatibility" begin
+        plan = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm)
+        plan! = PencilFFTPlan(dims, Transforms.FFT!(), pdims, comm)
+
+        # "in-place plan applied to out-of-place data"
+        u = allocate_input(plan)
+        @test_throws ArgumentError plan! * u
+
+        # "out-of-place plan applied to in-place data"
+        M! = allocate_input(plan!)
+        @test_throws ArgumentError plan * M!
+
+        # "collections have different lengths: 3 ≠ 2"
+        u3 = allocate_input(plan, Val(3))
+        v2 = allocate_output(plan, Val(2))
+        @test_throws ArgumentError mul!(v2, plan, u3)
+
+        let plan_other =
+                PencilFFTPlan(dims_other, Transforms.RFFT(), pdims, comm)
+            # "unexpected dimensions of input data"
+            @test_throws ArgumentError plan_other * u
+
+            # "unexpected dimensions of output data"
+            v_other = allocate_output(plan_other)
+            @test_throws ArgumentError mul!(v_other, plan, u)
+        end
+    end
+
+    nothing
+end
+
 function make_pdims(::Val{M}, Nproc) where {M}
     # Let MPI.Dims_create! choose the decomposition.
     pdims = zeros(Int, M)
@@ -436,6 +473,7 @@ function main()
     silence_stdout(comm)
 
     test_transform_types(size_in)
+    test_incompatibility(comm)
     test_dimensionality(comm)
 
     pdims_1d = (Nproc, )  # 1D ("slab") decomposition
