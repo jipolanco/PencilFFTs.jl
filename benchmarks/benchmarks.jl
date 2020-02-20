@@ -34,7 +34,7 @@ const SEPARATOR = string("\n", "*"^80)
 function parse_commandline()
     s = ArgParseSettings()
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         "--dimensions", "-N"
             help = """
             comma-separated list of 3D dataset dimensions.
