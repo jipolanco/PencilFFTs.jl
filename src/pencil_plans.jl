@@ -133,7 +133,7 @@ struct PencilFFTPlan{T,
     plans :: P
 
     # Scale factor to be applied after backwards transforms.
-    scale_factor :: Int
+    scale_factor :: Float64
 
     # `method` parameter passed to `transpose!`
     transpose_method :: TransposeMethod
@@ -179,7 +179,7 @@ struct PencilFFTPlan{T,
                      )
 
         plans = _create_plans(g, t, plan1d_opt)
-        scale = prod(p -> p.scale_factor, plans)
+        scale = prod(p -> float(p.scale_factor), plans)
 
         # If the plan is in-place, the buffers won't be needed anymore, so we
         # free the memory.
@@ -388,11 +388,11 @@ Get MPI communicator associated to a `PencilFFTPlan`.
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
 
 """
-    get_scale_factor(p::PencilFFTPlan) :: Int
+    get_scale_factor(p::PencilFFTPlan)
 
 Get scale factor associated to a `PencilFFTPlan`.
 """
-get_scale_factor(p::PencilFFTPlan) = p.scale_factor :: Int
+get_scale_factor(p::PencilFFTPlan) = p.scale_factor
 
 """
     get_timer(p::PencilFFTPlan)

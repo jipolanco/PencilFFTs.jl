@@ -139,7 +139,7 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
-        ldiv!(full_plan.scale_factor, y)
+        ldiv!(get_scale_factor(full_plan), y)
     end
 
     y
@@ -187,7 +187,7 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
-        ldiv!(full_plan.scale_factor, first(A))
+        ldiv!(get_scale_factor(full_plan), first(A))
     end
 
     A
