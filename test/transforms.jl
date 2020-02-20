@@ -14,14 +14,12 @@ using TimerOutputs
 include("include/MPITools.jl")
 using .MPITools
 
-const DATA_DIMS = (24, 12, 6)
+const DATA_DIMS = (16, 12, 6)
 
 const FAST_TESTS = !("--all" in ARGS)
 
-# Only test a few r2r kinds in "fast" tests.
-# Otherwise, test all of them.
-const TEST_KINDS_R2R = FAST_TESTS ?
-    (FFTW.REDFT00, FFTW.REDFT01) : Transforms.R2R_SUPPORTED_KINDS
+# Test all possible r2r transforms.
+const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
 function test_transform_types(size_in)
     @testset "r2c transforms" begin
