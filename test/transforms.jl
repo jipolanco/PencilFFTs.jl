@@ -21,6 +21,9 @@ const FAST_TESTS = !("--all" in ARGS)
 # Test all possible r2r transforms.
 const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
+# Incomplete custom transform, for tests only.
+struct FakeTransform <: Transforms.AbstractTransform end
+
 function test_transform_types(size_in)
     @testset "r2c transforms" begin
         transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
@@ -48,13 +51,20 @@ function test_transform_types(size_in)
         @test binv(transform) === transform
         @test binv(transform!) === transform!
 
-        x = zeros(4)
+        @test !is_inplace(transform)
+        @test is_inplace(transform!)
+
+        x = rand(4)
         p = Transforms.plan(transform, x)
         p! = Transforms.plan(transform!, x)
 
         @test p * x !== x  # creates copy
         @test p * x == x
+        @test p \ x !== x  # creates copy
+        @test p \ x == x
+
         @test p! * x === x
+        @test p! \ x === x
 
         y = similar(x)
         @test mul!(y, p, x) === y == x
@@ -65,6 +75,8 @@ function test_transform_types(size_in)
 
         # in-place IdentityPlan applied to out-of-place data
         @test_throws ArgumentError mul!(y, p!, x)
+        @test mul!(x, p!, x) === x
+        @test ldiv!(x, p!, x) === x
         @test mul!(x, p, x) === x
         @test ldiv!(x, p, x) === x
     end
@@ -117,6 +129,15 @@ function test_transform_types(size_in)
 
         # Cannot combine in-place and out-of-place transforms.
         @test_throws ArgumentError PencilFFTs.GlobalFFTParams(size_in, (FFT, FFT!, FFT!))
+    end
+
+    @testset "Transforms internals" begin
+        FFT = Transforms.FFT()
+        x = zeros(ComplexF32, 3, 4)
+        @test Transforms.scale_factor(FFT, x) == length(x)
+
+        # "I don't know how to expand transform..."
+        @test_throws ArgumentError Transforms.expand_dims(FakeTransform(), Val(3))
     end
 
     nothing
@@ -295,20 +316,21 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
     end
 
     @testset "$(p.first) -- $T" for p in pairs
-        if p.first === Transforms.BRFFT()
+        transform, fftw_planner = p
+
+        if transform === Transforms.BRFFT()
             # FIXME...
             # In this case, I need to change the order of the transforms
             # (from right to left)
-            @test_broken PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+            @test_broken PencilFFTPlan(size_in, transform, proc_dims, comm, T;
                                        plan_kw...)
             continue
         end
 
-        @inferred PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+        @inferred PencilFFTPlan(size_in, transform, proc_dims, comm, T;
                                 plan_kw...)
-        plan = PencilFFTPlan(size_in, p.first, proc_dims, comm, T;
+        plan = PencilFFTPlan(size_in, transform, proc_dims, comm, T;
                              plan_kw...)
-        fftw_planner = p.second
         test_transform(plan, fftw_planner)
     end
 
