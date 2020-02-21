@@ -170,6 +170,9 @@ function permute_local!(out::PencilArray{T,N},
     out
 end
 
+_mpi_buffer(p::Ptr{T}, count) where {T} =
+    MPI.Buffer(p, Cint(count), MPI.Datatype(T))
+
 # Transposition among MPI processes in a subcommunicator.
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
@@ -285,10 +288,10 @@ function transpose_impl!(
                 # Note: data is sent and received with the permutation associated to Pi.
                 tag = 42
 
-                send_req[n] =
-                    MPI.Isend(send_buf_ptr, length_send_n, rank, tag, comm)
-                recv_req[n] =
-                    MPI.Irecv!(recv_buf_ptr, length_recv_n, rank, tag, comm)
+                send_req[n] = MPI.Isend(_mpi_buffer(send_buf_ptr, length_send_n),
+                                        rank, tag, comm)
+                recv_req[n] = MPI.Irecv!(_mpi_buffer(recv_buf_ptr, length_recv_n),
+                                         rank, tag, comm)
 
                 send_buf_ptr += length_send_n * sizeof(T)
                 recv_buf_ptr += length_recv_n * sizeof(T)
