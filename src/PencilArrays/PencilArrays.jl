@@ -41,7 +41,6 @@ include("global_view.jl")  # GlobalPencilArray
 include("permuted_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndices
 
 include("data_ranges.jl")
-include("mpi_wrappers.jl")
 include("permutations.jl")
 include("transpose.jl")
 

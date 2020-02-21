@@ -4,7 +4,6 @@ export MPITopology
 export get_comm
 
 import MPI
-include("mpi_wrappers.jl")
 
 """
     MPITopology{N}
@@ -81,7 +80,7 @@ struct MPITopology{N}
         end
 
         dims, coords_local = begin
-            dims_vec, _, coords_vec = MPI.Cart_get(comm_cart, N)
+            dims_vec, _, coords_vec = MPI.Cart_get(comm_cart)
             coords_vec .+= 1  # switch to one-based indexing
             map(X -> ntuple(n -> Int(X[n]), Val(N)), (dims_vec, coords_vec))
         end
@@ -139,7 +138,7 @@ function get_cart_ranks(::Val{N}, comm::MPI.Comm) where N
     Nproc = MPI.Comm_size(comm)
 
     dims = begin
-        dims_vec, _, _ = MPI.Cart_get(comm, N)
+        dims_vec, _, _ = MPI.Cart_get(comm)
         ntuple(n -> Int(dims_vec[n]), N)
     end
 
@@ -148,7 +147,7 @@ function get_cart_ranks(::Val{N}, comm::MPI.Comm) where N
 
     for I in CartesianIndices(dims)
         coords .= Tuple(I) .- 1  # MPI uses zero-based indexing
-        ranks[I] = MPI_Cart_rank(comm, coords)
+        ranks[I] = MPI.Cart_rank(comm, coords)
     end
 
     ranks
@@ -164,7 +163,7 @@ function get_cart_ranks_subcomm(subcomm::MPI.Comm)
 
     for n = 1:Nproc
         coords[] = n - 1  # MPI uses zero-based indexing
-        ranks[n] = MPI_Cart_rank(subcomm, coords)
+        ranks[n] = MPI.Cart_rank(subcomm, coords)
     end
 
     ranks
@@ -175,7 +174,7 @@ function create_subcomms(::Val{N}, comm::MPI.Comm) where N
     ntuple(Val(N)) do n
         fill!(remain_dims, zero(Cint))
         remain_dims[n] = one(Cint)
-        MPI_Cart_sub(comm, remain_dims)
+        MPI.Cart_sub(comm, remain_dims)
     end
 end
 
