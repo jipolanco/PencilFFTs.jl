@@ -3,7 +3,7 @@
 # This is based on the runtests.jl file of MPI.jl.
 
 using FFTW  # this avoids issues with precompilation of FFTW in parallel...
-import MPI: mpiexec
+import MPI: mpiexec_path
 
 const TEST_FILES = [
     "taylor_green.jl",
@@ -39,7 +39,7 @@ function main()
 
     for fname in files
         @info "Running $fname with $Nproc processes..."
-        run(`$mpiexec -n $Nproc $julia_exec --code-coverage=$cov $fname`)
+        run(`$mpiexec_path -n $Nproc $julia_exec --code-coverage=$cov $fname`)
         println()
     end
 
