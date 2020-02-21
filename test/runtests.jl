@@ -2,7 +2,6 @@
 
 # This is based on the runtests.jl file of MPI.jl.
 
-using FFTW  # this avoids issues with precompilation of FFTW in parallel...
 import MPI: mpiexec_path
 
 const TEST_FILES = [
@@ -36,10 +35,11 @@ function main()
 
     files = [TEST_FILES..., EXAMPLE_FILES...]
     cov = COVERAGE_OPTS[Base.JLOptions().code_coverage]
+    julia_args = ["--compiled-modules=no", "--code-coverage=$cov"]
 
     for fname in files
         @info "Running $fname with $Nproc processes..."
-        run(`$mpiexec_path -n $Nproc $julia_exec --code-coverage=$cov $fname`)
+        run(`$mpiexec_path -n $Nproc $julia_exec $julia_args $fname`)
         println()
     end
 
