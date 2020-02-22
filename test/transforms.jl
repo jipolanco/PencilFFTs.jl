@@ -430,13 +430,23 @@ function test_incompatibility(comm)
         plan = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm)
         plan! = PencilFFTPlan(dims, Transforms.FFT!(), pdims, comm)
 
-        # "in-place plan applied to out-of-place data"
+        # "input array type PencilArray{...} incompatible with in-place plans"
         u = allocate_input(plan)
+        v = allocate_output(plan)
         @test_throws ArgumentError plan! * u
 
-        # "out-of-place plan applied to in-place data"
+        # "input array type ManyPencilArray{...} incompatible with out-of-place plans"
         M! = allocate_input(plan!)
         @test_throws ArgumentError plan * M!
+
+        # "in-place plan applied to out-of-place data"
+        @test_throws ArgumentError mul!(v, plan!, u)
+
+        # "out-of-place plan applied to in-place data"
+        @test_throws ArgumentError mul!(M!, plan, M!)
+
+        # "out-of-place plan applied to aliased data"
+        @test_throws ArgumentError mul!(last(M!), plan, first(M!))
 
         # "collections have different lengths: 3 ≠ 2"
         u3 = allocate_input(plan, Val(3))

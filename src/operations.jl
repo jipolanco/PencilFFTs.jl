@@ -63,16 +63,18 @@ end
 _check_arrays(p::PencilFFTPlan, xin, xout) =
     _check_arrays(Val(is_inplace(p)), p, xin, xout)
 
+# Either Ain or Aout is a ManyPencilArray, incompatible with OOP plan.
 _check_arrays(inplace::Val{false}, ::PencilFFTPlan, Ain, Aout) =
     throw(ArgumentError("out-of-place plan applied to in-place data"))
 
+# Either Ain or Aout is a regular PencilArray, incompatible with IP plan.
 _check_arrays(inplace::Val{true}, ::PencilFFTPlan, Ain, Aout) =
     throw(ArgumentError("in-place plan applied to out-of-place data"))
 
 function _check_arrays(inplace::Val{false}, p::PencilFFTPlan,
                        Ain::PencilArray, Aout::PencilArray)
     if Base.mightalias(Ain, Aout)
-        throw(ArgumentError("out-of-place plan applied to in-place data"))
+        throw(ArgumentError("out-of-place plan applied to aliased data"))
     end
     _check_pencils(p, Ain, Aout)
     nothing
