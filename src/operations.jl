@@ -129,16 +129,15 @@ _get_pencils_and_plan(::Val{FFTW.BACKWARD}, p::PencilPlan1D) =
     (p.pencil_out, p.pencil_in, p.bfft_plan)
 
 ## Out-of-place version
-function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
+function _apply_plans!(dir::Val,
+                       full_plan::PencilFFTPlan{T,N,false} where {T,N},
                        y::PencilArray, x::PencilArray)
-    @assert !is_inplace(full_plan)
-
     plans = let p = full_plan.plans
         # Backward transforms are applied in reverse order.
         dir === Val(FFTW.BACKWARD) ? reverse(p) : p
     end
 
-    _apply_plans!(Val(false), dir, full_plan, y, x, plans...)
+    _apply_plans_out_of_place!(dir, full_plan, y, x, plans...)
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
@@ -148,9 +147,9 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
     y
 end
 
-function _apply_plans!(inplace::Val{false}, dir::Val, full_plan::PencilFFTPlan,
-                       y::PencilArray, x::PencilArray, plan::PencilPlan1D,
-                       next_plans::Vararg{PencilPlan1D})
+function _apply_plans_out_of_place!(
+        dir::Val, full_plan::PencilFFTPlan, y::PencilArray, x::PencilArray,
+        plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
     @assert !is_inplace(full_plan) && !is_inplace(plan)
     Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
 
@@ -170,23 +169,22 @@ function _apply_plans!(inplace::Val{false}, dir::Val, full_plan::PencilFFTPlan,
 
     @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
-    _apply_plans!(inplace, dir, full_plan, y, v, next_plans...)
+    _apply_plans_out_of_place!(dir, full_plan, y, v, next_plans...)
 end
 
-_apply_plans!(inplace::Val{false}, dir::Val, ::PencilFFTPlan,
-              y::PencilArray, x::PencilArray) = y
+_apply_plans_out_of_place!(dir::Val, ::PencilFFTPlan, y::PencilArray,
+                           x::PencilArray) = y
 
 ## In-place version
-function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
+function _apply_plans!(dir::Val, full_plan::PencilFFTPlan{T,N,true} where {T,N},
                        A::ManyPencilArray, A_again::ManyPencilArray)
     @assert A === A_again
-    @assert is_inplace(full_plan)
     pairs = _make_pairs(full_plan.plans, A.arrays)
 
     # Backward transforms are applied in reverse order.
     pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
 
-    _apply_plans!(Val(true), dir, full_plan, nothing, pp...)
+    _apply_plans_in_place!(dir, full_plan, nothing, pp...)
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
@@ -196,9 +194,9 @@ function _apply_plans!(dir::Val, full_plan::PencilFFTPlan,
     A
 end
 
-function _apply_plans!(inplace::Val{true}, dir::Val, full_plan::PencilFFTPlan,
-                       u_prev::Union{Nothing, PencilArray},
-                       pair::PlanArrayPair, next_pairs...)
+function _apply_plans_in_place!(
+        dir::Val, full_plan::PencilFFTPlan, u_prev::Union{Nothing, PencilArray},
+        pair::PlanArrayPair, next_pairs...)
     plan = pair.first
     u = pair.second
     Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
@@ -218,11 +216,10 @@ function _apply_plans!(inplace::Val{true}, dir::Val, full_plan::PencilFFTPlan,
     # Perform in-place FFT
     @timeit_debug full_plan.timer "FFT!" fftw_plan * parent(u)
 
-    _apply_plans!(inplace, dir, full_plan, u, next_pairs...)
+    _apply_plans_in_place!(dir, full_plan, u, next_pairs...)
 end
 
-_apply_plans!(inplace::Val{true}, ::Val,
-              ::PencilFFTPlan, u_prev::PencilArray) = u_prev
+_apply_plans_in_place!(::Val, ::PencilFFTPlan, u_prev::PencilArray) = u_prev
 
 _split_first(a, b...) = (a, b)  # (x, y, z, w) -> (x, (y, z, w))
 
