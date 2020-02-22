@@ -51,15 +51,15 @@ end
 
 _make_arrays(::Vector, ::Dims) = ()
 
-Base.ndims(A::ManyPencilArray{N}) where {N} = N
-Base.eltype(A::ManyPencilArray{N,T}) where {N,T} = T
+Base.eltype(A::ManyPencilArray{T}) where {T} = T
+Base.ndims(A::ManyPencilArray{T,N}) where {T,N} = N
 
 """
     length(A::ManyPencilArray)
 
 Returns the number of [`PencilArray`](@ref)s wrapped by `A`.
 """
-Base.length(A::ManyPencilArray{N,T,M}) where {N,T,M} = M
+Base.length(A::ManyPencilArray{T,N,M}) where {T,N,M} = M
 
 """
     first(A::ManyPencilArray)

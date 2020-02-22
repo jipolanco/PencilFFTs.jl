@@ -86,6 +86,10 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
 
     A = ManyPencilArray(pencils...)
 
+    @test ndims(A) === ndims(first(pencils))
+    @test eltype(A) === eltype(first(pencils))
+    @test length(A) === M
+
     @inferred first(A)
     @inferred last(A)
     @inferred A[Val(2)]
