@@ -342,6 +342,12 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
 
+    let to = TimerOutput()
+        plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64,
+                             timer=to)
+        @test get_timer(plan) === to
+    end
+
     @testset "Transform types" begin
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
             @inferred PencilFFTPlan(size_in, transforms, pdims, comm)
@@ -379,21 +385,23 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
 end
 
 # Test N-dimensional transforms decomposing along M dimensions.
-function test_dimensionality(dims::Dims{N}, ::Val{M}, comm) where {N, M}
+function test_dimensionality(dims::Dims{N}, ::Val{M}, comm;
+                             plan_kw...) where {N, M}
     @assert M < N
     pdims = make_pdims(Val(M), MPI.Comm_size(comm))
 
     @testset "Decompose $M/$N dims" begin
         # Out-of-place transform.
         let transform = Transforms.RFFT()
-            plan = PencilFFTPlan(dims, transform, pdims, comm)
+            plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
             test_transform(plan, FFTW.plan_rfft)
         end
 
         # In-place transform.
         let transform = Transforms.FFT!()
-            plan = PencilFFTPlan(dims, transform, pdims, comm)
-            plan_oop = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm)
+            plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
+            plan_oop = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm;
+                                     plan_kw...)
             test_transform(plan, FFTW.plan_fft!, plan_oop)
         end
 
@@ -415,6 +423,13 @@ function test_dimensionality(comm)
         test_dimensionality(dims, Val(1), comm)
         test_dimensionality(dims, Val(2), comm)
         test_dimensionality(dims, Val(3), comm)  # 3D decomposition of 4D problem
+
+        # Same with some non-default options for the plans.
+        test_dimensionality(
+            dims, Val(3), comm,
+            permute_dims=Val(false),
+            transpose_method=TransposeMethods.Alltoallv(),
+        )
     end
 
     nothing
