@@ -101,7 +101,7 @@ function _check_pencils(p::PencilFFTPlan, Ain::PencilArray, Aout::PencilArray)
     nothing
 end
 
-## Operations for collections.
+# Operations for collections.
 function check_compatible(a::FFTArrayCollection, b::FFTArrayCollection)
     Na = length(a)
     Nb = length(b)
@@ -128,10 +128,10 @@ _get_pencils_and_plan(::Val{FFTW.FORWARD}, p::PencilPlan1D) =
 _get_pencils_and_plan(::Val{FFTW.BACKWARD}, p::PencilPlan1D) =
     (p.pencil_out, p.pencil_in, p.bfft_plan)
 
-## Out-of-place version
-function _apply_plans!(dir::Val,
-                       full_plan::PencilFFTPlan{T,N,false} where {T,N},
-                       y::PencilArray, x::PencilArray)
+# Out-of-place version
+function _apply_plans!(
+        dir::Val, full_plan::PencilFFTPlan{T,N,false} where {T,N},
+        y::PencilArray, x::PencilArray)
     plans = let p = full_plan.plans
         # Backward transforms are applied in reverse order.
         dir === Val(FFTW.BACKWARD) ? reverse(p) : p
@@ -145,6 +145,26 @@ function _apply_plans!(dir::Val,
     end
 
     y
+end
+
+# In-place version
+function _apply_plans!(
+        dir::Val, full_plan::PencilFFTPlan{T,N,true} where {T,N},
+        A::ManyPencilArray, A_again::ManyPencilArray)
+    @assert A === A_again
+    pairs = _make_pairs(full_plan.plans, A.arrays)
+
+    # Backward transforms are applied in reverse order.
+    pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
+
+    _apply_plans_in_place!(dir, full_plan, nothing, pp...)
+
+    if dir === Val(FFTW.BACKWARD)
+        # Scale transform.
+        ldiv!(get_scale_factor(full_plan), first(A))
+    end
+
+    A
 end
 
 function _apply_plans_out_of_place!(
@@ -174,25 +194,6 @@ end
 
 _apply_plans_out_of_place!(dir::Val, ::PencilFFTPlan, y::PencilArray,
                            x::PencilArray) = y
-
-## In-place version
-function _apply_plans!(dir::Val, full_plan::PencilFFTPlan{T,N,true} where {T,N},
-                       A::ManyPencilArray, A_again::ManyPencilArray)
-    @assert A === A_again
-    pairs = _make_pairs(full_plan.plans, A.arrays)
-
-    # Backward transforms are applied in reverse order.
-    pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
-
-    _apply_plans_in_place!(dir, full_plan, nothing, pp...)
-
-    if dir === Val(FFTW.BACKWARD)
-        # Scale transform.
-        ldiv!(get_scale_factor(full_plan), first(A))
-    end
-
-    A
-end
 
 function _apply_plans_in_place!(
         dir::Val, full_plan::PencilFFTPlan, u_prev::Union{Nothing, PencilArray},
