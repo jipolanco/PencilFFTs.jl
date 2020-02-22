@@ -24,7 +24,7 @@ end
 Transforms.is_inplace(p::PencilPlan1D) = is_inplace(p.transform)
 
 """
-    PencilFFTPlan{T,N,M}
+    PencilFFTPlan{T,N}
 
 Plan for N-dimensional FFT-based transform on MPI-distributed data.
 
@@ -117,6 +117,7 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 """
 struct PencilFFTPlan{T,
                      N,   # dimension of arrays (= Nt + Ne)
+                     I,   # in-place (Bool)
                      Nt,  # number of transformed dimensions
                      Nd,  # number of decomposed dimensions
                      Ne,  # number of extra dimensions
@@ -166,6 +167,7 @@ struct PencilFFTPlan{T,
                           ) where {Nt, Nd, Ne, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
+        inplace = is_inplace(g)
 
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
 
@@ -183,7 +185,7 @@ struct PencilFFTPlan{T,
 
         # If the plan is in-place, the buffers won't be needed anymore, so we
         # free the memory.
-        if is_inplace(transforms...)
+        if inplace
             resize!.((ibuf, obuf), 0)
         end
 
@@ -192,7 +194,7 @@ struct PencilFFTPlan{T,
         P = typeof(plans)
         TM = typeof(transpose_method)
 
-        new{T, N, Nt, Nd, Ne, G, P, TM}(
+        new{T, N, inplace, Nt, Nd, Ne, G, P, TM}(
             g, t, extra_dims, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 
@@ -210,7 +212,7 @@ end
 Returns `true` if the given plan operates in-place on the input data, `false`
 otherwise.
 """
-Transforms.is_inplace(p::PencilFFTPlan) = is_inplace(p.global_params)
+Transforms.is_inplace(p::PencilFFTPlan{T,N,I}) where {T,N,I} = I :: Bool
 
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
