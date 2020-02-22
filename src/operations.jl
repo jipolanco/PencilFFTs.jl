@@ -39,39 +39,31 @@ function LinearAlgebra.ldiv!(
 end
 
 function Base.:*(p::PencilFFTPlan, src::FFTArray)
-    dst = _maybe_allocate(allocate_output, Val(is_inplace(p)), p, src)
+    dst = _maybe_allocate(allocate_output, p, src)
     mul!(dst, p, src)
 end
 
 function Base.:\(p::PencilFFTPlan, src::FFTArray)
-    dst = _maybe_allocate(allocate_input, Val(is_inplace(p)), p, src)
+    dst = _maybe_allocate(allocate_input, p, src)
     ldiv!(dst, p, src)
 end
 
-@inline _maybe_allocate(::Function, inplace::Val{true},
-                        ::PencilFFTPlan, src::ManyPencilArray) = src
-@inline _maybe_allocate(allocator::Function, inplace::Val{false},
-                        p::PencilFFTPlan, ::PencilArray) = allocator(p)
+# Out-of-place version
+_maybe_allocate(allocator::Function, p::PencilFFTPlan{T,N,false} where {T,N},
+                ::PencilArray) = allocator(p)
 
-function _maybe_allocate(::Function, ::Val{inplace}, p::PencilFFTPlan,
-                         src::A) where {inplace, A}
-    s = inplace ? "in-place" : "out-of-place"
+# In-place version
+_maybe_allocate(::Function, ::PencilFFTPlan{T,N,true} where {T,N},
+                src::ManyPencilArray) = src
+
+# Fallback case.
+function _maybe_allocate(::Function, p::PencilFFTPlan, src::A) where {A}
+    s = is_inplace(p) ? "in-place" : "out-of-place"
     throw(ArgumentError(
         "input array type $A incompatible with $s plans"))
 end
 
-_check_arrays(p::PencilFFTPlan, xin, xout) =
-    _check_arrays(Val(is_inplace(p)), p, xin, xout)
-
-# Either Ain or Aout is a ManyPencilArray, incompatible with OOP plan.
-_check_arrays(inplace::Val{false}, ::PencilFFTPlan, Ain, Aout) =
-    throw(ArgumentError("out-of-place plan applied to in-place data"))
-
-# Either Ain or Aout is a regular PencilArray, incompatible with IP plan.
-_check_arrays(inplace::Val{true}, ::PencilFFTPlan, Ain, Aout) =
-    throw(ArgumentError("in-place plan applied to out-of-place data"))
-
-function _check_arrays(inplace::Val{false}, p::PencilFFTPlan,
+function _check_arrays(p::PencilFFTPlan{T,N,false} where {T,N},
                        Ain::PencilArray, Aout::PencilArray)
     if Base.mightalias(Ain, Aout)
         throw(ArgumentError("out-of-place plan applied to aliased data"))
@@ -80,7 +72,7 @@ function _check_arrays(inplace::Val{false}, p::PencilFFTPlan,
     nothing
 end
 
-function _check_arrays(inplace::Val{true}, p::PencilFFTPlan,
+function _check_arrays(p::PencilFFTPlan{T,N,true} where {T,N},
                        Ain::ManyPencilArray, Aout::ManyPencilArray)
     if Ain !== Aout
         throw(ArgumentError(
@@ -88,6 +80,15 @@ function _check_arrays(inplace::Val{true}, p::PencilFFTPlan,
     end
     _check_pencils(p, first(Ain), last(Ain))
     nothing
+end
+
+# Fallback case: plan type is incompatible with array types.
+# For instance, plan is in-place, and at least one of the arrays is a regular
+# PencilArray (instead of a ManyPencilArray).
+function _check_arrays(p::PencilFFTPlan, ::Ai, ::Ao) where {Ai, Ao}
+    s = is_inplace(p) ? "in-place" : "out-of-place"
+    throw(ArgumentError(
+        "array types ($Ai, $Ao) incompatible with $s plans"))
 end
 
 function _check_pencils(p::PencilFFTPlan, Ain::PencilArray, Aout::PencilArray)

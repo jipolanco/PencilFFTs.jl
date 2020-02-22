@@ -443,12 +443,14 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     # p * v_in  # not allowed!!
     ```
 """
-allocate_input(p::PencilFFTPlan) = allocate_input(Val(is_inplace(p)), p)
+function allocate_input end
 
-allocate_input(inplace::Val{false}, p::PencilFFTPlan) =
+# Out-of-place version
+allocate_input(p::PencilFFTPlan{T,N,false} where {T,N}) =
     PencilArray(first(p.plans).pencil_in, p.extra_dims)
 
-function allocate_input(inplace::Val{true}, p::PencilFFTPlan)
+# In-place version
+function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
     pencils = map(pp -> pp.pencil_in, p.plans)
 
     # Note that for each 1D plan, the input and output pencils are the same.
@@ -474,19 +476,20 @@ If `p` is an in-place plan, a [`ManyPencilArray`](@ref) is allocated.
 
 See [`allocate_input`](@ref) for details.
 """
-allocate_output(p::PencilFFTPlan) = allocate_output(Val(is_inplace(p)), p)
+function allocate_output end
 
-allocate_output(inplace::Val{false}, p::PencilFFTPlan) =
+# Out-of-place version.
+allocate_output(p::PencilFFTPlan{T,N,false} where {T,N}) =
     PencilArray(last(p.plans).pencil_out, p.extra_dims)
 
 # For in-place plans, the output and input are the same ManyPencilArray.
-allocate_output(inplace::Val{true}, p::PencilFFTPlan) =
-    allocate_input(inplace, p)
+allocate_output(p::PencilFFTPlan{T,N,true} where {T,N}) = allocate_input(p)
 
 allocate_output(p::PencilFFTPlan, dims...) =
     _allocate_many(allocate_output, p, dims...)
 
 _allocate_many(allocator::Function, p::PencilFFTPlan, dims::Vararg{Int}) =
     [allocator(p) for I in CartesianIndices(dims)]
+
 _allocate_many(allocator::Function, p::PencilFFTPlan, ::Val{N}) where {N} =
     ntuple(n -> allocator(p), Val(N))
