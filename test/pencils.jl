@@ -15,7 +15,8 @@ using Test
 include("include/MPITools.jl")
 using .MPITools
 
-const BENCHMARK_ARRAYS = false
+const BENCHMARK_ARRAYS = "--benchmark" in ARGS
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 
 Indexation(::Type{IndexLinear}) = LinearIndices
 Indexation(::Type{IndexCartesian}) = CartesianIndices
@@ -36,15 +37,17 @@ function test_array_wrappers(p::Pencil)
     @test length.(axes(u)) === size(u)
 
     randn!(u)
-    @test check_cartesian_order(u)
+    @test check_iteration_order(u)
 
     if BENCHMARK_ARRAYS
         for S in (IndexLinear, IndexCartesian)
-            @info "Filling arrays using $S (Array, PencilArray)" get_permutation(p)
-            @time for v in (parent(u), u)
+            @info("Filling arrays using $S (Array, PencilArray)",
+                  get_permutation(p))
+            for v in (parent(u), u)
                 val = 3 * oneunit(eltype(v))
                 @btime test_fill!($S, $v, $val)
             end
+            println()
         end
     end
 
@@ -132,13 +135,27 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
     nothing
 end
 
-function check_cartesian_order(u::PencilArray)
-    # Check that Cartesian indices iterate in memory order.
+function check_iteration_order(u::PencilArray)
     p = parent(u)
-    for (n, I) in enumerate(CartesianIndices(u))
-        l = LinearIndices(u)[I]
+    cart = CartesianIndices(u)
+    lin = LinearIndices(u)
+
+    # Check that Cartesian indices iterate in memory order.
+    for (n, I) in enumerate(cart)
+        l = lin[I]
+        @assert l == n
         u[n] == p[n] == u[I] == u[l] || return false
     end
+
+    # Also test iteration on LinearIndices and their conversion to Cartesian
+    # indices.
+    for (n, l) in enumerate(lin)
+        @assert l == n
+        # Convert linear to Cartesian index.
+        I = cart[l]  # this is relatively slow, don't do it in real code!
+        u[n] == p[n] == u[I] == u[l] || return false
+    end
+
     true
 end
 
@@ -296,7 +313,7 @@ function main()
         @test compare_distributed_arrays(u2, u3)
 
         for v in (u1, u2, u3)
-            @test check_cartesian_order(v)
+            @test check_iteration_order(v)
         end
 
         @inferred global_view(u1)
@@ -322,7 +339,7 @@ function main()
 
         transpose!(u3, u2)
         @test compare_distributed_arrays(u1, u3)
-        @test check_cartesian_order(u3)
+        @test check_iteration_order(u3)
 
         # Test transposition between two identical configurations.
         transpose!(u2, u2)
