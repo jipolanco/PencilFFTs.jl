@@ -76,6 +76,16 @@ end
     Joff, state
 end
 
+# Get i-th Cartesian index in memory (permuted) order.
+# Returns the Cartesian index in logical (unpermuted) order.
+@inline @propagate_inbounds function Base.getindex(
+        C::PermutedCartesianIndices, i::Integer)
+    I = C.data[i]  # convert linear to Cartesian index (relatively slow...)
+    J = permute_indices(I, C.iperm)  # unpermute indices
+    Joff = _apply_offset(J, C.offsets)
+    Joff
+end
+
 Base.CartesianIndices(A::PencilArray) =
     PermutedCartesianIndices(CartesianIndices(parent(A)), get_permutation(A))
 
