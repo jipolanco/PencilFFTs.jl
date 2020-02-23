@@ -2,7 +2,7 @@
 
 [![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/stable/)
 [![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/dev/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3618782.svg)](https://doi.org/10.5281/zenodo.3618782)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3618781.svg)](https://doi.org/10.5281/zenodo.3618781)
 
 [![Build status](https://travis-ci.com/jipolanco/PencilFFTs.jl.svg?branch=master)](https://travis-ci.com/jipolanco/PencilFFTs.jl)
 [![codecov](https://codecov.io/gh/jipolanco/PencilFFTs.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jipolanco/PencilFFTs.jl)
