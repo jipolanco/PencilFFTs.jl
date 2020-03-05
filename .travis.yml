@@ -11,6 +11,7 @@ julia:
 cache:
   directories:
     - $HOME/.julia/registries
+    - $HOME/.julia/artifacts
 
 script:
   - mpichversion
