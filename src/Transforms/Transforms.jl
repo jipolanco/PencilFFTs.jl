@@ -65,6 +65,12 @@ For FFT plans, this function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan
 creation functions.
 For more details on the function arguments, see
 [`AbstractFFTs.plan_fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft).
+
+In particular, note that for [`BRFFT`](@ref) plans, this function also requires
+the length `d` of the transform output along the first transformed dimension.
+This is described in the
+[`AbstractFFTs.irfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft)
+docs.
 """
 function plan end
 
