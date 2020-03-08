@@ -16,8 +16,8 @@ PencilFFTPlan
 ## Functions
 
 ```@docs
-allocate_input(::PencilFFTPlan)
-allocate_output(::PencilFFTPlan)
+allocate_input
+allocate_output
 get_comm(::PencilFFTPlan)
 get_scale_factor(::PencilFFTPlan)
 get_timer(::PencilFFTPlan)
