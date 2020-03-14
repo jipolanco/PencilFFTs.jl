@@ -3,18 +3,19 @@
 # Different implementations of gradient computation in Fourier space, with
 # performance comparisons.
 
-# Some sample benchmark results:
+# Some sample benchmark results (on Julia 1.4):
 #
 #     Transforms: (RFFT, FFT, FFT)
+#     Input type: Float64
 #     Global dimensions: (64, 32, 64)  ->  (33, 32, 64)
 #     MPI topology: 2D decomposition (2×1 processes)
 #
-#     gradient_global_view!...            257.487 μs (0 allocations: 0 bytes)
-#     gradient_global_view_explicit!...   122.961 μs (0 allocations: 0 bytes)
-#     gradient_local!...                  154.610 μs (3 allocations: 1.14 KiB)
-#     gradient_local_parent!...           152.820 μs (3 allocations: 1.14 KiB)
-#     gradient_local_linear!...           144.994 μs (3 allocations: 1.14 KiB)
-#     gradient_local_linear_explicit!...  142.701 μs (3 allocations: 1.14 KiB)
+#     gradient_global_view!...            184.853 μs (0 allocations: 0 bytes)
+#     gradient_global_view_explicit!...   124.993 μs (0 allocations: 0 bytes)
+#     gradient_local!...                  146.369 μs (0 allocations: 0 bytes)
+#     gradient_local_parent!...           145.743 μs (0 allocations: 0 bytes)
+#     gradient_local_linear!...           145.679 μs (0 allocations: 0 bytes)
+#     gradient_local_linear_explicit!...  145.543 μs (0 allocations: 0 bytes)
 #
 # This was obtained when running julia with the default optimisation level -O2.
 #

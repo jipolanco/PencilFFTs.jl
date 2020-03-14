@@ -338,6 +338,4 @@ compiler can make further assumptions at the optimisation stage.
     This assumes that `CartesianIndices(θ_glob)` iterates in the order of the
     array elements in memory. This is not trivial when the array dimensions are
     permuted (which is the default for transformed arrays in PencilFFTs), and
-    it actually wasn't the case until commit
-    [`843fe42`](https://github.com/jipolanco/PencilFFTs.jl/commit/843fe423081ddc323dab58c3c270929104e4518b)
-    (or PencilFFTs `v0.2.0`).
+    it actually wasn't the case until PencilFFTs `v0.2.0`.
