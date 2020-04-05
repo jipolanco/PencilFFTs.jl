@@ -38,7 +38,7 @@ include("pencil.jl")       # Pencil
 include("arrays.jl")       # PencilArray
 include("multiarrays.jl")  # ManyPencilArray
 include("global_view.jl")  # GlobalPencilArray
-include("permuted_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndices
+include("cartesian_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndices
 
 include("data_ranges.jl")
 include("permutations.jl")
