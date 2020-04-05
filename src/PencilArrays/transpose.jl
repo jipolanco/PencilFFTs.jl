@@ -219,21 +219,18 @@ function transpose_impl!(
     send_req = Vector{MPI.Request}(undef, req_length)
     recv_req = similar(send_req)
 
+    buffers = (send_buf, recv_buf)
+    requests = (send_req, recv_req)
+
     # 1. Pack and send data.
-    @timeit_debug timer "pack data" index_local_req = _transpose_send_data!(
-        (send_buf, recv_buf),
-        recv_offsets,
-        (send_req, recv_req),
-        length_self,
-        remote_inds,
+    @timeit_debug timer "pack data" index_local_req = _transpose_send!(
+        buffers, recv_offsets, requests, length_self, remote_inds,
         (comm, subcomm_ranks, myrank),
-        Ao, Ai,
-        method,
-        timer,
+        Ao, Ai, method, timer,
     )
 
     # 2. Unpack data and perform local transposition.
-    @timeit_debug timer "unpack data" _transpose_recv_data!(
+    @timeit_debug timer "unpack data" _transpose_recv!(
         recv_buf, recv_offsets, recv_req,
         remote_inds, index_local_req,
         Ao, Ai, method, timer,
@@ -247,12 +244,10 @@ function transpose_impl!(
     Ao
 end
 
-function _transpose_send_data!(
+function _transpose_send!(
         (send_buf, recv_buf),
-        recv_offsets,
-        (send_req, recv_req),
-        length_self,
-        remote_inds,
+        recv_offsets, requests,
+        length_self, remote_inds,
         (comm, subcomm_ranks, myrank),
         Ao::PencilArray{T}, Ai::PencilArray{T},
         method::AbstractTransposeMethod,
@@ -267,8 +262,8 @@ function _transpose_send_data!(
     idims = Pi.axes_all
     odims = Po.axes_all
 
-    extra_dims = Ai.extra_dims
-    prod_extra_dims = prod(extra_dims)
+    exdims = extra_dims(Ai)
+    prod_extra_dims = prod(exdims)
 
     isend = 0  # current index in send_buf
     irecv = 0  # current index in recv_buf
@@ -282,13 +277,7 @@ function _transpose_send_data!(
     @assert Nproc == MPI.Comm_size(comm)
     @assert myrank == MPI.Comm_rank(comm)
 
-    if method === TransposeMethods.Alltoallv()
-        send_counts = Vector{Cint}(undef, Nproc)
-        recv_counts = similar(send_counts)
-    elseif method === TransposeMethods.IsendIrecv()
-        send_buf_ptr = pointer(send_buf)
-        recv_buf_ptr = pointer(recv_buf)
-    end
+    buf_info = _make_buffer_info(method, (send_buf, recv_buf), Nproc)
 
     for (n, ind) in enumerate(remote_inds)
         # Global data range that I need to send to process n.
@@ -305,46 +294,22 @@ function _transpose_send_data!(
 
         if rank == myrank
             # Copy directly from `Ai` to `recv_buf`.
-            # For convenience, data is put at the end of `recv_buf`. This makes
-            # it easier to implement an alternative based on MPI_Alltoallv.
+            # For convenience, data is put at the end of `recv_buf`.
+            # This makes it easier to implement an alternative based on MPI_Alltoallv.
             @assert length_recv_n == length_self
             recv_offsets[n] = length_recv
-            copy_range!(recv_buf, length_recv, Ai, local_send_range, extra_dims,
-                        timer)
-
-            if method === TransposeMethods.Alltoallv()
-                # Don't send data to myself via Alltoallv.
-                send_counts[n] = recv_counts[n] = zero(Cint)
-            elseif method === TransposeMethods.IsendIrecv()
-                send_req[n] = recv_req[n] = MPI.REQUEST_NULL
-                index_local_req = n
-            end
+            copy_range!(recv_buf, length_recv, Ai, local_send_range, exdims, timer)
+            _transpose_send_self!(method, n, requests, buf_info)
+            index_local_req = n
         else
             # Copy data into contiguous buffer, then send the buffer.
-            # TODO If data inside `Ai` is contiguous, avoid copying data to buffer,
-            # and call MPI.Isend directly. (I need to check if it's contiguous...)
-            copy_range!(send_buf, isend, Ai, local_send_range, extra_dims,
-                        timer)
-
+            copy_range!(send_buf, isend, Ai, local_send_range, exdims, timer)
+            _transpose_send_other!(
+                method, buf_info, (length_send_n, length_recv_n), n,
+                requests, (rank, comm), eltype(Ai),
+            )
             irecv += length_recv_n
             isend += length_send_n
-
-            if method === TransposeMethods.Alltoallv()
-                send_counts[n] = length_send_n
-                recv_counts[n] = length_recv_n
-            elseif method === TransposeMethods.IsendIrecv()
-                # Exchange data with the other process (non-blocking operations).
-                # Note: data is sent and received with the permutation associated to Pi.
-                tag = 42
-
-                send_req[n] = MPI.Isend(_mpi_buffer(send_buf_ptr, length_send_n),
-                                        rank, tag, comm)
-                recv_req[n] = MPI.Irecv!(_mpi_buffer(recv_buf_ptr, length_recv_n),
-                                         rank, tag, comm)
-
-                send_buf_ptr += length_send_n * sizeof(T)
-                recv_buf_ptr += length_recv_n * sizeof(T)
-            end
         end
     end
 
@@ -353,13 +318,74 @@ function _transpose_send_data!(
         # length of the buffer is consistent with recv_counts.
         recv_buf_view = @view recv_buf[1:length_recv]
         @timeit_debug timer "MPI.Alltoallv!" MPI.Alltoallv!(
-            send_buf, recv_buf_view, send_counts, recv_counts, comm)
+            send_buf, recv_buf_view,
+            buf_info.send_counts, buf_info.recv_counts, comm,
+        )
     end
 
     index_local_req
 end
 
-function _transpose_recv_data!(
+function _make_buffer_info(::TransposeMethods.IsendIrecv,
+                           (send_buf, recv_buf), Nproc)
+    (
+        send_ptr = Ref(pointer(send_buf)),
+        recv_ptr = Ref(pointer(recv_buf)),
+    )
+end
+
+function _make_buffer_info(::TransposeMethods.Alltoallv, bufs, Nproc)
+    counts = Vector{Cint}(undef, Nproc)
+    (
+        send_counts = counts,
+        recv_counts = similar(counts),
+    )
+end
+
+function _transpose_send_self!(::TransposeMethods.IsendIrecv, n,
+                               (send_req, recv_req), etc...)
+    send_req[n] = recv_req[n] = MPI.REQUEST_NULL
+    nothing
+end
+
+function _transpose_send_self!(::TransposeMethods.Alltoallv, n, reqs, buf_info)
+    # Don't send data to myself via Alltoallv.
+    buf_info.send_counts[n] = buf_info.recv_counts[n] = zero(Cint)
+    nothing
+end
+
+function _transpose_send_other!(
+        ::TransposeMethods.IsendIrecv, buf_info,
+        (length_send_n, length_recv_n),
+        n, (send_req, recv_req), (rank, comm), ::Type{T}
+    ) where {T}
+    # Exchange data with the other process (non-blocking operations).
+    # Note: data is sent and received with the permutation associated to Pi.
+    tag = 42
+    send_req[n] = MPI.Isend(
+        _mpi_buffer(buf_info.send_ptr[], length_send_n),
+        rank, tag, comm
+    )
+    recv_req[n] = MPI.Irecv!(
+        _mpi_buffer(buf_info.recv_ptr[], length_recv_n),
+        rank, tag, comm
+    )
+    buf_info.send_ptr[] += length_send_n * sizeof(T)
+    buf_info.recv_ptr[] += length_recv_n * sizeof(T)
+    nothing
+end
+
+function _transpose_send_other!(
+        ::TransposeMethods.Alltoallv, buf_info,
+        (length_send_n, length_recv_n),
+        n, args...
+    )
+    buf_info.send_counts[n] = length_send_n
+    buf_info.recv_counts[n] = length_recv_n
+    nothing
+end
+
+function _transpose_recv!(
         recv_buf, recv_offsets, recv_req,
         remote_inds, index_local_req,
         Ao::PencilArray, Ai::PencilArray,
