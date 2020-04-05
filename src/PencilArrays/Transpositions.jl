@@ -7,6 +7,7 @@ import MPI
 
 using ..PencilArrays
 import ..PencilArrays:
+    ArrayRegion,
     relative_permutation,
     permute_indices,
     same_permutation,
@@ -22,8 +23,6 @@ struct Alltoallv <: AbstractTransposeMethod end
 function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
     print(io, nameof(T))
 end
-
-const ArrayRegion = PencilArrays.ArrayRegion
 
 """
     transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
@@ -307,12 +306,14 @@ function _transpose_send!(
             # This makes it easier to implement an alternative based on MPI_Alltoallv.
             @assert length_recv_n == length_self
             recv_offsets[n] = length_recv
-            copy_range!(recv_buf, length_recv, Ai, local_send_range, exdims, timer)
+            @timeit_debug timer "copy_range!" copy_range!(
+                recv_buf, length_recv, Ai, local_send_range, exdims, timer)
             _transpose_send_self!(method, n, requests, buf_info)
             index_local_req = n
         else
             # Copy data into contiguous buffer, then send the buffer.
-            copy_range!(send_buf, isend, Ai, local_send_range, exdims, timer)
+            @timeit_debug timer "copy_range!" copy_range!(
+                send_buf, isend, Ai, local_send_range, exdims, timer)
             _transpose_send_other!(
                 method, buf_info, (length_send_n, length_recv_n), n,
                 requests, (rank, comm), eltype(Ai),
@@ -432,7 +433,8 @@ function _transpose_recv!(
             permute_indices(to_local(Po, g_range, permute=false), Pi)
 
         # Copy data to `Ao`, permuting dimensions if required.
-        copy_permuted!(Ao, o_range_iperm, recv_buf, off, perm, exdims, timer)
+        @timeit_debug timer "copy_permuted!" copy_permuted!(
+            Ao, o_range_iperm, recv_buf, off, perm, exdims, timer)
     end
 
     Ao
@@ -459,15 +461,13 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::PencilArray{T,N},
                     ) where {T,N,P,E}
     @assert P + E == N
 
-    @timeit_debug timer "copy_range!" begin
-        n = dest_offset
-        src_p = parent(src)  # array with non-permuted indices
-        for K in CartesianIndices(extra_dims)
-            for I in CartesianIndices(src_range)
-                @inbounds dest[n += 1] = src_p[I, K]
-            end
+    n = dest_offset
+    src_p = parent(src)  # array with non-permuted indices
+    for K in CartesianIndices(extra_dims)
+        for I in CartesianIndices(src_range)
+            @inbounds dest[n += 1] = src_p[I, K]
         end
-    end  # @timeit_debug
+    end
 
     dest
 end
@@ -478,21 +478,19 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
                         timer) where {T,N,P,E}
     @assert P + E == N
 
-    @timeit_debug timer "copy_permuted!" begin
-        # The idea is to visit `dest` not in its natural order (with the fastest
-        # dimension first), but with a permutation corresponding to the layout of
-        # the `src` data.
-        n = src_offset
-        dest_p = parent(dest)  # array with non-permuted indices
-        for K in CartesianIndices(extra_dims)
-            for I in CartesianIndices(o_range_iperm)
-                # Switch from input to output permutation.
-                # Note: this should have zero cost if perm == nothing.
-                J = permute_indices(I, perm)
-                @inbounds dest_p[J, K] = src[n += 1]
-            end
+    # The idea is to visit `dest` not in its natural order (with the fastest
+    # dimension first), but with a permutation corresponding to the layout of
+    # the `src` data.
+    n = src_offset
+    dest_p = parent(dest)  # array with non-permuted indices
+    for K in CartesianIndices(extra_dims)
+        for I in CartesianIndices(o_range_iperm)
+            # Switch from input to output permutation.
+            # Note: this should have zero cost if perm == nothing.
+            J = permute_indices(I, perm)
+            @inbounds dest_p[J, K] = src[n += 1]
         end
-    end  # @timeit_debug
+    end
 
     dest
 end
