@@ -428,7 +428,7 @@ function test_dimensionality(comm)
         test_dimensionality(
             dims, Val(3), comm,
             permute_dims=Val(false),
-            transpose_method=TransposeMethods.Alltoallv(),
+            transpose_method=Transpositions.Alltoallv(),
         )
     end
 

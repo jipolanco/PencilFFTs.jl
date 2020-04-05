@@ -240,6 +240,6 @@ function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8},
     dims = (size_local(p, permute=true)..., extra_dims...)
     nb = prod(dims) * sizeof(T)
     resize!(buf, nb)
-    x = PencilArrays.unsafe_as_array(T, buf, dims)
+    x = Transpositions.unsafe_as_array(T, buf, dims)
     PencilArray(p, x)
 end

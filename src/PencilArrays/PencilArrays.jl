@@ -14,6 +14,8 @@ using TimerOutputs
 import Base: @propagate_inbounds
 import LinearAlgebra
 
+export Transpositions
+
 export Pencil, PencilArray, MPITopology
 export PencilArrayCollection
 export ManyPencilArray
@@ -22,7 +24,7 @@ export gather
 export get_comm, get_decomposition, get_permutation, get_timer
 export global_view
 export ndims_extra, ndims_space, extra_dims
-export range_local, size_local, size_global
+export range_local, size_local, size_global, to_local
 export transpose!
 
 # Describes the portion of an array held by a given MPI process.
@@ -42,6 +44,7 @@ include("cartesian_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndic
 
 include("data_ranges.jl")
 include("permutations.jl")
-include("transpose.jl")
+
+include("Transpositions.jl")  # Transpositions module
 
 end

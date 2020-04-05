@@ -245,7 +245,8 @@ length(::ManyPencilArray)
 One of the most time-consuming parts of a large-scale computation involving
 multidimensional FFTs, is the global data transpositions between different MPI
 decomposition configurations.
-In `PencilArrays`, this is performed by the [`transpose!`](@ref) function, which
+In `PencilArrays`, this is performed by the
+[`transpose!`](@ref Transpositions.transpose!) function, which
 takes two `PencilArray`s, typically associated to two different configurations.
 The implementation performs comparably to similar implementations in
 lower-level languages (see [Benchmarks](@ref)).
@@ -259,13 +260,21 @@ It is generally useful for small problems where the global size of the data can
 easily fit the locally available memory.
 
 ```@docs
-transpose!
+Transpositions.transpose!
 gather
 ```
 
 ## [Measuring performance](@id PencilArrays.measuring_performance)
 
-It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)` after loading `PencilFFTs`. For more details see the [TimerOutputs docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
+It is possible to measure the time spent in different sections of the MPI data
+transposition routines using the
+[TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This
+has a (very small) performance overhead, so it is disabled by default. To
+enable time measurements, call
+`TimerOutputs.enable_debug_timings` after loading `PencilFFTs` (see below for
+an example).
+For more details see the [TimerOutputs
+docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
 
@@ -275,7 +284,8 @@ using PencilFFTs.PencilArrays
 using TimerOutputs
 
 # Enable timing of `PencilArrays` functions
-TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)
+TimerOutputs.enable_debug_timings(PencilArrays)
+TimerOutputs.enable_debug_timings(Transpositions)
 
 MPI.Init()
 
