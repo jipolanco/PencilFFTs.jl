@@ -50,8 +50,8 @@ Two values are currently accepted:
 """
 function transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
-        method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
-       ) where {T, N}
+        method::AbstractTransposeMethod = TransposeMethods.IsendIrecv(),
+    ) where {T,N}
     dest === src && return dest  # same pencil & same data
 
     Pi = pencil(src)
@@ -114,7 +114,7 @@ end
 
 # Only local transposition.
 function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
-                         kwargs...) where {T, N}
+                         kwargs...) where {T,N}
     Pi = pencil(in)
     Po = pencil(out)
     timer = get_timer(Pi)
@@ -177,29 +177,86 @@ _mpi_buffer(p::Ptr{T}, count) where {T} =
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
 function transpose_impl!(
-            R::Int, out::PencilArray{T,N}, in::PencilArray{T,N};
-            method::AbstractTransposeMethod=TransposeMethods.IsendIrecv(),
-        ) where {T, N}
-    Pi = pencil(in)
-    Po = pencil(out)
+        R::Int, Ao::PencilArray{T,N}, Ai::PencilArray{T,N};
+        method::AbstractTransposeMethod = TransposeMethods.IsendIrecv(),
+    ) where {T,N}
+    Pi = pencil(Ai)
+    Po = pencil(Ao)
     timer = get_timer(Pi)
 
-    use_alltoallv = method === TransposeMethods.Alltoallv()
-    @assert use_alltoallv || method === TransposeMethods.IsendIrecv()
+    @assert Pi.topology === Po.topology
+    @assert Ai.extra_dims === Ao.extra_dims
 
     topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
     Nproc = topology.dims[R]
-    myrank = topology.subcomm_ranks[R][topology.coords_local[R]]
+    subcomm_ranks = topology.subcomm_ranks[R]
+    myrank = subcomm_ranks[topology.coords_local[R]]  # rank in subgroup
 
-    @assert Pi.topology === Po.topology
-    @assert myrank == MPI.Comm_rank(comm)
-    @assert Nproc == MPI.Comm_size(comm)
-    @assert in.extra_dims === out.extra_dims
-
-    extra_dims = in.extra_dims
-    prod_extra_dims = prod(extra_dims)
     remote_inds = _get_remote_indices(R, topology.coords_local, Nproc)
+
+    # Length of data that I will "send" to myself.
+    length_self = let range_intersect = intersect.(Pi.axes_local, Po.axes_local)
+        prod(length.(range_intersect)) * prod(extra_dims(Ai))
+    end
+
+    # Total data to be sent / received.
+    length_send = length(Ai) - length_self
+    length_recv_total = length(Ao)  # includes local exchange with myself
+
+    # 1. Prepare buffers.
+    resize!(Po.send_buf, sizeof(T) * length_send)
+    send_buf = unsafe_as_array(T, Po.send_buf, length_send)
+
+    resize!(Po.recv_buf, sizeof(T) * length_recv_total)
+    recv_buf = unsafe_as_array(T, Po.recv_buf, length_recv_total)
+    recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf
+
+    req_length = method === TransposeMethods.Alltoallv() ? 0 : Nproc
+    send_req = Vector{MPI.Request}(undef, req_length)
+    recv_req = similar(send_req)
+
+    # 2. Pack and send data.
+    @timeit_debug timer "pack data" index_local_req = _transpose_send_data!(
+        (send_buf, recv_buf),
+        recv_offsets,
+        (send_req, recv_req),
+        length_self,
+        remote_inds,
+        (comm, subcomm_ranks, myrank),
+        Ao, Ai,
+        method,
+        timer,
+    )
+
+    # 2. Unpack data and perform local transposition.
+    @timeit_debug timer "unpack data" _transpose_recv_data!(
+        recv_buf, recv_offsets, recv_req,
+        remote_inds, index_local_req,
+        Ao, Ai, method, timer,
+    )
+
+    # Wait for all our data to be sent before returning.
+    if !isempty(send_req)
+        @timeit_debug timer "wait send" MPI.Waitall!(send_req)
+    end
+
+    Ao
+end
+
+function _transpose_send_data!(
+        (send_buf, recv_buf),
+        recv_offsets,
+        (send_req, recv_req),
+        length_self,
+        remote_inds,
+        (comm, subcomm_ranks, myrank),
+        Ao::PencilArray{T}, Ai::PencilArray{T},
+        method::AbstractTransposeMethod,
+        timer::TimerOutput,
+    ) where {T}
+    Pi = pencil(Ai)  # input (sent data)
+    Po = pencil(Ao)  # output (received data)
 
     idims_local = Pi.axes_local
     odims_local = Po.axes_local
@@ -207,41 +264,30 @@ function transpose_impl!(
     idims = Pi.axes_all
     odims = Po.axes_all
 
-    # Length of data that I will "send" to myself.
-    length_send_local =
-        prod(length.(intersect.(idims_local, odims_local))) * prod_extra_dims
+    extra_dims = Ai.extra_dims
+    prod_extra_dims = prod(extra_dims)
 
-    # Total data to be sent / received.
-    length_send = length(in) - length_send_local
-    length_recv_total = length(out)  # includes local exchange with myself
-    length_recv = length_recv_total - length_send_local
-
-    # 1. Send and receive data.
-    # Note: I prefer to resize the original UInt8 array instead of the "unsafe"
-    # Array{T}.
-    resize!(Po.send_buf, sizeof(T) * length_send)
-    send_buf = unsafe_as_array(T, Po.send_buf, length_send)
     isend = 0  # current index in send_buf
-
-    resize!(Po.recv_buf, sizeof(T) * length_recv_total)
-    recv_buf = unsafe_as_array(T, Po.recv_buf, length_recv_total)
     irecv = 0  # current index in recv_buf
-    recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf
 
     index_local_req = -1  # request index associated to local exchange
 
-    if use_alltoallv
+    # Data received from other processes.
+    length_recv = length(Ao) - length_self
+
+    Nproc = length(subcomm_ranks)
+    @assert Nproc == MPI.Comm_size(comm)
+    @assert myrank == MPI.Comm_rank(comm)
+
+    if method === TransposeMethods.Alltoallv()
         send_counts = Vector{Cint}(undef, Nproc)
         recv_counts = similar(send_counts)
-    else
+    elseif method === TransposeMethods.IsendIrecv()
         send_buf_ptr = pointer(send_buf)
         recv_buf_ptr = pointer(recv_buf)
-
-        send_req = Vector{MPI.Request}(undef, Nproc)
-        recv_req = similar(send_req)
     end
 
-    @timeit_debug timer "pack data" for (n, ind) in enumerate(remote_inds)
+    for (n, ind) in enumerate(remote_inds)
         # Global data range that I need to send to process n.
         srange = intersect.(idims_local, odims[ind])
         length_send_n = prod(length.(srange)) * prod_extra_dims
@@ -252,38 +298,38 @@ function transpose_impl!(
         length_recv_n = prod(length.(rrange)) * prod_extra_dims
         recv_offsets[n] = irecv
 
-        rank = topology.subcomm_ranks[R][n]  # actual rank of the other process
+        rank = subcomm_ranks[n]  # actual rank of the other process
 
         if rank == myrank
-            # Copy directly from `in` to `recv_buf`.
+            # Copy directly from `Ai` to `recv_buf`.
             # For convenience, data is put at the end of `recv_buf`. This makes
             # it easier to implement an alternative based on MPI_Alltoallv.
-            @assert length_recv_n == length_send_local
+            @assert length_recv_n == length_self
             recv_offsets[n] = length_recv
-            copy_range!(recv_buf, length_recv, in, local_send_range, extra_dims,
+            copy_range!(recv_buf, length_recv, Ai, local_send_range, extra_dims,
                         timer)
 
-            if use_alltoallv
+            if method === TransposeMethods.Alltoallv()
                 # Don't send data to myself via Alltoallv.
                 send_counts[n] = recv_counts[n] = zero(Cint)
-            else
+            elseif method === TransposeMethods.IsendIrecv()
                 send_req[n] = recv_req[n] = MPI.REQUEST_NULL
                 index_local_req = n
             end
         else
             # Copy data into contiguous buffer, then send the buffer.
-            # TODO If data inside `in` is contiguous, avoid copying data to buffer,
+            # TODO If data inside `Ai` is contiguous, avoid copying data to buffer,
             # and call MPI.Isend directly. (I need to check if it's contiguous...)
-            copy_range!(send_buf, isend, in, local_send_range, extra_dims,
+            copy_range!(send_buf, isend, Ai, local_send_range, extra_dims,
                         timer)
 
             irecv += length_recv_n
             isend += length_send_n
 
-            if use_alltoallv
+            if method === TransposeMethods.Alltoallv()
                 send_counts[n] = length_send_n
                 recv_counts[n] = length_recv_n
-            else
+            elseif method === TransposeMethods.IsendIrecv()
                 # Exchange data with the other process (non-blocking operations).
                 # Note: data is sent and received with the permutation associated to Pi.
                 tag = 42
@@ -299,7 +345,7 @@ function transpose_impl!(
         end
     end
 
-    if use_alltoallv
+    if method === TransposeMethods.Alltoallv()
         # This @view is needed because the Alltoallv wrapper checks that the
         # length of the buffer is consistent with recv_counts.
         recv_buf_view = @view recv_buf[1:length_recv]
@@ -307,43 +353,56 @@ function transpose_impl!(
             send_buf, recv_buf_view, send_counts, recv_counts, comm)
     end
 
-    # 2. Unpack data and perform local transposition.
-    # Here we need to know the relative index permutation to go from Pi
-    # ordering to Po ordering.
-    @timeit_debug timer "unpack data" let perm = relative_permutation(Pi, Po)
-        for m = 1:Nproc
-            if use_alltoallv
-                n = m
-            elseif m == 1
-                n = index_local_req  # copy local data first
-            else
-                @timeit_debug timer "wait receive" n, status =
-                    MPI.Waitany!(recv_req)
-            end
+    index_local_req
+end
 
-            # Non-permuted global indices of received data.
-            ind = remote_inds[n]
-            g_range = intersect.(odims_local, idims[ind])
+function _transpose_recv_data!(
+        recv_buf, recv_offsets, recv_req,
+        remote_inds, index_local_req,
+        Ao::PencilArray, Ai::PencilArray,
+        method::AbstractTransposeMethod,
+        timer::TimerOutput,
+    )
+    Pi = pencil(Ai)  # input (sent data)
+    Po = pencil(Ao)  # output (received data)
 
-            length_recv_n = prod(length.(g_range)) * prod_extra_dims
-            off = recv_offsets[n]
+    odims_local = Po.axes_local
+    idims = Pi.axes_all
 
-            # Local output data range in the **input** permutation.
-            o_range_iperm =
-                permute_indices(to_local(Po, g_range, permute=false), Pi)
+    exdims = extra_dims(Ao)
+    prod_extra_dims = prod(exdims)
 
-            # Copy data to `out`, permuting dimensions if required.
-            copy_permuted!(out, o_range_iperm, recv_buf, off, perm, extra_dims,
-                           timer)
+    # Relative index permutation to go from Pi ordering to Po ordering.
+    perm = relative_permutation(Pi, Po)
+
+    Nproc = length(remote_inds)
+
+    for m = 1:Nproc
+        if method === TransposeMethods.Alltoallv()
+            n = m
+        elseif m == 1
+            n = index_local_req  # copy local data first
+        else
+            @timeit_debug timer "wait receive" n, status =
+                MPI.Waitany!(recv_req)
         end
+
+        # Non-permuted global indices of received data.
+        ind = remote_inds[n]
+        g_range = intersect.(odims_local, idims[ind])
+
+        length_recv_n = prod(length.(g_range)) * prod_extra_dims
+        off = recv_offsets[n]
+
+        # Local output data range in the **input** permutation.
+        o_range_iperm =
+            permute_indices(to_local(Po, g_range, permute=false), Pi)
+
+        # Copy data to `Ao`, permuting dimensions if required.
+        copy_permuted!(Ao, o_range_iperm, recv_buf, off, perm, exdims, timer)
     end
 
-    # Wait for all our data to be sent before returning.
-    if !use_alltoallv
-        @timeit_debug timer "wait send" MPI.Waitall!(send_req)
-    end
-
-    out
+    Ao
 end
 
 # Cartesian indices of the remote MPI processes included in the subgroup of
