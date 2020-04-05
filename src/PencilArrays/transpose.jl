@@ -1,10 +1,14 @@
 module TransposeMethods
-export AbstractTransposeMethod
-abstract type AbstractTransposeMethod end
-struct IsendIrecv <: AbstractTransposeMethod end
-struct Alltoallv <: AbstractTransposeMethod end
-Base.show(io::IO, ::T) where T <: AbstractTransposeMethod =
-    print(io, nameof(T))
+    export AbstractTransposeMethod
+
+    abstract type AbstractTransposeMethod end
+
+    struct IsendIrecv <: AbstractTransposeMethod end
+    struct Alltoallv <: AbstractTransposeMethod end
+
+    function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
+        print(io, nameof(T))
+    end
 end
 
 using .TransposeMethods
@@ -204,7 +208,6 @@ function transpose_impl!(
     length_send = length(Ai) - length_self
     length_recv_total = length(Ao)  # includes local exchange with myself
 
-    # 1. Prepare buffers.
     resize!(Po.send_buf, sizeof(T) * length_send)
     send_buf = unsafe_as_array(T, Po.send_buf, length_send)
 
@@ -216,7 +219,7 @@ function transpose_impl!(
     send_req = Vector{MPI.Request}(undef, req_length)
     recv_req = similar(send_req)
 
-    # 2. Pack and send data.
+    # 1. Pack and send data.
     @timeit_debug timer "pack data" index_local_req = _transpose_send_data!(
         (send_buf, recv_buf),
         recv_offsets,
@@ -427,15 +430,13 @@ function copy_range!(dest::Vector{T}, dest_offset::Int, src::PencilArray{T,N},
     @assert P + E == N
 
     @timeit_debug timer "copy_range!" begin
-
-    n = dest_offset
-    src_p = parent(src)  # array with non-permuted indices
-    for K in CartesianIndices(extra_dims)
-        for I in CartesianIndices(src_range)
-            @inbounds dest[n += 1] = src_p[I, K]
+        n = dest_offset
+        src_p = parent(src)  # array with non-permuted indices
+        for K in CartesianIndices(extra_dims)
+            for I in CartesianIndices(src_range)
+                @inbounds dest[n += 1] = src_p[I, K]
+            end
         end
-    end
-
     end  # @timeit_debug
 
     dest
@@ -448,21 +449,19 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
     @assert P + E == N
 
     @timeit_debug timer "copy_permuted!" begin
-
-    # The idea is to visit `dest` not in its natural order (with the fastest
-    # dimension first), but with a permutation corresponding to the layout of
-    # the `src` data.
-    n = src_offset
-    dest_p = parent(dest)  # array with non-permuted indices
-    for K in CartesianIndices(extra_dims)
-        for I in CartesianIndices(o_range_iperm)
-            # Switch from input to output permutation.
-            # Note: this should have zero cost if perm == nothing.
-            J = permute_indices(I, perm)
-            @inbounds dest_p[J, K] = src[n += 1]
+        # The idea is to visit `dest` not in its natural order (with the fastest
+        # dimension first), but with a permutation corresponding to the layout of
+        # the `src` data.
+        n = src_offset
+        dest_p = parent(dest)  # array with non-permuted indices
+        for K in CartesianIndices(extra_dims)
+            for I in CartesianIndices(o_range_iperm)
+                # Switch from input to output permutation.
+                # Note: this should have zero cost if perm == nothing.
+                J = permute_indices(I, perm)
+                @inbounds dest_p[J, K] = src[n += 1]
+            end
         end
-    end
-
     end  # @timeit_debug
 
     dest
