@@ -1,24 +1,33 @@
-module TransposeMethods
-    export AbstractTransposeMethod
-
-    abstract type AbstractTransposeMethod end
-
-    struct IsendIrecv <: AbstractTransposeMethod end
-    struct Alltoallv <: AbstractTransposeMethod end
-
-    function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
-        print(io, nameof(T))
-    end
-end
-
-using .TransposeMethods
-export TransposeMethods
+module Transpositions
 
 import LinearAlgebra: transpose!
 
+using TimerOutputs
+import MPI
+
+using ..PencilArrays
+import ..PencilArrays:
+    relative_permutation,
+    permute_indices,
+    same_permutation,
+    append_to_permutation,
+    extract
+
+# Declare transposition approaches.
+abstract type AbstractTransposeMethod end
+
+struct IsendIrecv <: AbstractTransposeMethod end
+struct Alltoallv <: AbstractTransposeMethod end
+
+function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
+    print(io, nameof(T))
+end
+
+const ArrayRegion = PencilArrays.ArrayRegion
+
 """
     transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
-               method=TransposeMethods.IsendIrecv())
+               method=Transpositions.IsendIrecv())
 
 Transpose data from one pencil configuration to the other.
 
@@ -42,19 +51,19 @@ The `method` argument allows to choose between transposition implementations.
 This can be useful to tune performance of MPI data transfers.
 Two values are currently accepted:
 
-- `TransposeMethods.IsendIrecv()` uses non-blocking point-to-point data transfers
+- `Transpositions.IsendIrecv()` uses non-blocking point-to-point data transfers
   (`MPI_Isend` and `MPI_Irecv`).
   This may be more performant since data transfers are interleaved with local
   data transpositions (index permutation of received data).
   This is the default.
 
-- `TransposeMethods.Alltoallv()` uses `MPI_Alltoallv` for global data
+- `Transpositions.Alltoallv()` uses `MPI_Alltoallv` for global data
   transpositions.
 
 """
 function transpose!(
         dest::PencilArray{T,N}, src::PencilArray{T,N};
-        method::AbstractTransposeMethod = TransposeMethods.IsendIrecv(),
+        method::AbstractTransposeMethod=IsendIrecv(),
     ) where {T,N}
     dest === src && return dest  # same pencil & same data
 
@@ -182,7 +191,7 @@ _mpi_buffer(p::Ptr{T}, count) where {T} =
 # transposition is performed.
 function transpose_impl!(
         R::Int, Ao::PencilArray{T,N}, Ai::PencilArray{T,N};
-        method::AbstractTransposeMethod = TransposeMethods.IsendIrecv(),
+        method::AbstractTransposeMethod=IsendIrecv(),
     ) where {T,N}
     Pi = pencil(Ai)
     Po = pencil(Ao)
@@ -215,7 +224,7 @@ function transpose_impl!(
     recv_buf = unsafe_as_array(T, Po.recv_buf, length_recv_total)
     recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf
 
-    req_length = method === TransposeMethods.Alltoallv() ? 0 : Nproc
+    req_length = method === Alltoallv() ? 0 : Nproc
     send_req = Vector{MPI.Request}(undef, req_length)
     recv_req = similar(send_req)
 
@@ -313,7 +322,7 @@ function _transpose_send!(
         end
     end
 
-    if method === TransposeMethods.Alltoallv()
+    if method === Alltoallv()
         # This @view is needed because the Alltoallv wrapper checks that the
         # length of the buffer is consistent with recv_counts.
         recv_buf_view = @view recv_buf[1:length_recv]
@@ -326,15 +335,14 @@ function _transpose_send!(
     index_local_req
 end
 
-function _make_buffer_info(::TransposeMethods.IsendIrecv,
-                           (send_buf, recv_buf), Nproc)
+function _make_buffer_info(::IsendIrecv, (send_buf, recv_buf), Nproc)
     (
         send_ptr = Ref(pointer(send_buf)),
         recv_ptr = Ref(pointer(recv_buf)),
     )
 end
 
-function _make_buffer_info(::TransposeMethods.Alltoallv, bufs, Nproc)
+function _make_buffer_info(::Alltoallv, bufs, Nproc)
     counts = Vector{Cint}(undef, Nproc)
     (
         send_counts = counts,
@@ -342,21 +350,19 @@ function _make_buffer_info(::TransposeMethods.Alltoallv, bufs, Nproc)
     )
 end
 
-function _transpose_send_self!(::TransposeMethods.IsendIrecv, n,
-                               (send_req, recv_req), etc...)
+function _transpose_send_self!(::IsendIrecv, n, (send_req, recv_req), etc...)
     send_req[n] = recv_req[n] = MPI.REQUEST_NULL
     nothing
 end
 
-function _transpose_send_self!(::TransposeMethods.Alltoallv, n, reqs, buf_info)
+function _transpose_send_self!(::Alltoallv, n, reqs, buf_info)
     # Don't send data to myself via Alltoallv.
     buf_info.send_counts[n] = buf_info.recv_counts[n] = zero(Cint)
     nothing
 end
 
 function _transpose_send_other!(
-        ::TransposeMethods.IsendIrecv, buf_info,
-        (length_send_n, length_recv_n),
+        ::IsendIrecv, buf_info, (length_send_n, length_recv_n),
         n, (send_req, recv_req), (rank, comm), ::Type{T}
     ) where {T}
     # Exchange data with the other process (non-blocking operations).
@@ -376,9 +382,7 @@ function _transpose_send_other!(
 end
 
 function _transpose_send_other!(
-        ::TransposeMethods.Alltoallv, buf_info,
-        (length_send_n, length_recv_n),
-        n, args...
+        ::Alltoallv, buf_info, (length_send_n, length_recv_n), n, args...
     )
     buf_info.send_counts[n] = length_send_n
     buf_info.recv_counts[n] = length_recv_n
@@ -407,7 +411,7 @@ function _transpose_recv!(
     Nproc = length(remote_inds)
 
     for m = 1:Nproc
-        if method === TransposeMethods.Alltoallv()
+        if method === Alltoallv()
             n = m
         elseif m == 1
             n = index_local_req  # copy local data first
@@ -492,3 +496,8 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
 
     dest
 end
+
+end  # module Transpositions
+
+# Deprecated since v0.5.
+Base.@deprecate_binding TransposeMethods Transpositions

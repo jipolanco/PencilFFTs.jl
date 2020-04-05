@@ -261,8 +261,8 @@ function main()
         end
     end
 
-    transpose_methods = (TransposeMethods.IsendIrecv(),
-                         TransposeMethods.Alltoallv())
+    transpose_methods = (Transpositions.IsendIrecv(),
+                         Transpositions.Alltoallv())
 
     @testset "transpose! $method" for method in transpose_methods
         u1 = PencilArray(pen1)
@@ -378,8 +378,8 @@ function main()
 
         @inferred Nothing gather(u2)
         @inferred transpose!(u2, u1)
-        @inferred PA.transpose_impl!(1, u2, u1)
-        @inferred PA._get_remote_indices(1, (2, 3), 8)
+        @inferred Transpositions.transpose_impl!(1, u2, u1)
+        @inferred Transpositions._get_remote_indices(1, (2, 3), 8)
     end
 
     MPI.Finalize()

@@ -265,7 +265,15 @@ gather
 
 ## [Measuring performance](@id PencilArrays.measuring_performance)
 
-It is possible to measure the time spent in different sections of the MPI data transposition routines using the [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has a (very small) performance overhead, so it is disabled by default. To enable time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)` after loading `PencilFFTs`. For more details see the [TimerOutputs docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
+It is possible to measure the time spent in different sections of the MPI data
+transposition routines using the
+[TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This
+has a (very small) performance overhead, so it is disabled by default. To
+enable time measurements, call
+`TimerOutputs.enable_debug_timings` after loading `PencilFFTs` (see below for
+an example).
+For more details see the [TimerOutputs
+docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
 
@@ -275,7 +283,8 @@ using PencilFFTs.PencilArrays
 using TimerOutputs
 
 # Enable timing of `PencilArrays` functions
-TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)
+TimerOutputs.enable_debug_timings(PencilArrays)
+TimerOutputs.enable_debug_timings(Transpositions)
 
 MPI.Init()
 

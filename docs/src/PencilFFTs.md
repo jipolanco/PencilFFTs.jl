@@ -30,9 +30,8 @@ It is possible to measure the time spent in different sections of the
 distributed transforms using the
 [TimerOutputs](https://github.com/KristofferC/TimerOutputs.jl) package. This has
 a (very small) performance overhead, so it is disabled by default. To enable
-time measurements, call `TimerOutputs.enable_debug_timings(PencilFFTs)` and
-`TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)` after loading
-`PencilFFTs`. For more details see the [TimerOutputs
+time measurements, call `TimerOutputs.enable_debug_timings` after loading
+`PencilFFTs` (see below for an example). For more details see the [TimerOutputs
 docs](https://github.com/KristofferC/TimerOutputs.jl#overhead).
 
 Minimal example:
@@ -44,7 +43,8 @@ using TimerOutputs
 
 # Enable timing of `PencilFFTs` functions
 TimerOutputs.enable_debug_timings(PencilFFTs)
-TimerOutputs.enable_debug_timings(PencilFFTs.PencilArrays)
+TimerOutputs.enable_debug_timings(PencilArrays)
+TimerOutputs.enable_debug_timings(Transpositions)
 
 MPI.Init()
 

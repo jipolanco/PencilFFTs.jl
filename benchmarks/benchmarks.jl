@@ -16,6 +16,7 @@ using Random
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(PencilArrays)
+TimerOutputs.enable_debug_timings(Transpositions)
 
 FFTW.set_num_threads(1)
 
@@ -93,7 +94,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
                            iterations=1,
                            with_permutations::Val=Val(true),
                            extra_dims::Tuple=(),
-                           transpose_method=TransposeMethods.IsendIrecv(),
+                           transpose_method=Transpositions.IsendIrecv(),
                           )
     topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
@@ -164,7 +165,7 @@ end
 function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
                         iterations=1,
-                        transpose_method=TransposeMethods.IsendIrecv(),
+                        transpose_method=Transpositions.IsendIrecv(),
                         permute_dims=Val(true),
                        )
     isroot = MPI.Comm_rank(comm) == 0
@@ -237,13 +238,13 @@ function AggregatedTimes(to::TimerOutput, transpose_method)
     tf = TimerOutputs.flatten(to)
     data = avgtime(tf["copy_permuted!"]) + avgtime(tf["copy_range!"])
 
-    mpi = if transpose_method === TransposeMethods.IsendIrecv()
+    mpi = if transpose_method === Transpositions.IsendIrecv()
         t = avgtime(tf["wait send"])
         if haskey(tf, "wait receive")  # this will be false in serial mode
             t += avgtime(tf["wait receive"])
         end
         t
-    elseif transpose_method === TransposeMethods.Alltoallv()
+    elseif transpose_method === Transpositions.Alltoallv()
         avgtime(tf["MPI.Alltoallv!"])
     end
 
@@ -342,8 +343,8 @@ function main()
         pdims[1], pdims[2]
     end
 
-    transpose_methods = (TransposeMethods.IsendIrecv(),
-                         TransposeMethods.Alltoallv())
+    transpose_methods = (Transpositions.IsendIrecv(),
+                         Transpositions.Alltoallv())
     permutes = (Val(true), Val(false))
 
     if full_benchmarks
@@ -371,7 +372,7 @@ function main()
                               permute_dims=permute, transpose_method=method,
                               kwargs...)
         i = Int(permute === Val(false)) + 1  # 1/2 <-> with/without permutation
-        j = Int(method === TransposeMethods.Alltoallv()) + 1  # 1/2 <-> IsendIrecv/Alltoallv
+        j = Int(method === Transpositions.Alltoallv()) + 1  # 1/2 <-> IsendIrecv/Alltoallv
         timings[i, j] = t_ms
     end
 
