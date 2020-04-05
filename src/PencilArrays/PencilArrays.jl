@@ -44,6 +44,7 @@ include("cartesian_indices.jl")  # PermutedLinearIndices, PermutedCartesianIndic
 
 include("data_ranges.jl")
 include("permutations.jl")
-include("transpose.jl")
+
+include("Transpositions.jl")  # Transpositions module
 
 end
