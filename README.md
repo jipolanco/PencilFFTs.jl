@@ -50,6 +50,7 @@ above).
 ```julia
 using MPI
 using PencilFFTs
+using Random
 
 MPI.Init()
 
