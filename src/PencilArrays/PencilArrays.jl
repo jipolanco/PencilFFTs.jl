@@ -25,7 +25,6 @@ export get_comm, get_decomposition, get_permutation, get_timer
 export global_view
 export ndims_extra, ndims_space, extra_dims
 export range_local, size_local, size_global, to_local
-export transpose!
 
 # Describes the portion of an array held by a given MPI process.
 const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
