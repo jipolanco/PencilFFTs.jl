@@ -9,6 +9,7 @@ using ..PencilArrays
 import ..PencilArrays:
     ArrayRegion,
     relative_permutation,
+    inverse_permutation,
     permute_indices,
     same_permutation,
     append_to_permutation,
@@ -478,19 +479,26 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
                         timer) where {T,N,P,E}
     @assert P + E == N
 
-    # The idea is to visit `dest` not in its natural order (with the fastest
-    # dimension first), but with a permutation corresponding to the layout of
-    # the `src` data.
-    n = src_offset
-    dest_p = parent(dest)  # array with non-permuted indices
-    for K in CartesianIndices(extra_dims)
-        for I in CartesianIndices(o_range_iperm)
-            # Switch from input to output permutation.
-            # Note: this should have zero cost if perm == nothing.
-            J = permute_indices(I, perm)
-            @inbounds dest_p[J, K] = src[n += 1]
+    src_view = let src_dims = (length.(o_range_iperm)..., extra_dims...)
+        Ndata = prod(src_dims)
+        n = src_offset
+        v = view(src, (n + 1):(n + Ndata))
+        reshape(v, src_dims)
+    end
+
+    dest_view = let dest_p = parent(dest)  # array with non-permuted indices
+        indices = permute_indices(o_range_iperm, perm)
+        v = view(dest_p, indices..., Base.OneTo.(extra_dims)...)
+        if perm === nothing
+            v
+        else
+            p = extract(perm)
+            iperm = extract(inverse_permutation(perm))
+            PermutedDimsArray{T, N, iperm, p, typeof(v)}(v)
         end
     end
+
+    copyto!(dest_view, src_view)
 
     dest
 end
