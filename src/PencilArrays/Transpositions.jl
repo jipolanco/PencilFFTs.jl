@@ -492,9 +492,10 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
         if perm === nothing
             v
         else
-            p = extract(perm)
-            iperm = extract(inverse_permutation(perm))
-            PermutedDimsArray{T, N, iperm, p, typeof(v)}(v)
+            p = append_to_permutation(perm, Val(E))
+            pperm = extract(p)
+            iperm = extract(inverse_permutation(p))
+            PermutedDimsArray{T, N, iperm, pperm, typeof(v)}(v)
         end
     end
 
