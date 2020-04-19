@@ -3,17 +3,24 @@
 using PencilFFTs.PencilArrays
 using BenchmarkTools
 
+abstract type IterationOrder end
+struct OrderSrc <: IterationOrder end
+struct OrderDst <: IterationOrder end
+
+iter_indices(::OrderSrc, src, dst) = CartesianIndices(src)
+iter_indices(::OrderDst, src, dst) = CartesianIndices(dst)
+
+indices(::OrderSrc, I, perm) = (I, PencilArrays.permute_indices(I, perm))
+indices(::OrderDst, J, perm) = let iperm = PencilArrays.inverse_permutation(perm)
+    (PencilArrays.permute_indices(J, iperm), J)
+end
+
 function copy_permuted!(dst::AbstractArray{To,3}, src::AbstractArray{Ti,3},
-                        perm) where {To,Ti}
+                        perm, order::IterationOrder) where {To,Ti}
     @assert length(src) == length(dst)
 
-    # To iterate in destination order:
-    #   iperm = PencilArrays.inverse_permutation(perm)
-    #   for J in CartesianIndices(dst)
-    #       I = PencilArrays.permute_indices(J, iperm)
-
-    for I in CartesianIndices(src)
-        J = PencilArrays.permute_indices(I, perm)
+    for C in iter_indices(order, src, dst)
+        I, J = indices(order, C, perm)
         @inbounds dst[J] = src[I]
     end
 
@@ -51,23 +58,25 @@ function bench_permutation(dst::AbstractArray{T,N},
 
     println("Permutation: $perm, size(dst) = ", size(dst))
 
-    print("  copy_permuted...          ")
-    @btime copy_permuted!($dst, $src, $pval)
+    print("  copy_permuted (src order)...")
+    @btime copy_permuted!($dst, $src, $pval, OrderSrc())
+
+    print("  copy_permuted (dst order)...")
+    @btime copy_permuted!($dst, $src, $pval, OrderDst())
+
     if perm === (1, 2, 3)
-        print("  copy_permuted (nothing)...")
-        @btime copy_permuted!($dst, $src, nothing)
-        print("  copyto...                 ")
+        print("  copyto...                   ")
         @btime copyto!($dst, $src)
     end
 
-    print("  permutedims...            ")
+    print("  permutedims...              ")
     @btime permutedims!($dst, $src, $perm)
 
-    print("  PermutedDimsArray(src)... ")
+    print("  PermutedDimsArray(src)...   ")
     src_p = PermutedDimsArray{T,N,perm,iperm,typeof(src)}(src)
     @btime copyto!($dst, $src_p)  # uses generic copyto!
 
-    print("  PermutedDimsArray(dst)... ")
+    print("  PermutedDimsArray(dst)...   ")
     dst_p = PermutedDimsArray{T,N,iperm,perm,typeof(dst)}(dst)
     @btime copyto!($dst_p, $src)  # copyto! for PermutedDimsArray (generally faster)
 
