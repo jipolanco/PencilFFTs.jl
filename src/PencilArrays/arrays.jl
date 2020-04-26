@@ -151,7 +151,7 @@ end
 """
     size(x::PencilArray)
 
-Return (unpermuted) local dimensions of a `PencilArray`.
+Return logical (unpermuted) local dimensions of a `PencilArray`.
 """
 Base.size(x::PencilArray) = (x.space_dims..., extra_dims(x)...)
 
@@ -301,8 +301,9 @@ extra_dims(x::PencilArrayCollection) = _apply(extra_dims, x)
 
 Global dimensions associated to the given array.
 
-Unlike `size`, by default the returned dimensions are *not* permuted according
-to the associated pencil configuration.
+By default, the logical (unpermuted) dimensions of the dataset are returned.
+
+See also [`size_global(::Pencil)`](@ref).
 """
 size_global(x::MaybePencilArrayCollection; permute=false) =
     (size_global(pencil(x), permute=permute)..., extra_dims(x)...)
@@ -311,10 +312,10 @@ size_global(x::MaybePencilArrayCollection; permute=false) =
     range_local(x::PencilArray; permute=false)
     range_local(x::PencilArrayCollection; permute=false)
 
-Local data range held by the PencilArray.
+Local data range held by the `PencilArray`.
 
-By default the dimensions are not permuted, matching the order of indices in the
-array.
+By default the dimensions are not permuted, i.e. they are returned in logical
+order.
 """
 range_local(x::MaybePencilArrayCollection; permute=false) =
     (range_local(pencil(x), permute=permute)..., Base.OneTo.(extra_dims(x))...)
