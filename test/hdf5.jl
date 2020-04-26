@@ -22,10 +22,24 @@ function test_write(u::PencilArray)
     v .+= 1
     w .+= 2
 
+    # Open file in serial mode first.
+    h5open(FILENAME_H5, "w") do ff
+        # "HDF5 file was not opened with the MPIO driver"
+        @test_throws ErrorException ff["scalar"] = u
+    end
+
     @test_nowarn h5open(FILENAME_H5, "w", "fapl_mpio", (comm, info)) do ff
         @test isopen(ff)
         @test_nowarn ff["scalar", collective=true, chunks=false] = u
-        @test_nowarn ff["vector", collective=false, chunks=true] = (u, v, w)
+        @test_nowarn ff["vector_tuple", collective=false, chunks=true] = (u, v, w)
+        @test_nowarn ff["vector_array", collective=true, chunks=true] = [u, v, w]
+    end
+
+    # TODO
+    # - read back data
+    # - check that components (u, v, w) are written as expected
+    @test_nowarn h5open(FILENAME_H5, "r", "fapl_mpio", (comm, info)) do ff
+        @test isopen(ff)
     end
 
     nothing

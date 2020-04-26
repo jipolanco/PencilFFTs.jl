@@ -49,6 +49,7 @@ function Base.setindex!(
         g::HDF5FileOrGroup, x::MaybePencilArrayCollection, name::String;
         chunks=true, collective=true,
     )
+    check_phdf5_file(g, x)
     toclose = true  # property lists should be closed by the GC
 
     lcpl = HDF5._link_properties(name)  # this is the default in HDF5.jl
@@ -77,6 +78,38 @@ function Base.setindex!(
 
     x
 end
+
+function check_phdf5_file(g, x)
+    if !HDF5.has_parallel()
+        error(
+            "HDF5.jl has no parallel support." *
+            " Make sure that you're using MPI-enabled HDF5 libraries, and that" *
+            " MPI was loaded before HDF5."
+        )
+    end
+
+    plist_id = HDF5.h5f_get_access_plist(file(g))
+    plist = HDF5Properties(plist_id, true, HDF5.H5P_FILE_ACCESS)
+
+    # Get HDF5 ids of MPIO driver and of the actual driver being used.
+    driver_mpio = ccall((:H5FD_mpio_init, HDF5.libhdf5), HDF5.Hid, ())
+    driver = HDF5.h5p_get_driver(plist)
+    if driver !== driver_mpio
+        error("HDF5 file was not opened with the MPIO driver")
+    end
+
+    comm, info = HDF5.h5p_get_fapl_mpio(plist)
+    if MPI.Comm_compare(comm, get_comm(x)) ∉ (MPI.IDENT, MPI.CONGRUENT)
+        throw(ArgumentError(
+            "incompatible MPI communicators of HDF5 file and PencilArray"
+        ))
+    end
+
+    close(plist)
+    nothing
+end
+
+# get_driver()
 
 to_hdf5(dset, x::PencilArray, inds) =
     dset[inds...] = parent(x)
