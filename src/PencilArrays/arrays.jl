@@ -153,7 +153,20 @@ end
 
 Return (unpermuted) local dimensions of a `PencilArray`.
 """
-Base.size(x::PencilArray) = (x.space_dims..., x.extra_dims...)
+Base.size(x::PencilArray) = (x.space_dims..., extra_dims(x)...)
+
+"""
+    size_local(x::PencilArray; permute=false)
+    size_local(x::PencilArrayCollection; permute=false)
+
+Local dimensions of the data held by the `PencilArray`.
+
+If `permute=false`, this is the same as `size(x)`.
+
+See also [`size_local(::Pencil)`](@ref).
+"""
+size_local(x::MaybePencilArrayCollection; kwargs...) =
+    (size_local(pencil(x); kwargs...)..., extra_dims(x)...)
 
 # TODO this won't work with extra_dims...
 function Base.axes(x::PencilArray)

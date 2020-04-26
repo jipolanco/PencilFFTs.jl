@@ -228,6 +228,7 @@ pencil(::PencilArray)
 pointer(::PencilArray)
 range_local(::MaybePencilArrayCollection)
 size(::PencilArray)
+size_local(::MaybePencilArrayCollection)
 size_global(::MaybePencilArrayCollection)
 ```
 

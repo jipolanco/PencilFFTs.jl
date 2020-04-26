@@ -53,7 +53,11 @@ function test_array_wrappers(p::Pencil)
 
     let v = similar(u)
         @test typeof(v) === typeof(u)
-        @test size(v) === size(u) === size_local(p, permute=false)
+
+        psize = size_local(p, permute=false)
+        @test psize === size(v) === size(u)
+        @test psize ===
+            size_local(u, permute=false) === size_local(v, permute=false)
 
         vp = parent(v)
         randn!(vp)
