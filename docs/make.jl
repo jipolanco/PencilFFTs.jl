@@ -1,4 +1,5 @@
 using Documenter
+using HDF5  # to load HDF5 code via Requires
 using PencilFFTs
 
 const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs

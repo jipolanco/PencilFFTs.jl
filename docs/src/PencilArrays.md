@@ -265,6 +265,32 @@ Transpositions.transpose!
 gather
 ```
 
+## Parallel I/O with HDF5
+
+`PencilArray`s may be read and written to parallel HDF5 files.
+This requires a special setup of the HDF5.jl file, in order to use HDF5
+libraries with parallel support.
+
+### TODO
+
+- for now, this requires (upcoming?) changes to HDF5.jl
+
+- reading files
+
+- example
+
+- how to set up HDF5 and MPI
+
+- order of imports (Requires)
+
+### Functions
+
+```@docs
+setindex!(::HDF5FileOrGroup, ::MaybePencilArrayCollection, ::String)
+```
+
+###
+
 ## [Measuring performance](@id PencilArrays.measuring_performance)
 
 It is possible to measure the time spent in different sections of the MPI data
