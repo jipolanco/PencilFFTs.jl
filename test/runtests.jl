@@ -7,6 +7,7 @@ using MPI: mpiexec
 const TEST_FILES = [
     "taylor_green.jl",
     "rfft.jl",
+    # "hdf5.jl",
     "pencils.jl",
     "transforms.jl",
 ]
