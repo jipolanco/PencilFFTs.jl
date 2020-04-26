@@ -4,15 +4,19 @@ const HDF5FileOrGroup = Union{HDF5.HDF5File, HDF5.HDF5Group}
 
 """
     setindex!(
-        g::Union{HDF5File,HDF5Group}, x::PencilArray, name::String;
+        g::Union{HDF5File,HDF5Group}, x::MaybePencilArrayCollection, name::String;
         chunks=false, collective=true,
     )
 
-Write [`PencilArray`](@ref) to parallel HDF5 file.
+Write [`PencilArray`](@ref) or [`PencilArrayCollection`](@ref) to parallel HDF5
+file.
 
 For performance reasons, the memory layout of the data is conserved. In other
-words, if the dimensions of the `PencilArray` are permuted in memory, then the
+words, if the dimensions of a `PencilArray` are permuted in memory, then the
 data is written in permuted form.
+
+In the case of a `PencilArrayCollection`, each array of the collection is written
+as a single component of a higher dimension dataset.
 
 # Optional arguments
 
@@ -25,24 +29,26 @@ data is written in permuted form.
 
 # Example
 
-Open a parallel HDF5 file and write `PencilArray` to the file:
+Open a parallel HDF5 file and write some `PencilArray`s to the file:
 
 ```julia
 u = PencilArray(...)
+v = PencilArray(...)
 
 comm = get_comm(u)
 info = MPI.Info()
 
 h5open("filename.h5", "w", "fapl_mpio", (comm, info)) do ff
     ff["u", chunks=true] = u
+    ff["uv"] = (u, v)  # this is a PencilArrayCollection
 end
 ```
 
 """
-function Base.setindex!(g::HDF5FileOrGroup, x::PencilArray, name::String;
-                        chunks=true, collective=true)
-    dims_global = size_global(x, permute=true)
-
+function Base.setindex!(
+        g::HDF5FileOrGroup, x::MaybePencilArrayCollection, name::String;
+        chunks=true, collective=true,
+    )
     toclose = true  # property lists should be closed by the GC
 
     lcpl = HDF5._link_properties(name)  # this is the default in HDF5.jl
@@ -59,16 +65,35 @@ function Base.setindex!(g::HDF5FileOrGroup, x::PencilArray, name::String;
         HDF5.h5p_set_dxpl_mpio(dxpl, HDF5.H5FD_MPIO_COLLECTIVE)
     end
 
+    dims_global = h5_dataspace_dims(x)
+
     dset = d_create(
-        g, name, datatype(eltype(x)), dataspace(dims_global),
+        g, name, h5_datatype(x), dataspace(dims_global),
         lcpl, dcpl, dapl, dxpl,
     )
 
     inds = range_local(x, permute=true)
-    dset[inds...] = parent(x)  # this only makes sense if permute=true above
+    to_hdf5(dset, x, inds)
 
     x
 end
+
+to_hdf5(dset, x::PencilArray, inds) =
+    dset[inds...] = parent(x)
+
+function to_hdf5(dset, col::PencilArrayCollection, inds_in)
+    for I in CartesianIndices(collection_size(col))
+        inds = (inds_in..., Tuple(I)...)
+        to_hdf5(dset, col[I], inds)
+    end
+end
+
+h5_datatype(x::PencilArray) = datatype(eltype(x))
+h5_datatype(x::PencilArrayCollection) = h5_datatype(first(x))
+
+h5_dataspace_dims(x::PencilArray) = size_global(x, permute=true)
+h5_dataspace_dims(x::PencilArrayCollection) =
+    (h5_dataspace_dims(first(x))..., collection_size(x)...)
 
 function h5_chunk_size(x::PencilArray; permute=true)
     # Determine chunk size for writing to HDF5 dataset.
@@ -86,3 +111,6 @@ function h5_chunk_size(x::PencilArray; permute=true)
     @assert length(chunk) == N
     ntuple(d -> chunk[d], Val(N))
 end
+
+h5_chunk_size(x::PencilArrayCollection; kwargs...) =
+    (h5_chunk_size(first(x); kwargs...)..., collection_size(x)...)
