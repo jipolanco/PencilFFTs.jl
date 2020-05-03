@@ -32,33 +32,35 @@ Each timing is averaged over 100 repetitions.
 </div>
 ```
 
-The performance and scalability of PencilFFTs are similar to those displayed
-by P3DFFT.
-In general, P3DFFT has a small advantage over PencilFFTs, which is possibly
-explained because their local array reordering routines are better optimised.
-This difference is especially important for low process counts, where the
-relative cost of data reordering is higher.
-In the future we expect to close that performance gap.
-
-An important difference with P3DFFT is that PencilFFTs uses non-blocking
-point-to-point MPI communications by default (using `MPI_Isend` and
-`MPI_Irecv`), while P3DFFT uses global `MPI_Alltoallv` calls.
+The performance and scalability of PencilFFTs are similar to those displayed by
+P3DFFT, slightly outperforming the latter in most cases.
+An important difference between the two libraries, is that PencilFFTs uses
+non-blocking
+point-to-point MPI communications by default (using
+[`MPI_Isend`](https://www.open-mpi.org/doc/current/man3/MPI_Isend.3.php) and
+[`MPI_Irecv`](https://www.open-mpi.org/doc/current/man3/MPI_Irecv.3.php)),
+while P3DFFT uses global
+[`MPI_Alltoallv`](https://www.open-mpi.org/doc/current/man3/MPI_Alltoallv.3.php)
+calls.
 This enables us to perform data reordering operations on the partially received
 data while we wait for the incoming data.
 This can lead to better performance especially when running on a large number
 of processes, in which case the cost of MPI communications is largely dominant.
+And unlike P3DFFT, the high performance of PencilFFTs comes with a highly
+generic code, handling decompositions in arbitrary dimensions and a relatively
+large (and extensible) variety of transformations.
 
 Note that PencilFFTs can optionally use `MPI_Alltoallv` instead of
 point-to-point communications (see the docs for [`PencilFFTPlan`](@ref) and
-[`transpose!`](@ref)).
+[`transpose!`](@ref Transpositions.transpose!)).
 We have verified that the implementation with `MPI_Isend` and `MPI_Irecv` generally
 outperforms the one based on `MPI_Alltoallv`.
 Observed performance gains can be of the order of 10%.
 
 ### Benchmark details
 
-The benchmarks were performed using Julia 1.3.1 and Intel MPI 2019.0.4.
-We used PencilFFTs v0.2.0 with FFTW.jl v1.2.0 and MPI.jl v0.11.0.
+The benchmarks were performed using Julia 1.4.1 and Intel MPI 2019.0.4.
+We used PencilFFTs v0.6.0 with FFTW.jl v1.2.1 and MPI.jl v0.13.1.
 We used the Fortran implementation of P3DFFT, version 2.7.6,
 which was built with Intel 2019 compilers and linked to FFTW 3.3.8.
 The cluster where the benchmarks were run has Intel Cascade Lake 6248
