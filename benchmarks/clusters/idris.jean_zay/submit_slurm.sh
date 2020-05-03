@@ -32,7 +32,7 @@ else
 fi
 
 outfile_jl="results/PencilFFTs_N${resolution}_${mpi_label}.dat"
-outfile_p3d="results/P3DFFT3_N${resolution}_${mpi_label}.dat"
+outfile_p3d="results/P3DFFT2_N${resolution}_${mpi_label}.dat"
 
 # Compile p3dfft
 export CC=icc
@@ -67,17 +67,10 @@ for n in $procs; do
 
 module list
 
-# Build MPI.jl with selected MPI implementation.
-julia -e 'using Pkg; Pkg.build("MPI"); using MPI; println("MPI: ", MPI.libmpi)' || exit 32
-
-# https://discourse.julialang.org/t/precompilation-error-using-hpc/17094
-# https://discourse.julialang.org/t/run-a-julia-application-at-large-scale-on-thousands-of-nodes/23873
-
-# Force precompilation of Julia modules in serial mode, to workaround some of
-# the issues described in the links above.
-# echo "Precompiling Julia modules..."
-# julia -O3 -Cnative --check-bounds=no --project \
-#     ../../benchmarks.jl -N 8 -r 2 > /dev/null || exit 2
+# Force precompilation of Julia packages in serial mode, to avoid race conditions.
+julia -O3 -Cnative --project -e \
+    'using Pkg; pkg"instantiate"; pkg"build"; pkg"precompile";
+     using MPI; println("MPI: ", MPI.identify_implementation());'
 
 # 1. Run PencilFFTs benchmark
 srun julia -O3 -Cnative --check-bounds=no --compiled-modules=no --project \
