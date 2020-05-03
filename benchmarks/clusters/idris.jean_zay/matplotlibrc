@@ -198,7 +198,7 @@ markers.fillstyle: none ## full|left|right|bottom|top|none
 font.family         : sans-serif
 font.style          : normal
 #font.variant        : normal
-font.weight         : medium
+font.weight         : 300
 #font.stretch        : normal
 ## note that font.size controls default text sizes.  To configure
 ## special text sizes tick labels, axes, labels, title, etc, see the rc
@@ -209,7 +209,7 @@ font.size           : 12.0
 #font.serif          : DejaVu Serif, Bitstream Vera Serif, Computer Modern Roman, New Century Schoolbook, Century Schoolbook L, Utopia, ITC Bookman, Bookman, Nimbus Roman No9 L, Times New Roman, Times, Palatino, Charter, serif
 #font.sans-serif     : DejaVu Sans, Bitstream Vera Sans, Computer Modern Sans Serif, Lucida Grande, Verdana, Geneva, Lucid, Arial, Helvetica, Avant Garde, sans-serif
 font.serif           : TeX Gyre Pagella, Latin Modern Roman, CMU Serif, Times, TeX Gyre Termes, Times New Roman
-font.sans-serif      : Lato, Fira Sans, TeX Gyre Heros, DejaVu Sans, Bitstream Vera Sans, Lucida Grande, Verdana, Geneva, Lucid, Arial, Helvetica, Avant Garde, sans-serif
+font.sans-serif      : Fira Sans, Lato, TeX Gyre Heros, DejaVu Sans, Bitstream Vera Sans, Lucida Grande, Verdana, Geneva, Lucid, Arial, Helvetica, Avant Garde, sans-serif
 font.cursive         : TeX Gyre Chorus, cursive
 #font.cursive        : Apple Chancery, Textile, Zapf Chancery, Sand, Script MT, Felipa, cursive
 #font.fantasy        : Comic Sans MS, Chicago, Charcoal, ImpactWestern, Humor Sans, xkcd, fantasy
@@ -302,11 +302,11 @@ mathtext.fallback_to_cm : False  ## When True, use symbols from the Computer Mod
 #axes.grid.axis      : both    ## which axis the grid should apply to
 #axes.grid.which     : major   ## gridlines at major, minor or both ticks
 #axes.titlesize      : large   ## fontsize of the axes title
-axes.titleweight    : medium  ## font weight of title
+axes.titleweight    : 300  ## font weight of title
 #axes.titlepad       : 6.0     ## pad between axes and title in points
 #axes.labelsize      : medium  ## fontsize of the x any y labels
 axes.labelpad       : 8.0     ## space between label and axis
-axes.labelweight    : medium  ## weight of the x and y labels
+axes.labelweight    : 300  ## weight of the x and y labels
 #axes.labelcolor     : black
 #axes.axisbelow      : line    ## draw axis gridlines and ticks below
                                ## patches (True); above patches but below
@@ -443,7 +443,7 @@ legend.borderpad     : 0.5      ## border whitespace
 #figure.titlesize : large      ## size of the figure title (Figure.suptitle())
 #figure.titleweight : normal   ## weight of the figure title
 figure.figsize   : 6.0, 4.0   ## figure size in inches
-#figure.dpi       : 100        ## figure dots per inch
+figure.dpi       : 200        ## figure dots per inch
 #figure.facecolor : white      ## figure facecolor
 #figure.edgecolor : white      ## figure edgecolor
 #figure.frameon : True         ## enable figure frame
