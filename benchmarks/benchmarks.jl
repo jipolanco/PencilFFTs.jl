@@ -32,6 +32,22 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 const SEPARATOR = string("\n", "*"^80)
 
+const RESULTS_HEADER =
+    """# The last four columns show the times in milliseconds using 2×2 combinations
+    # of parameters.
+    #
+    # The first letter indicates whether dimension permutations are performed:
+    #
+    #     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
+    #     N = no permutations
+    #
+    # The second letter indicates the MPI transposition method:
+    #
+    #     I = Isend/Irecv (default)
+    #     A = Alltoallv
+    #
+    """
+
 function parse_commandline()
     s = ArgParseSettings()
 
@@ -53,7 +69,14 @@ function parse_commandline()
             default = nothing
     end
 
-    parse_args(s)
+    args = parse_args(s)
+
+    (
+        dims = parse_dimensions(args["dimensions"]) :: Dims{3},
+        iterations = args["repetitions"] :: Int,
+        full_benchmarks = Val(args["full"] :: Bool),
+        outfile = args["output"] :: Union{Nothing,String},
+    )
 end
 
 # Slab decomposition
@@ -319,18 +342,21 @@ function parse_dimensions(arg::String) :: Dims{3}
     end
 end
 
-function main()
-    MPI.Init()
+permute_to_index(::Val{true}) = 1
+permute_to_index(::Val{false}) = 2
 
-    args = parse_commandline()
-    dims = parse_dimensions(args["dimensions"])
-    iterations = args["repetitions"] :: Int
-    full_benchmarks = args["full"] :: Bool
-    outfile = args["output"] :: Union{Nothing,String}
+method_to_index(::Transpositions.IsendIrecv) = 1
+method_to_index(::Transpositions.Alltoallv) = 2
 
+function run_benchmarks(params)
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
     myrank = MPI.Comm_rank(comm)
+
+    dims = params.dims
+    iterations = params.iterations
+    full_benchmarks = params.full_benchmarks === Val(true)
+    outfile = params.outfile
 
     if myrank == 0
         @info "Global dimensions: $dims"
@@ -362,62 +388,36 @@ function main()
 
     timings = zeros(2, 2)
 
-    kwargs = (:iterations => iterations, )
-
-    for pdims in pdims_list,
-            edims in extra_dims,
-            method in transpose_methods,
-            permute in permutes
+    map(Iterators.product(
+            pdims_list,
+            extra_dims,
+            transpose_methods,
+            permutes)
+    ) do (pdims, edims, method, permute)
         t_ms = benchmark_rfft(comm, pdims, dims; extra_dims=edims,
                               permute_dims=permute, transpose_method=method,
-                              kwargs...)
-        i = Int(permute === Val(false)) + 1  # 1/2 <-> with/without permutation
-        j = Int(method === Transpositions.Alltoallv()) + 1  # 1/2 <-> IsendIrecv/Alltoallv
+                              iterations=iterations)
+        i = permute_to_index(permute)
+        j = method_to_index(method)
         timings[i, j] = t_ms
     end
 
     columns = (
-        ("(1) Nx",          dims[1]),
-        ("(2) Ny",          dims[2]),
-        ("(3) Nz",          dims[3]),
-        ("(4) num_procs",   Nproc),
-        ("(5) P1",          proc_dims[1]),
-        ("(6) P2",          proc_dims[2]),
-        ("(7) repetitions", iterations),
-        ("(8) PI", timings[1, 1]),
-        ("(9) PA",  timings[1, 2]),
-        ("(10) NI", timings[2, 1]),
-        ("(11) NA", timings[2, 2]),
+        "(1) Nx" => dims[1],
+        "(2) Ny" => dims[2],
+        "(3) Nz" => dims[3],
+        "(4) num_procs" => Nproc,
+        "(5) P1" => proc_dims[1],
+        "(6) P2" => proc_dims[2],
+        "(7) repetitions" => iterations,
+        "(8) PI" => timings[1, 1],
+        "(9) PA" => timings[1, 2],
+        "(10) NI" => timings[2, 1],
+        "(11) NA" => timings[2, 2],
     )
 
-    header =
-    """# The last four columns show the times in milliseconds using 2×2 combinations
-    # of parameters.
-    #
-    # The first letter indicates whether dimension permutations are performed:
-    #
-    #     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
-    #     N = no permutations
-    #
-    # The second letter indicates the MPI transposition method:
-    #
-    #     I = Isend/Irecv (default)
-    #     A = Alltoallv
-    #
-    """
-
-    if !full_benchmarks && outfile !== nothing && myrank == 0
-        @info "Writing to $outfile"
-        newfile = !isfile(outfile)
-        open(outfile, "a") do io
-            if newfile
-                print(io, header, "#")
-                map(x -> print(io, "  ", x[1]), columns)
-                println(io)
-            end
-            map(x -> print(io, "  ", x[2]), columns)
-            println(io)
-        end
+    if !full_benchmarks && myrank == 0
+        write_results(outfile, columns)
     end
 
     if full_benchmarks
@@ -428,6 +428,30 @@ function main()
                           with_permutations=Val(false), kwargs...)
     end
 
+    nothing
+end
+
+write_results(::Nothing, etc...) = nothing
+
+function write_results(outfile, columns)
+    @info "Writing to $outfile"
+    newfile = !isfile(outfile)
+    open(outfile, "a") do io
+        if newfile
+            print(io, RESULTS_HEADER, "#")
+            map(x -> print(io, "  ", x[1]), columns)
+            println(io)
+        end
+        map(x -> print(io, "  ", x[2]), columns)
+        println(io)
+    end
+    nothing
+end
+
+function main()
+    MPI.Init()
+    params = parse_commandline()
+    run_benchmarks(params)
     MPI.Finalize()
 end
 
