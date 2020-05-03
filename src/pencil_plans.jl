@@ -68,14 +68,8 @@ along each dimension.
 
 - `extra_dims` may be used to specify the sizes of one or more extra dimensions
   that should not be transformed. These dimensions will be added to the rightmost
-  (i.e. slowest) indices of the arrays.
-
-  **NOTE:** One possible application of `extra_dims` is for describing the
-  components of a vector or tensor field. However, this means that different
-  `PencilFFTPlan`s would need to be created for each kind of field (scalar,
-  vector, ...). To avoid the creation of multiple plans, a better alternative
-  is to create tuples or arrays of `PencilArray`s using [`allocate_input`](@ref)
-  and [`allocate_output`](@ref).
+  (i.e. slowest) indices of the arrays. See **Extra dimensions** below for usage
+  hints.
 
 - The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
   `FFTW` plan creation functions (see [`AbstractFFTs`
@@ -94,6 +88,19 @@ along each dimension.
 
 - `timer` should be a `TimerOutput` object.
   See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
+
+# Extra dimensions
+
+One possible application of `extra_dims` is for describing the components of a
+vector or tensor field. However, this means that different `PencilFFTPlan`s
+would need to be created for each kind of field (scalar, vector, ...).
+To avoid the creation of multiple plans, a possibly better alternative is to
+create tuples (or arrays) of `PencilArray`s using [`allocate_input`](@ref) and
+[`allocate_output`](@ref).
+
+Another more legitimate usage of `extra_dims` is to specify one or more
+Cartesian dimensions that should not be transformed nor split among MPI
+processes.
 
 # Example
 
