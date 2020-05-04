@@ -1,6 +1,56 @@
 using .HDF5
 
+export phdf5_open
+
 const HDF5FileOrGroup = Union{HDF5.HDF5File, HDF5.HDF5Group}
+
+function mpi_to_h5_handle(obj::Union{MPI.Comm, MPI.Info})
+    cobj = obj.val
+    csize = sizeof(cobj)
+    @assert csize in (4, 8)
+    H5handle = csize === 4 ? HDF5.Hmpih32 : HDF5.Hmpih64
+    reinterpret(H5handle, cobj)
+end
+
+"""
+    phdf5_open(
+        [f::Function], filename, [mode="r"],
+        comm::MPI.Comm, [info::MPI.Info=MPI.Info()],
+        property_lists...
+    ) -> HDF5.File
+
+Open parallel HDF5 file.
+
+This function is a thin wrapper over `HDF5.h5open`.
+It converts MPI.jl types (`MPI.Comm` and `MPI.Info`) to their counterparts in
+HDF5.jl.
+
+This function automatically sets the
+[`fapl_mpio`](https://portal.hdfgroup.org/display/HDF5/H5P_SET_FAPL_MPIO) file
+access property list to the given MPI communicator and info object.
+Other property lists should be given as string-value pairs, following the
+`h5open` syntax.
+"""
+function phdf5_open(
+        filename::AbstractString, mode::AbstractString,
+        comm::MPI.Comm, info::MPI.Info = MPI.Info(),
+        plist_pairs...,
+    )
+    fapl_mpio = mpi_to_h5_handle.((comm, info))
+    h5open(filename, mode, "fapl_mpio", fapl_mpio, plist_pairs...)
+end
+
+phdf5_open(filename::AbstractString, comm::MPI.Comm, args...; kwargs...) =
+    phdf5_open(filename, "r", comm, args...; kwargs...)
+
+function phdf5_open(f::Function, args...; kwargs...)
+    fid = phdf5_open(args...; kwargs...)
+    try
+        f(fid)
+    finally
+        close(fid)
+    end
+end
 
 """
     setindex!(
@@ -99,17 +149,17 @@ function check_phdf5_file(g, x)
     end
 
     comm, info = HDF5.h5p_get_fapl_mpio(plist)
-    if MPI.Comm_compare(comm, get_comm(x)) ∉ (MPI.IDENT, MPI.CONGRUENT)
-        throw(ArgumentError(
-            "incompatible MPI communicators of HDF5 file and PencilArray"
-        ))
+    if isdefined(MPI, :Comm_compare)  # requires recent MPI.jl
+        if MPI.Comm_compare(comm, get_comm(x)) ∉ (MPI.IDENT, MPI.CONGRUENT)
+            throw(ArgumentError(
+                "incompatible MPI communicators of HDF5 file and PencilArray"
+            ))
+        end
     end
 
     close(plist)
     nothing
 end
-
-# get_driver()
 
 to_hdf5(dset, x::PencilArray, inds) =
     dset[inds...] = parent(x)

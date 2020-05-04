@@ -286,6 +286,7 @@ libraries with parallel support.
 ### Functions
 
 ```@docs
+phdf5_open
 setindex!(::HDF5FileOrGroup, ::MaybePencilArrayCollection, ::String)
 ```
 

@@ -28,7 +28,7 @@ function test_write(u::PencilArray)
         @test_throws ErrorException ff["scalar"] = u
     end
 
-    @test_nowarn h5open(FILENAME_H5, "w", "fapl_mpio", (comm, info)) do ff
+    @test_nowarn phdf5_open(FILENAME_H5, "w", comm, info) do ff
         @test isopen(ff)
         @test_nowarn ff["scalar", collective=true, chunks=false] = u
         @test_nowarn ff["vector_tuple", collective=false, chunks=true] = (u, v, w)
@@ -38,7 +38,7 @@ function test_write(u::PencilArray)
     # TODO
     # - read back data
     # - check that components (u, v, w) are written as expected
-    @test_nowarn h5open(FILENAME_H5, "r", "fapl_mpio", (comm, info)) do ff
+    @test_nowarn phdf5_open(FILENAME_H5, "r", comm, info) do ff
         @test isopen(ff)
     end
 
@@ -73,6 +73,7 @@ function main()
         test_write(u)
     end
 
+    GC.gc()  # workaround https://github.com/JuliaIO/HDF5.jl/issues/620
     HDF5.h5_close()
     MPI.Finalize()
 end
