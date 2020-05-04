@@ -1,15 +1,41 @@
 using .HDF5
+import Libdl
 
 export phdf5_open
 
 const HDF5FileOrGroup = Union{HDF5.HDF5File, HDF5.HDF5Group}
 
-function mpi_to_h5_handle(obj::Union{MPI.Comm, MPI.Info})
-    cobj = obj.val
-    csize = sizeof(cobj)
+const H5MPIHandle = let csize = sizeof(MPI.MPI_Comm)
     @assert csize in (4, 8)
-    H5handle = csize === 4 ? HDF5.Hmpih32 : HDF5.Hmpih64
-    reinterpret(H5handle, cobj)
+    csize === 4 ? HDF5.Hmpih32 : HDF5.Hmpih64
+end
+
+mpi_to_h5_handle(obj::Union{MPI.Comm, MPI.Info}) =
+    reinterpret(H5MPIHandle, obj.val)
+
+function h5_to_mpi_handle(
+        ::Type{T}, h::H5MPIHandle) where {T <: Union{MPI.Comm, MPI.Info}}
+    T(reinterpret(MPI.MPI_Comm, h))
+end
+
+"""
+    hdf5_has_parallel() -> Bool
+
+Returns `true` if the loaded HDF5 libraries support MPI I/O.
+"""
+function hdf5_has_parallel()
+    Libdl.dlopen(HDF5.libhdf5) do lib
+        Libdl.dlsym(lib, :H5Pget_fapl_mpio, throw_error=false) !== nothing
+    end
+end
+
+function check_hdf5_parallel()
+    hdf5_has_parallel() && return
+    error(
+        "HDF5.jl has no parallel support." *
+        " Make sure that you're using MPI-enabled HDF5 libraries, and that" *
+        " MPI was loaded before HDF5."
+    )
 end
 
 """
@@ -36,6 +62,7 @@ function phdf5_open(
         comm::MPI.Comm, info::MPI.Info = MPI.Info(),
         plist_pairs...,
     )
+    check_hdf5_parallel()
     fapl_mpio = mpi_to_h5_handle.((comm, info))
     h5open(filename, mode, "fapl_mpio", fapl_mpio, plist_pairs...)
 end
@@ -130,13 +157,7 @@ function Base.setindex!(
 end
 
 function check_phdf5_file(g, x)
-    if !HDF5.has_parallel()
-        error(
-            "HDF5.jl has no parallel support." *
-            " Make sure that you're using MPI-enabled HDF5 libraries, and that" *
-            " MPI was loaded before HDF5."
-        )
-    end
+    check_hdf5_parallel()
 
     plist_id = HDF5.h5f_get_access_plist(file(g))
     plist = HDF5Properties(plist_id, true, HDF5.H5P_FILE_ACCESS)
@@ -148,7 +169,7 @@ function check_phdf5_file(g, x)
         error("HDF5 file was not opened with the MPIO driver")
     end
 
-    comm, info = HDF5.h5p_get_fapl_mpio(plist)
+    comm, info = _h5p_get_fapl_mpio(plist)
     if isdefined(MPI, :Comm_compare)  # requires recent MPI.jl
         if MPI.Comm_compare(comm, get_comm(x)) ∉ (MPI.IDENT, MPI.CONGRUENT)
             throw(ArgumentError(
@@ -197,3 +218,10 @@ end
 
 h5_chunk_size(x::PencilArrayCollection; kwargs...) =
     (h5_chunk_size(first(x); kwargs...)..., collection_size(x)...)
+
+function _h5p_get_fapl_mpio(fapl_id)
+    h5comm, h5info = HDF5.h5p_get_fapl_mpio(fapl_id, H5MPIHandle)
+    comm = h5_to_mpi_handle(MPI.Comm, h5comm)
+    info = h5_to_mpi_handle(MPI.Info, h5info)
+    comm, info
+end

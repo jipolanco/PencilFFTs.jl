@@ -5,6 +5,11 @@ using MPI
 using HDF5
 using PencilFFTs.PencilArrays
 
+if !PencilArrays.hdf5_has_parallel()
+    @warn "HDF5 has no parallel support. Skipping HDF5 tests."
+    exit(0)
+end
+
 using Random
 using Test
 
