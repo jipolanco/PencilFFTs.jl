@@ -16,11 +16,10 @@ using Test
 include("include/MPITools.jl")
 using .MPITools
 
-const FILENAME_H5 = "fields.h5"
-
-function test_write(u::PencilArray)
+function test_write(filename, u::PencilArray)
     comm = get_comm(u)
     info = MPI.Info()
+    rank = MPI.Comm_rank(comm)
 
     v = copy(u)
     w = copy(u)
@@ -28,12 +27,16 @@ function test_write(u::PencilArray)
     w .+= 2
 
     # Open file in serial mode first.
-    h5open(FILENAME_H5, "w") do ff
-        # "HDF5 file was not opened with the MPIO driver"
-        @test_throws ErrorException ff["scalar"] = u
+    if rank == 0
+        h5open(filename, "w") do ff
+            # "HDF5 file was not opened with the MPIO driver"
+            @test_throws ErrorException ff["scalar"] = u
+        end
     end
 
-    @test_nowarn phdf5_open(FILENAME_H5, "w", comm, info) do ff
+    MPI.Barrier(comm)
+
+    @test_nowarn phdf5_open(filename, "w", comm, info) do ff
         @test isopen(ff)
         @test_nowarn ff["scalar", collective=true, chunks=false] = u
         @test_nowarn ff["vector_tuple", collective=false, chunks=true] = (u, v, w)
@@ -43,7 +46,7 @@ function test_write(u::PencilArray)
     # TODO
     # - read back data
     # - check that components (u, v, w) are written as expected
-    @test_nowarn phdf5_open(FILENAME_H5, "r", comm, info) do ff
+    @test_nowarn phdf5_open(filename, "r", comm, info) do ff
         @test isopen(ff)
     end
 
@@ -74,8 +77,10 @@ function main()
     randn!(rng, u)
     u .+= 10 * myrank
 
+    filename = MPI.bcast(tempname(), 0, comm)
+
     @testset "write HDF5" begin
-        test_write(u)
+        test_write(filename, u)
     end
 
     GC.gc()  # workaround https://github.com/JuliaIO/HDF5.jl/issues/620

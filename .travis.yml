@@ -14,6 +14,7 @@ env:
   global:
     - JULIA_MPI_BINARY=system
     # - JULIA_MPIEXEC_TEST_ARGS="--oversubscribe"  # useful for OpenMPI
+    - JULIA_HDF5_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/hdf5/mpich
 
 cache:
   directories:
@@ -21,12 +22,16 @@ cache:
     - $HOME/.julia/artifacts
 
 script:
-  - julia -e 'using InteractiveUtils;
-              versioninfo()'
   # Force precompilation of packages in serial mode.
   # Otherwise, if precompilation runs in parallel, there may be race
   # conditions...
+  # Also install and build HDF5.jl, and show version info.
   - julia --project=@. -e 'using Pkg;
+                           using InteractiveUtils;
+                           versioninfo();
+                           pkg"add HDF5";
+                           using HDF5;
+                           @show HDF5.libhdf5;
                            pkg"instantiate";
                            pkg"precompile";
                            using MPI;
@@ -48,7 +53,7 @@ jobs:
 
 # https://docs.travis-ci.com/user/installing-dependencies/
 before_install:
-  - sudo apt-get -y install mpich libmpich-dev
+  - sudo apt-get -y install mpich libmpich-dev libhdf5-mpich-dev
 
 after_success:
   - if [[ $TRAVIS_JULIA_VERSION == 1.4 ]]; then
