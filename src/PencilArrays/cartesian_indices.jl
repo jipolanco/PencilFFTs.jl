@@ -57,8 +57,9 @@ end
 
 # We make CartesianIndices(::PencilArray) return a PermutedCartesianIndices,
 # which loops faster (in memory order) when there are index permutations.
-struct PermutedCartesianIndices{N, C <: CartesianIndices{N}, Iperm,
-                                Offsets}
+struct PermutedCartesianIndices{
+        N, C <: CartesianIndices{N}, Iperm,
+        Offsets} <: AbstractArray{CartesianIndex{N}, N}
     data  :: C  # indices in permuted order
     iperm :: Iperm  # inverse permutation
     offsets :: Offsets
