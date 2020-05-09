@@ -9,9 +9,10 @@
 
 # We make LinearIndices(::PencilArray) return a PermutedLinearIndices, which
 # takes index permutation into account.
-struct PermutedLinearIndices{N, L <: LinearIndices, Perm,
-                             Offsets <: Union{Nothing, Dims{N}},
-                            }
+struct PermutedLinearIndices{
+        N, L <: LinearIndices, Perm,
+        Offsets <: Union{Nothing, Dims{N}},
+    } <: AbstractVector{Int}
     data :: L  # indices in permuted order
     perm :: Perm
     offsets :: Offsets
@@ -24,6 +25,7 @@ struct PermutedLinearIndices{N, L <: LinearIndices, Perm,
 end
 
 Base.length(L::PermutedLinearIndices) = length(L.data)
+Base.size(L::PermutedLinearIndices) = (length(L), )
 Base.iterate(L::PermutedLinearIndices, args...) = iterate(L.data, args...)
 Base.lastindex(L::PermutedLinearIndices) = lastindex(L.data)
 
@@ -31,14 +33,17 @@ Base.lastindex(L::PermutedLinearIndices) = lastindex(L.data)
 @inline _apply_offset(I::CartesianIndex{N}, off::Dims{N}) where {N} =
     CartesianIndex(Tuple(I) .- off)
 
-@inline @propagate_inbounds Base.getindex(L::PermutedLinearIndices,
-                                          i::Integer) = L.data[i]
+@inline function Base.getindex(L::PermutedLinearIndices, i::Integer)
+    @boundscheck checkbounds(L.data, i)
+    @inbounds L.data[i]
+end
 
-@inline @propagate_inbounds function Base.getindex(
+@inline function Base.getindex(
         L::PermutedLinearIndices{N}, I::CartesianIndex{N}) where {N}
     Ioff = _apply_offset(I, L.offsets)
     J = permute_indices(Ioff, L.perm)
-    L.data[J]
+    @boundscheck checkbounds(L.data, J)
+    @inbounds L.data[J]
 end
 
 Base.LinearIndices(A::PencilArray) =
@@ -78,9 +83,10 @@ end
 
 # Get i-th Cartesian index in memory (permuted) order.
 # Returns the Cartesian index in logical (unpermuted) order.
-@inline @propagate_inbounds function Base.getindex(
+@inline function Base.getindex(
         C::PermutedCartesianIndices, i::Integer)
-    I = C.data[i]  # convert linear to Cartesian index (relatively slow...)
+    @boundscheck checkbounds(C.data, i)
+    @inbounds I = C.data[i]  # convert linear to Cartesian index (relatively slow...)
     J = permute_indices(I, C.iperm)  # unpermute indices
     Joff = _apply_offset(J, C.offsets)
     Joff
