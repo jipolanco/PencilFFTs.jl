@@ -3,10 +3,16 @@ language: julia
 os:
   - linux
 
+dist: bionic
+
 julia:
   - 1.3
   - 1.4
   - nightly
+
+env:
+  global:
+    - JULIA_MPI_BINARY=system
 
 cache:
   directories:
@@ -14,15 +20,16 @@ cache:
     - $HOME/.julia/artifacts
 
 script:
-  - mpichversion
   - julia -e 'using InteractiveUtils;
               versioninfo()'
   # Force precompilation of packages in serial mode.
   # Otherwise, if precompilation runs in parallel, there may be race
   # conditions...
-  - julia --project=@. -e 'import Pkg;
-                           Pkg.instantiate();
-                           using PencilFFTs'
+  - julia --project=@. -e 'using Pkg;
+                           pkg"instantiate";
+                           pkg"precompile";
+                           using MPI;
+                           println("\n", MPI.MPI_LIBRARY_VERSION_STRING);'
   - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(coverage=true)'
 
 jobs:
