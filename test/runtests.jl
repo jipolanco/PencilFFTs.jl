@@ -2,7 +2,7 @@
 
 # This is based on the runtests.jl file of MPI.jl.
 
-import MPI: mpiexec_path
+using MPI: mpiexec
 
 const TEST_FILES = [
     "taylor_green.jl",
@@ -39,7 +39,9 @@ function main()
 
     for fname in files
         @info "Running $fname with $Nproc processes..."
-        run(`$mpiexec_path -n $Nproc $julia_exec $julia_args $fname`)
+        mpiexec() do cmd
+            run(`$cmd -n $Nproc $julia_exec $julia_args $fname`)
+        end
         println()
     end
 
