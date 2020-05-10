@@ -216,7 +216,7 @@ rng = axes(θ_glob)  # = (i1:i2, j1:j2, k1:k2)
 # it is usually in Julia.
 # If the permutation is not (3, 2, 1), things will still work (well, except for
 # the assertion below!), but the loop order will not be optimal.
-@assert get_permutation(θ_hat) === Val((3, 2, 1))
+@assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
 @inbounds for i in rng[1], j in rng[2], k in rng[3]
     kx = kvec[1][i]

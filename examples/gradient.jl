@@ -90,7 +90,7 @@ function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
 
     # Note: since the dimensions in Fourier space are permuted as (z, y, x), it
     # is faster to loop with `k` as the fastest index.
-    @assert get_permutation(θ_hat) === Val((3, 2, 1))
+    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
     @inbounds for i in rng[1], j in rng[2], k in rng[3]
         # Wave number vector associated to current Cartesian index.
@@ -167,7 +167,7 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
     # indices in the Fourier-transformed arrays. By default, the memory order in
     # Fourier space is (z, y, x) instead of (x, y, z), but this is never assumed
     # below. The wave numbers must be permuted accordingly.
-    perm = get_permutation(θ_hat)  # e.g. Val((3, 2, 1))
+    perm = get_permutation(θ_hat)  # e.g. Permutation(3, 2, 1)
     kvec_perm = PA.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
 
     # Create wave number iterator.
@@ -199,7 +199,7 @@ end
 # It's basically the same but probably easier to understand.
 function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
                                          θ_hat::PencilArray, kvec_local)
-    @assert get_permutation(θ_hat) === Val((3, 2, 1))
+    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
     # Create wave number iterator in (kz, ky, kx) order, i.e. in the same order
     # as the array data.

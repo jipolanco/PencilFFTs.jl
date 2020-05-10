@@ -83,8 +83,8 @@ end
 function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true};
                         kwargs...)
     pen1 = Pencil(topo, data_dims, (2, ); kwargs...)
-    pen2 = Pencil(pen1, decomp_dims=(3, ), permute=Val((2, 1, 3)); kwargs...)
-    pen3 = Pencil(pen2, decomp_dims=(2, ), permute=Val((3, 2, 1)); kwargs...)
+    pen2 = Pencil(pen1, decomp_dims=(3, ), permute=Permutation(2, 1, 3); kwargs...)
+    pen3 = Pencil(pen2, decomp_dims=(2, ), permute=Permutation(3, 2, 1); kwargs...)
     pen1, pen2, pen3
 end
 
@@ -100,8 +100,8 @@ end
 function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{true};
                         kwargs...)
     pen1 = Pencil(topo, data_dims, (2, 3); kwargs...)
-    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Val((2, 1, 3)); kwargs...)
-    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Val((3, 2, 1)); kwargs...)
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Permutation(2, 1, 3); kwargs...)
+    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Permutation(3, 2, 1); kwargs...)
     pen1, pen2, pen3
 end
 

@@ -123,22 +123,23 @@ which corresponds to the permutation `(2, 3, 1)`.
 
 Permutations are passed to the `Pencil` constructor via the `permute` keyword
 argument.
-For performance reasons, in the `PencilArrays` module, dimension permutations are
-compile-time constants, and thus permutations should be specified as [value
-types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)
-wrapping a tuple.
+For performance reasons, dimension permutations are compile-time constants, and
+they should be specified using the [`Permutation`](@ref) type defined in
+`PencilArrays`.
 For instance,
 ```julia
-permutation = Val((2, 3, 1))
+permutation = Permutation(2, 3, 1)
 pencil = Pencil(#= ... =#, permute=permutation)
 ```
-One can also pass `nothing` as a permutation, which disables permutations (this
-is the default).
+One can also pass [`NoPermutation`](@ref) as a permutation, which disables
+permutations (this is the default).
 
 ### Types
 
 ```@docs
 Pencil
+Permutation
+NoPermutation
 ```
 
 ### Methods
