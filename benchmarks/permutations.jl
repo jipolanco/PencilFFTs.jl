@@ -38,18 +38,18 @@ function main()
     dst_view_dims = length.(dst_range)
     dst_view = view(dst, dst_range...)
 
-    bench_permutation(dst_view, Val((1, 2, 3)))
-    bench_permutation(dst_view, Val((1, 3, 2)))
+    bench_permutation(dst_view, Permutation(1, 2, 3))
+    bench_permutation(dst_view, Permutation(1, 3, 2))
 
-    bench_permutation(dst_view, Val((2, 1, 3)))
-    bench_permutation(dst_view, Val((2, 3, 1)))
+    bench_permutation(dst_view, Permutation(2, 1, 3))
+    bench_permutation(dst_view, Permutation(2, 3, 1))
 
-    bench_permutation(dst_view, Val((3, 1, 2)))
-    bench_permutation(dst_view, Val((3, 2, 1)))
+    bench_permutation(dst_view, Permutation(3, 1, 2))
+    bench_permutation(dst_view, Permutation(3, 2, 1))
 end
 
 function bench_permutation(dst::AbstractArray{T,N},
-                           pval::Val{perm}) where {T,N,perm}
+                           pval::Permutation{perm}) where {T,N,perm}
     iperm = invperm(perm)
     Ndst = length(dst)
     src_vec = zeros(T, 2Ndst)
