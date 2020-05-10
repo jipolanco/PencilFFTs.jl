@@ -10,7 +10,7 @@ The `Pencil` describes the decomposition of arrays of element type `T`.
 
     Pencil(topology::MPITopology{M}, size_global::Dims{N},
            decomp_dims::Dims{M}, [element_type=Float64];
-           permute::Union{Nothing, Val}=nothing,
+           permute::Permutation=NoPermutation(),
            timer=TimerOutput())
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
@@ -36,7 +36,7 @@ Decompose a 3D geometry of global dimensions ``N_x × N_y × N_z = 4×8×12`` al
 the second (``y``) and third (``z``) dimensions.
 ```julia
 Pencil(topology, (4, 8, 12), (2, 3))                          # data is in (x, y, z) order
-Pencil(topology, (4, 8, 12), (2, 3), permute=Val((3, 2, 1)))  # data is in (z, y, x) order
+Pencil(topology, (4, 8, 12), (2, 3), permute=Permutation(3, 2, 1))  # data is in (z, y, x) order
 ```
 In the second case, the actual data is stored in `(z, y, x)` order within
 each MPI process.
@@ -57,7 +57,7 @@ configurations, leading to reduced global memory usage.
 struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
               T <: Number,  # element type (e.g. Float64, Complex{Float64})
-              P,  # optional index permutation (Nothing or Val{permutation})
+              P,  # optional index permutation (see Permutation)
              }
     # M-dimensional MPI decomposition info (with M < N).
     topology :: MPITopology{M}
@@ -92,7 +92,7 @@ struct Pencil{N,  # spatial dimensions
 
     function Pencil(topology::MPITopology{M}, size_global::Dims{N},
                     decomp_dims::Dims{M}, ::Type{T}=Float64;
-                    permute::Union{Nothing, Val}=nothing,
+                    permute::Permutation=NoPermutation(),
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
                    ) where {N, M, T<:Number}
@@ -142,13 +142,12 @@ end
 
 function Base.show(io::IO, p::Pencil)
     perm = get_permutation(p)
-    perm_str = perm === nothing ? "None" : string(extract(perm))
     print(io,
           """
           Decomposition of $(ndims(p))D data
               Data dimensions: $(size_global(p)) [$(eltype(p))]
               Decomposed dimensions: $(get_decomposition(p))
-              Data permutation: $(perm_str)""")
+              Data permutation: $(perm)""")
 end
 
 """
