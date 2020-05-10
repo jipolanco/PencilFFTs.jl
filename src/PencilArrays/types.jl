@@ -52,5 +52,5 @@ This alias can be called as a constructor:
 """
 const NoPermutation = typeof(Permutation(nothing))
 
-Base.show(io::IO, ::NoPermutation) = print(io, "None")
-Base.show(io::IO, ::Permutation{p}) where {p} = print(io, p)
+Base.show(io::IO, ::NoPermutation) = print(io, "NoPermutation()")
+Base.show(io::IO, ::Permutation{p}) where {p} = print(io, "Permutation", p)

@@ -11,7 +11,6 @@ import ..PencilArrays:
     relative_permutation,
     inverse_permutation,
     permute_indices,
-    same_permutation,
     append_to_permutation,
     extract
 
@@ -138,7 +137,7 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
     ui = parent(in)
     uo = parent(out)
 
-    if same_permutation(get_permutation(Pi), get_permutation(Po))
+    if get_permutation(Pi) == get_permutation(Po)
         @timeit_debug timer "copy!" copy!(uo, ui)
     else
         @timeit_debug timer "permute_local!" permute_local!(out, in)

@@ -4,19 +4,14 @@
 # types (like `permutedims!`).
 extract(::Permutation{p}) where {p} = p
 
-Base.length(::Permutation{p,N}) where {p,N} = N
+Base.length(::Permutation{p}) where {p} = length(p)
 
 is_valid_permutation(::NoPermutation) = true
 is_valid_permutation(::Permutation{P}) where {P} = isperm(P)
-is_valid_permutation(::Any) = false
 
 function check_permutation(perm)
-    if !is_valid_permutation(perm)
-        s = perm isa Permutation ? "" :
-            ".\nHint: passing Permutation($perm) may fix this."
-        throw(ArgumentError("invalid permutation of dimensions: $perm$s"))
-    end
-    nothing
+    is_valid_permutation(perm) && return
+    throw(ArgumentError("invalid permutation of dimensions: $perm"))
 end
 
 # Permute tuple values.
@@ -73,10 +68,11 @@ function is_identity_permutation(perm::Permutation)
     perm === identity_permutation(Val(N))
 end
 
-same_permutation(::Permutation{p}, ::Permutation{q}) where {p, q} = p === q
-same_permutation(::NoPermutation, ::NoPermutation) = true
-same_permutation(p::Permutation, ::NoPermutation) =
-    p === identity_permutation(Val(length(p)))
+# Comparisons: (1, 2, ..., N) is considered equal to NoPermutation, for any N.
+Base.:(==)(::Permutation{p}, ::Permutation{q}) where {p, q} = p === q
+Base.:(==)(::NoPermutation, ::NoPermutation) = true
+Base.:(==)(p::Permutation, ::NoPermutation) = is_identity_permutation(p)
+Base.:(==)(np::NoPermutation, p::Permutation) = p == np
 
 # Append `M` non-permuted dimensions to the given permutation.
 # Example: append_to_permutation(Permutation((2, 3, 1)), Val(2)) =
