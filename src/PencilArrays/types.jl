@@ -47,8 +47,8 @@ Permutation(perm::Tuple) = Permutation(perm...)
 
 Alias for an identity permutation, i.e. `NoPermutation = Permutation{nothing}`.
 
-This alias can be called as a constructor.
-In other words, `NoPermutation()` creates a `Permutation{nothing}` as expected.
+This alias can be called as a constructor:
+`NoPermutation()` creates a `Permutation{nothing}`, as expected.
 """
 const NoPermutation = typeof(Permutation(nothing))
 
