@@ -334,7 +334,7 @@ get_comm(x::MaybePencilArrayCollection) = get_comm(pencil(x))
 
 Get index permutation associated to the given `PencilArray`.
 
-Returns `nothing` if there is no associated permutation.
+Returns `NoPermutation()` if there is no associated permutation.
 """
 function get_permutation(x::MaybePencilArrayCollection)
     perm = get_permutation(pencil(x))

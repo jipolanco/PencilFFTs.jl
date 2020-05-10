@@ -189,7 +189,7 @@ get_comm(p::Pencil) = get_comm(p.topology)
 
 Get index permutation associated to the given pencil configuration.
 
-Returns `nothing` if there is no associated permutation.
+Returns `NoPermutation()` if there is no associated permutation.
 """
 get_permutation(p::Pencil) = p.perm
 
