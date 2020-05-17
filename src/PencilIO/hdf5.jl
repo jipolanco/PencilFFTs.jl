@@ -52,12 +52,20 @@ HDF5.jl.
 It also throws an informative error if the loaded HDF5 libraries do not include
 parallel support.
 
+# Property lists
+
 This function automatically sets the
 [`fapl_mpio`](https://portal.hdfgroup.org/display/HDF5/H5P_SET_FAPL_MPIO) file
 access property list to the given MPI communicator and info object.
 Other property lists should be given as name-value pairs, following the
 [`h5open`
 syntax](https://github.com/JuliaIO/HDF5.jl/blob/master/doc/hdf5.md#passing-parameters).
+
+Property lists are passed to
+[`h5f_create`](https://portal.hdfgroup.org/display/HDF5/H5F_CREATE).
+The following property types are recognised:
+- [file creation properties](https://portal.hdfgroup.org/display/HDF5/File+Creation+Properties),
+- [file access properties](https://portal.hdfgroup.org/display/HDF5/File+Access+Properties).
 """
 function ph5open(
         filename::AbstractString, mode::AbstractString,
@@ -111,6 +119,17 @@ as a single component of a higher-dimension dataset.
   For instance, if the `"dxpl_mpio", HDF5.H5FD_MPIO_COLLECTIVE` pair is passed,
   then the value of the `collective` argument is ignored.
 
+# Property lists
+
+Property lists are passed to
+[`h5d_create`](https://portal.hdfgroup.org/display/HDF5/H5D_CREATE2)
+and [`h5d_write`](https://portal.hdfgroup.org/display/HDF5/H5D_WRITE).
+The following property types are recognised:
+- [link creation properties](https://portal.hdfgroup.org/display/HDF5/Attribute+and+Link+Creation+Properties),
+- [dataset creation properties](https://portal.hdfgroup.org/display/HDF5/Dataset+Creation+Properties),
+- [dataset access properties](https://portal.hdfgroup.org/display/HDF5/Dataset+Access+Properties),
+- [dataset transfer properties](https://portal.hdfgroup.org/display/HDF5/Dataset+Transfer+Properties).
+
 # Example
 
 Open a parallel HDF5 file and write some `PencilArray`s to the file:
@@ -157,10 +176,22 @@ function Base.setindex!(
 end
 
 """
-    read!(dset::HDF5Dataset, x::MaybePencilArrayCollection)
+    read!(g::Union{HDF5File,HDF5Group}, x::MaybePencilArrayCollection,
+          name::String, prop_lists...; collective=true)
 
 Read [`PencilArray`](@ref) or [`PencilArrayCollection`](@ref) from parallel HDF5
 file.
+
+See [`setindex!`](@ref) for details on optional arguments.
+
+# Property lists
+
+Property lists are passed to
+[`h5d_open`](https://portal.hdfgroup.org/display/HDF5/H5D_OPEN2)
+and [`h5d_read`](https://portal.hdfgroup.org/display/HDF5/H5D_READ).
+The following property types are recognised:
+- [dataset access properties](https://portal.hdfgroup.org/display/HDF5/Dataset+Access+Properties),
+- [dataset transfer properties](https://portal.hdfgroup.org/display/HDF5/Dataset+Transfer+Properties).
 
 # Example
 
@@ -179,10 +210,19 @@ ph5open("filename.h5", "r", comm, info) do ff
 end
 ```
 """
-function Base.read!(dset::HDF5Dataset, x::MaybePencilArrayCollection)
-    check_phdf5_file(parent(dset), x)
+function Base.read!(g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
+                    name::AbstractString, prop_pairs...; collective=true)
+    dapl = p_create(HDF5.H5P_DATASET_ACCESS, false, prop_pairs...)
+    dxpl = p_create(HDF5.H5P_DATASET_XFER, false, prop_pairs...)
+
+    # Add extra property lists if required by keyword args.
+    if collective && "dxpl_mpio" ∉ prop_pairs
+        HDF5.h5p_set_dxpl_mpio(dxpl.id, HDF5.H5FD_MPIO_COLLECTIVE)
+    end
 
     dims_global = h5_dataspace_dims(x)
+    dset = d_open(g, name, dapl, dxpl)
+    check_phdf5_file(parent(dset), x)
 
     if dims_global != size(dset)
         throw(DimensionMismatch(

@@ -50,14 +50,14 @@ function test_write(filename, u::PencilArray)
         uvw_r = similar.(uvw)
         ur, vr, wr = uvw_r
 
-        read!(ff["scalar"], ur)
+        read!(ff, ur, "scalar")
         @test u == ur
 
-        read!(ff["vector_tuple"], uvw_r)
+        read!(ff, uvw_r, "vector_tuple")
         @test all(uvw .== uvw_r)
 
         fill!.(uvw_r, 0)
-        read!(ff["vector_array"], collect(uvw_r))
+        read!(ff, collect(uvw_r), "vector_array", collective=false)
         @test all(uvw .== uvw_r)
     end
 

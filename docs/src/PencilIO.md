@@ -85,5 +85,6 @@ using PencilFFTs
 ```@docs
 ph5open
 hdf5_has_parallel
-setindex!(::HDF5FileOrGroup, ::MaybePencilArrayCollection, ::String)
+setindex!
+read!
 ```
