@@ -37,7 +37,7 @@ function test_write(filename, u::PencilArray)
 
     MPI.Barrier(comm)
 
-    @test_nowarn phdf5_open(filename, "w", comm, info) do ff
+    @test_nowarn ph5open(filename, "w", comm, info) do ff
         @test isopen(ff)
         @test_nowarn ff["scalar", collective=true, chunks=false] = u
         @test_nowarn ff["vector_tuple", collective=false, chunks=true] = (u, v, w)
@@ -47,7 +47,7 @@ function test_write(filename, u::PencilArray)
     # TODO
     # - read back data
     # - check that components (u, v, w) are written as expected
-    @test_nowarn phdf5_open(filename, "r", comm, info) do ff
+    @test_nowarn ph5open(filename, "r", comm, info) do ff
         @test isopen(ff)
     end
 

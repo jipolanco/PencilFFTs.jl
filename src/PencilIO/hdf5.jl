@@ -1,7 +1,7 @@
 using .HDF5
 import Libdl
 
-export phdf5_open
+export ph5open
 
 const HDF5FileOrGroup = Union{HDF5.HDF5File, HDF5.HDF5Group}
 
@@ -34,12 +34,14 @@ function check_hdf5_parallel()
     error(
         "HDF5.jl has no parallel support." *
         " Make sure that you're using MPI-enabled HDF5 libraries, and that" *
-        " MPI was loaded before HDF5."
+        " MPI was loaded before HDF5." *
+        " See https://jipolanco.github.io/PencilFFTs.jl/latest/PencilIO/#Setting-up-Parallel-HDF5-1" *
+        " for details."
     )
 end
 
 """
-    phdf5_open(
+    ph5open(
         [f::Function], filename, [mode="r"],
         comm::MPI.Comm, [info::MPI.Info=MPI.Info()],
         property_lists...
@@ -57,7 +59,7 @@ access property list to the given MPI communicator and info object.
 Other property lists should be given as string-value pairs, following the
 `h5open` syntax.
 """
-function phdf5_open(
+function ph5open(
         filename::AbstractString, mode::AbstractString,
         comm::MPI.Comm, info::MPI.Info = MPI.Info(),
         plist_pairs...,
@@ -67,11 +69,11 @@ function phdf5_open(
     h5open(filename, mode, "fapl_mpio", fapl_mpio, plist_pairs...)
 end
 
-phdf5_open(filename::AbstractString, comm::MPI.Comm, args...; kwargs...) =
-    phdf5_open(filename, "r", comm, args...; kwargs...)
+ph5open(filename::AbstractString, comm::MPI.Comm, args...; kwargs...) =
+    ph5open(filename, "r", comm, args...; kwargs...)
 
-function phdf5_open(f::Function, args...; kwargs...)
-    fid = phdf5_open(args...; kwargs...)
+function ph5open(f::Function, args...; kwargs...)
+    fid = ph5open(args...; kwargs...)
     try
         f(fid)
     finally

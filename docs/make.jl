@@ -11,6 +11,8 @@ DocMeta.setdocmeta!(PencilFFTs.PencilArrays, :DocTestSetup,
                     :(using PencilFFTs.PencilArrays); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
                     :(using PencilFFTs.Transforms); recursive=true)
+DocMeta.setdocmeta!(PencilFFTs.PencilIO, :DocTestSetup,
+                    :(using PencilFFTs.PencilIO); recursive=true)
 
 let with_checks = !MAKE_FAST
     @time makedocs(
@@ -33,6 +35,7 @@ let with_checks = !MAKE_FAST
                 "PencilFFTs.md",
                 "Transforms.md",
                 "PencilArrays.md",
+                "PencilIO.md",
             ],
             "benchmarks.md",
         ],
