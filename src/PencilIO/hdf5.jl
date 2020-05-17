@@ -18,16 +18,16 @@ function h5_to_mpi_handle(
     T(reinterpret(MPI.MPI_Comm, h))
 end
 
+const _HAS_PARALLEL_HDF5 = Libdl.dlopen(HDF5.libhdf5) do lib
+    Libdl.dlsym(lib, :H5Pget_fapl_mpio, throw_error=false) !== nothing
+end
+
 """
     hdf5_has_parallel() -> Bool
 
 Returns `true` if the loaded HDF5 libraries support MPI I/O.
 """
-function hdf5_has_parallel()
-    Libdl.dlopen(HDF5.libhdf5) do lib
-        Libdl.dlsym(lib, :H5Pget_fapl_mpio, throw_error=false) !== nothing
-    end
-end
+hdf5_has_parallel() = _HAS_PARALLEL_HDF5
 
 function check_hdf5_parallel()
     hdf5_has_parallel() && return
