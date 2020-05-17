@@ -115,7 +115,7 @@ as a single component of a higher-dimension dataset.
 - additional property lists may be specified by name-value pairs in
   `prop_lists`, following the [HDF5.jl
   syntax](https://github.com/JuliaIO/HDF5.jl/blob/master/doc/hdf5.md#passing-parameters).
-  These property lists take precedence over the keyword arguments.
+  These property lists take precedence over keyword arguments.
   For instance, if the `"dxpl_mpio", HDF5.H5FD_MPIO_COLLECTIVE` pair is passed,
   then the value of the `collective` argument is ignored.
 
@@ -205,8 +205,8 @@ comm = get_comm(u)
 info = MPI.Info()
 
 ph5open("filename.h5", "r", comm, info) do ff
-    read!(ff["u"], u)
-    read!(ff["uv"], (u, v))
+    read!(ff, u, "u")
+    read!(ff, (u, v), "uv")
 end
 ```
 """

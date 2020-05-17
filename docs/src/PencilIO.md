@@ -5,13 +5,24 @@ CurrentModule = PencilFFTs.PencilIO
 ```
 
 The `PencilFFTs.PencilIO` module contains functions for saving and loading
-[`PencilArray`](@ref)s to disk.
+[`PencilArray`](@ref)s to disk using MPI-IO.
+Parallel I/O is performed using Parallel HDF5 through the
+[HDF5.jl](https://github.com/JuliaIO/HDF5.jl) package.
 
-Parallel I/O is currently performed using [Parallel
-HDF5](https://portal.hdfgroup.org/display/HDF5/Parallel+HDF5)
-via the [HDF5.jl](https://github.com/JuliaIO/HDF5.jl) package.
+The implemented approach consists in storing the data coming from different MPI
+processes in a single file.
+This strategy scales better in terms of number of files, and is more
+convenient, than that of storing one file per process.
+However, the performance is very sensitive to the configuration of the
+underlying file system.
+In distributed file systems such as
+[Lustre](https://en.wikipedia.org/wiki/Lustre_(file_system)), it is worth
+tuning parameters such as the stripe count and stripe size
+(see for instance the [Parallel HDF5
+page](https://portal.hdfgroup.org/display/HDF5/Parallel+HDF5) for more
+information).
 
-## Setting-up Parallel HDF5
+## [Setting-up Parallel HDF5](@id setting_up_parallel_hdf5)
 
 Parallel HDF5 is not enabled in the default installation of HDF5.jl.
 For Parallel HDF5 to work, the HDF5 C libraries wrapped by HDF5.jl must be
@@ -72,19 +83,11 @@ using HDF5
 using PencilFFTs
 ```
 
-## TODO
-
-- reading files
-
-- example
-
-- MPI hints
-
 ## Library
 
 ```@docs
 ph5open
-hdf5_has_parallel
 setindex!
 read!
+hdf5_has_parallel
 ```
