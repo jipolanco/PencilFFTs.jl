@@ -4,8 +4,9 @@
 using MPI
 using HDF5
 using PencilFFTs.PencilArrays
+using PencilFFTs.PencilIO
 
-if !PencilArrays.hdf5_has_parallel()
+if !PencilIO.hdf5_has_parallel()
     @warn "HDF5 has no parallel support. Skipping HDF5 tests."
     exit(0)
 end
@@ -72,7 +73,7 @@ function main()
     rng = MersenneTwister(42)
 
     topo = MPITopology(comm, proc_dims)
-    pen = Pencil(topo, Nxyz, (1, 3), permute=Val((2, 3, 1)))
+    pen = Pencil(topo, Nxyz, (1, 3), permute=Permutation(2, 3, 1))
     u = PencilArray(pen)
     randn!(rng, u)
     u .+= 10 * myrank
@@ -83,7 +84,6 @@ function main()
         test_write(filename, u)
     end
 
-    GC.gc()  # workaround https://github.com/JuliaIO/HDF5.jl/issues/620
     HDF5.h5_close()
     MPI.Finalize()
 end

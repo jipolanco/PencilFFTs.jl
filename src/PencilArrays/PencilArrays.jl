@@ -9,7 +9,6 @@ module PencilArrays
 using MPI
 using OffsetArrays
 using Reexport
-using Requires
 using TimerOutputs
 
 import Base: @propagate_inbounds
@@ -48,9 +47,5 @@ include("data_ranges.jl")
 include("permutations.jl")
 
 include("Transpositions.jl")  # Transpositions module
-
-function __init__()
-    @require HDF5="f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" @eval include("hdf5.jl")
-end
 
 end
