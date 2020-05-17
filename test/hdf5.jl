@@ -44,11 +44,21 @@ function test_write(filename, u::PencilArray)
         @test_nowarn ff["vector_array", collective=true, chunks=true] = [u, v, w]
     end
 
-    # TODO
-    # - read back data
-    # - check that components (u, v, w) are written as expected
     @test_nowarn ph5open(filename, "r", comm, info) do ff
         @test isopen(ff)
+        uvw = (u, v, w)
+        uvw_r = similar.(uvw)
+        ur, vr, wr = uvw_r
+
+        read!(ff["scalar"], ur)
+        @test u == ur
+
+        read!(ff["vector_tuple"], uvw_r)
+        @test all(uvw .== uvw_r)
+
+        fill!.(uvw_r, 0)
+        read!(ff["vector_array"], collect(uvw_r))
+        @test all(uvw .== uvw_r)
     end
 
     nothing

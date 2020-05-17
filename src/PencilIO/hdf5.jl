@@ -122,7 +122,7 @@ v = PencilArray(...)
 comm = get_comm(u)
 info = MPI.Info()
 
-h5open("filename.h5", "w", "fapl_mpio", (comm, info)) do ff
+ph5open("filename.h5", "w", comm, info) do ff
     ff["u", chunks=true] = u
     ff["uv"] = (u, v)  # this is a two-component PencilArrayCollection (assuming equal dimensions of `u` and `v`)
 end
@@ -156,6 +156,45 @@ function Base.setindex!(
     x
 end
 
+"""
+    read!(dset::HDF5Dataset, x::MaybePencilArrayCollection)
+
+Read [`PencilArray`](@ref) or [`PencilArrayCollection`](@ref) from parallel HDF5
+file.
+
+# Example
+
+Open a parallel HDF5 file and read some `PencilArray`s:
+
+```julia
+u = PencilArray(...)
+v = PencilArray(...)
+
+comm = get_comm(u)
+info = MPI.Info()
+
+ph5open("filename.h5", "r", comm, info) do ff
+    read!(ff["u"], u)
+    read!(ff["uv"], (u, v))
+end
+```
+"""
+function Base.read!(dset::HDF5Dataset, x::MaybePencilArrayCollection)
+    check_phdf5_file(parent(dset), x)
+
+    dims_global = h5_dataspace_dims(x)
+
+    if dims_global != size(dset)
+        throw(DimensionMismatch(
+            "incompatible dimensions of HDF5 dataset and PencilArray"))
+    end
+
+    inds = range_local(x, permute=true)
+    from_hdf5!(dset, x, inds)
+
+    x
+end
+
 function check_phdf5_file(g, x)
     check_hdf5_parallel()
 
@@ -182,13 +221,46 @@ function check_phdf5_file(g, x)
     nothing
 end
 
-to_hdf5(dset, x::PencilArray, inds) =
-    dset[inds...] = parent(x)
+to_hdf5(dset, x::PencilArray, inds) = dset[inds...] = parent(x)
 
-function to_hdf5(dset, col::PencilArrayCollection, inds_in)
-    for I in CartesianIndices(collection_size(col))
-        inds = (inds_in..., Tuple(I)...)
-        to_hdf5(dset, col[I], inds)
+function from_hdf5!(dset, x::PencilArray, inds)
+    u = parent(x)
+
+    if stride(u, 1) != 1
+        u .= dset[inds...]  # short and easy version (but allocates!)
+        return x
+    end
+
+    # The following is adapted from one of the _getindex() in HDF5.jl.
+    HDF5Scalar = HDF5.HDF5Scalar
+    T = eltype(x)
+    if !(T <: Union{HDF5Scalar, Complex{<:HDF5Scalar}})
+        error("Dataset indexing (hyperslab) is available only for bits types")
+    end
+
+    dsel_id = HDF5.hyperslab(dset, inds...)
+    memtype = HDF5.datatype(u)
+    memspace = HDF5.dataspace(u)
+
+    try
+        # This only works for stride-1 arrays.
+        HDF5.h5d_read(dset.id, memtype.id, memspace.id, dsel_id, dset.xfer, u)
+    finally
+        close(memtype)
+        close(memspace)
+        HDF5.h5s_close(dsel_id)
+    end
+
+    x
+end
+
+# Define variants for collections.
+for func in (:from_hdf5!, :to_hdf5)
+    @eval function $func(dset, col::PencilArrayCollection, inds_in)
+        for I in CartesianIndices(collection_size(col))
+            inds = (inds_in..., Tuple(I)...)
+            $func(dset, col[I], inds)
+        end
     end
 end
 
