@@ -8,9 +8,11 @@ using Reexport
 using TimerOutputs
 
 include("PencilArrays/PencilArrays.jl")
+include("PencilIO/PencilIO.jl")
 include("Transforms/Transforms.jl")
 
 @reexport using .PencilArrays
+@reexport using .PencilIO
 @reexport using .Transforms
 
 # For convenience...

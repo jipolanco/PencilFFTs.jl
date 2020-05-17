@@ -130,6 +130,9 @@ for tuples and arrays (and redefining them would be type piracy...).
 const PencilArrayCollection =
     Union{Tuple{Vararg{A}}, AbstractArray{A}} where {A <: PencilArray}
 
+collection_size(x::Tuple{Vararg{<:PencilArray}}) = (length(x), )
+collection_size(x::AbstractArray{<:PencilArray}) = size(x)
+
 """
     MaybePencilArrayCollection
 

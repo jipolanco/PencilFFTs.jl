@@ -25,7 +25,7 @@ The example assumes that 12 MPI processes are available.
 The data is to be distributed on a 2D MPI topology of dimensions $3 × 4$,
 as represented in the above figure.
 
-## Creating plans
+## [Creating plans](@id tutorial:creating_plans)
 
 The first thing to do is to create a [`PencilFFTPlan`](@ref), which requires
 information on the global dimensions $N_x × N_y × N_z$ of the data, on the
@@ -160,6 +160,69 @@ efficient as possible, both in intermediate and in the output state of the
 multidimensional transforms.
 This has been achieved, in part, by making sure that permutations such as `(3,
 2, 1)` are compile-time constants.
+
+## Parallel I/O
+
+It is possible to read and write `PencilArray`s to disk using [Parallel
+HDF5](https://portal.hdfgroup.org/display/HDF5/Parallel+HDF5) via the
+[HDF5.jl](https://github.com/JuliaIO/HDF5.jl) package.
+Assuming [everything is set-up correctly](@ref setting_up_parallel_hdf5), the
+following code writes the arrays `u` and `v` created in the previous sections:
+
+```julia
+using HDF5
+using MPI
+using PencilFFTs
+
+#= code from previous sections... =#
+
+info = MPI.Info()
+
+ph5open("fields.h5", "w", comm, info) do ff
+    ff["u"] = u
+    ff["v"] = v
+end
+```
+
+Note that, for this to work, the code in [Creating plans](@ref
+tutorial:creating_plans) must be modified so that HDF5 is loaded before
+PencilFFTs, since HDF5 is lazy-loaded using
+[Requires](https://github.com/JuliaPackaging/Requires.jl).
+
+The following code reads back the datasets into `PencilArray`s:
+
+```julia
+u_read = similar(u)
+v_read = similar(v)
+
+ph5open("fields.h5", "r", comm, info) do ff
+    read!(ff, u_read, "u")
+    read!(ff, v_read, "v")
+end
+
+@assert u == u_read
+@assert v == v_read
+```
+
+### Data layout in files
+
+In our example, the `v` array, being the output of a distributed transform, has
+its dimensions permuted in memory.
+This was discussed in [Output data layout](@ref tutorial:output_data_layout).
+For performance reasons, data is written to the HDF5 file in memory order, and
+thus the dimensions of the `v` array in the file are permuted with respect to
+those of the input array.
+This detail is important if one wishes to read the data from a different
+application.
+
+### More documentation
+
+The Parallel I/O feature is documented in its [dedicated section](@ref
+PencilIO_module).
+In particular, a short step-by-step guide is provided on how to set-up the
+MPI.jl and HDF5.jl packages in order to make things work.
+This is not trivial, as it requires the HDF5 libraries to be built with
+parallel support, and linked to same MPI libraries used by MPI.jl.
 
 ## Further reading
 
