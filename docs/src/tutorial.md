@@ -159,8 +159,7 @@ A great deal of work has been spent in making generic index permutations as
 efficient as possible, both in intermediate and in the output state of the
 multidimensional transforms.
 This has been achieved, in part, by making sure that permutations such as `(3,
-2, 1)` are compile-time constants (using [value
-types](https://docs.julialang.org/en/latest/manual/types/#%22Value-types%22-1)).
+2, 1)` are compile-time constants.
 
 ## Further reading
 

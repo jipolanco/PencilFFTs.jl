@@ -43,7 +43,7 @@ using Random
 MPI.Init()
 
 # Input data dimensions (Nx × Ny × Nz)
-dims = (16, 32, 64)
+dims = (64, 32, 64)
 
 # Apply a 3D real-to-complex (r2c) FFT.
 transform = Transforms.RFFT()
@@ -216,7 +216,7 @@ rng = axes(θ_glob)  # = (i1:i2, j1:j2, k1:k2)
 # it is usually in Julia.
 # If the permutation is not (3, 2, 1), things will still work (well, except for
 # the assertion below!), but the loop order will not be optimal.
-@assert get_permutation(θ_hat) === Val((3, 2, 1))
+@assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
 @inbounds for i in rng[1], j in rng[2], k in rng[3]
     kx = kvec[1][i]
@@ -237,15 +237,16 @@ This implementation corresponds to `gradient_global_view_explicit!` in
 [`examples/gradient.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl).
 Perhaps surprisingly, this implementation of the gradient is the fastest of all
 tested.
-(The ["local index" implementation below](@ref gradient_method_local) is about
-20% slower, while [Method 1](@ref gradient_method_global) is 50% slower.)
+(See the [benchmark results](@ref gradient_benchmarks):
+the ["local index" implementation below](@ref gradient_method_local) is about
+20% slower, while [Method 1](@ref gradient_method_global) is 40% slower.)
 Note that we don't even need to switch to linear indexing to obtain optimal
 performance!
 Apparently there's a lot of compiler optimisations going on specifically for
 this function.
 This is evident when running `julia` with the `-O1` optimisation level (the
 default is `-O2`), in which case this implementation becomes much slower than
-the others (tested with Julia 1.3.1).
+the others (tested with Julia 1.4.1).
 
 ## [Method 3: using local indices](@id gradient_method_local)
 
@@ -263,13 +264,7 @@ gradient_method_global).
 rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
 
 # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-kvec_local = ntuple(d -> kvec[d][rng[d]], Val(3))
-
-# For clarity, the above can also be expressed as:
-# kx_vec = kvec[1][rng[1]]  # kx[i1:i2]
-# ky_vec = kvec[2][rng[2]]  # ky[j1:j2]
-# kz_vec = kvec[3][rng[3]]  # kz[k1:k2]
-# kvec_local = (kx_vec, ky_vec, kz_vec)
+kvec_local = getindex.(kvec, rng)
 
 @inbounds for (n, I) in enumerate(CartesianIndices(θ_hat))
     i, j, k = Tuple(I)  # local indices
@@ -293,7 +288,7 @@ Like [Method 1](@ref gradient_method_global), this implementation uses
 `CartesianIndices` and can be made more generic with little effort.
 In particular, there is no explicit use of index permutations, and no
 assumptions need to be made in that regard.
-In our tests, this implementation is about 20% faster than [Method 1](@ref
+In our tests, this implementation is about 15% faster than [Method 1](@ref
 gradient_method_global), while still being generic and almost equally simple.
 
 In
@@ -330,9 +325,36 @@ the *slowest* index and `k` as the *fastest*, which is the optimal order in
 this case given the permutation.
 As such, the implementation is less generic than the others, but is slightly
 easier to read.
-Surprisingly, it achieves better performance than the other methods (about 20%
-faster than [Method 3](@ref gradient_method_local)), possibly because the
-compiler can make further assumptions at the optimisation stage.
+
+The second method achieves better performance than the other implementations
+(about 20% faster than [Method 3](@ref gradient_method_local)).
+The difference between methods 2 and 3 is explained by a more efficient access
+to the wave numbers `(kx, ky, kz)` in the former, since wave numbers are
+contained in lazy `Frequencies` objects (returned by `rfftfreq` and `fftfreq`),
+while in the local method, the wave numbers are collected into `Vector`s.
+See the next section for more details.
+Note that for larger problem sizes, the performance differences
+between methods become negligible.
+
+## [Benchmark results](@id gradient_benchmarks)
+
+The following are the benchmark results obtained from running
+[`examples/gradient.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl)
+on a laptop, using 2 MPI processes and Julia 1.4.1, with an input array of
+global dimensions ``64 × 32 × 64``.
+The three methods detailed above are marked on the right.
+The "lazy" marks indicate runs where the wave numbers were represented by
+lazy `Frequencies` objects. Otherwise, they were collected into `Vector`s.
+
+        gradient_global_view!...                  184.696 μs
+        gradient_global_view! (lazy)...           169.519 μs  [Method 1]
+        gradient_global_view_explicit!...         147.647 μs
+        gradient_global_view_explicit! (lazy)...  122.157 μs  [Method 2]
+        gradient_local!...                        146.937 μs  [Method 3]
+        gradient_local_parent!...                 146.696 μs
+        gradient_local_linear!...                 146.565 μs
+        gradient_local_linear_explicit!...        147.078 μs
+
 
 [^1]:
     This assumes that `CartesianIndices(θ_glob)` iterates in the order of the

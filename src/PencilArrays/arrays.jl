@@ -337,7 +337,7 @@ get_comm(x::MaybePencilArrayCollection) = get_comm(pencil(x))
 
 Get index permutation associated to the given `PencilArray`.
 
-Returns `nothing` if there is no associated permutation.
+Returns `NoPermutation()` if there is no associated permutation.
 """
 function get_permutation(x::MaybePencilArrayCollection)
     perm = get_permutation(pencil(x))
@@ -381,7 +381,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             x.data
         else
             # Apply inverse permutation.
-            invperm = relative_permutation(perm, nothing)
+            invperm = inverse_permutation(perm)
             p = append_to_permutation(invperm, Val(length(extra_dims)))
             permutedims(x.data, extract(p))  # creates copy!
         end

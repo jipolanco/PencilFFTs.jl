@@ -202,8 +202,12 @@ function main()
     topo = MPITopology(comm, proc_dims)
 
     pen1 = Pencil(topo, Nxyz, (2, 3))
-    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Val((2, 3, 1)))
-    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Val((3, 2, 1)))
+    pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Permutation(2, 3, 1))
+    pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Permutation(3, 2, 1))
+
+    println("Pencil 1: ", pen1, "\n")
+    println("Pencil 2: ", pen2, "\n")
+    println("Pencil 3: ", pen3, "\n")
 
     @testset "ManyPencilArray" begin
         test_multiarrays(pen1, pen2, pen3)
@@ -222,7 +226,7 @@ function main()
         @test_throws TypeError Pencil(
             topo, Nxyz, (1, 2), permute=(2, 3, 1))
         @test_throws ArgumentError Pencil(
-            topo, Nxyz, (1, 2), permute=Val((0, 3, 15)))
+            topo, Nxyz, (1, 2), permute=Permutation(0, 3, 15))
 
         # Decomposed dimensions may not be repeated.
         @test_throws ArgumentError Pencil(topo, Nxyz, (2, 2))
@@ -230,6 +234,9 @@ function main()
         # Decomposed dimensions must be in 1:N = 1:3.
         @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
         @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
+
+        @test PencilArrays.complete_dims(Val(5), (2, 3), (42, 12)) ===
+            (1, 42, 12, 1, 1)
     end
 
     @testset "PencilArray" begin
@@ -238,19 +245,36 @@ function main()
         test_array_wrappers(Pencil(pen3, Float64))
     end
 
-    @testset "auxiliary functions" begin
-        @test PencilArrays.complete_dims(Val(5), (2, 3), (42, 12)) ===
-            (1, 42, 12, 1, 1)
-        @test get_permutation(pen1) === nothing
-        @test get_permutation(pen2) === Val((2, 3, 1))
+    @testset "permutations" begin
+        @test get_permutation(pen1) === NoPermutation()
+        @test get_permutation(pen2) === Permutation(2, 3, 1)
 
-        @test PA.relative_permutation(pen2, pen3) === Val((2, 1, 3))
+        @test PA.is_identity_permutation(NoPermutation())
+        @test PA.is_identity_permutation(Permutation(1, 2, 3, 4))
+        @test !PA.is_identity_permutation(Permutation(2, 1, 3, 4))
 
-        let a = Val((2, 1, 3)), b = Val((3, 2, 1))
-            @test PA.permute_indices((:a, :b, :c), Val((2, 3, 1))) ===
+        @test Permutation(2, 3, 1) == Permutation(2, 3, 1)
+        @test Permutation(2, 3, 1) != Permutation(2, 3, 1, 4)
+        @test Permutation(2, 3, 1) != Permutation(2, 1, 3)
+        @test NoPermutation() == NoPermutation()
+        @test NoPermutation() == Permutation(1, 2, 3)
+        @test NoPermutation() != Permutation(3, 2, 1)
+        @test Permutation(1, 2, 3) == NoPermutation()
+        @test Permutation(1, 3, 2) != NoPermutation()
+
+        @test PA.relative_permutation(pen2, pen3) === Permutation(2, 1, 3)
+        @test PA.relative_permutation(NoPermutation(),
+                                      NoPermutation()) === NoPermutation()
+
+        let a = Permutation((2, 1, 3)), b = Permutation((3, 2, 1))
+            @test PA.permute_indices((:a, :b, :c), Permutation((2, 3, 1))) ===
                 (:b, :c, :a)
             a2b = PA.relative_permutation(a, b)
             @test PA.permute_indices(a, a2b) === b
+
+            @test PA.relative_permutation(NoPermutation(), a) === a
+            @test PA.relative_permutation(a, NoPermutation()) ===
+                PA.inverse_permutation(a)
 
             if BENCHMARK_ARRAYS
                 let x = (12, 42, 2)
@@ -259,9 +283,9 @@ function main()
                 end
             end
 
-            x = Val((3, 1, 2))
-            x2nothing = PA.relative_permutation(x, nothing)
-            @test PA.permute_indices(x, x2nothing) === Val((1, 2, 3))
+            x = Permutation((3, 1, 2))
+            x2nothing = PA.relative_permutation(x, NoPermutation())
+            @test PA.permute_indices(x, x2nothing) === Permutation((1, 2, 3))
         end
     end
 
@@ -331,7 +355,7 @@ function main()
         pen2 = Pencil(pen1, decomp_dims=(2, ))
 
         # Same decomposed dimension as pen2, but different permutation.
-        pen3 = Pencil(pen2, permute=Val((3, 2, 1)))
+        pen3 = Pencil(pen2, permute=Permutation(3, 2, 1))
 
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)
@@ -373,9 +397,10 @@ function main()
         @inferred PencilArray(pen2)
         @inferred PencilArray(pen2, (3, 4))
 
-        @inferred PA.permute_indices(Nxyz, Val((2, 3, 1)))
-        @inferred PA.relative_permutation(Val((1, 2, 3)), Val((2, 3, 1)))
-        @inferred PA.relative_permutation(Val((1, 2, 3)), nothing)
+        @inferred PA.permute_indices(Nxyz, Permutation(2, 3, 1))
+        @inferred PA.relative_permutation(Permutation(1, 2, 3),
+                                          Permutation(2, 3, 1))
+        @inferred PA.relative_permutation(Permutation(1, 2, 3), NoPermutation())
 
         u1 = PencilArray(pen1)
         u2 = PencilArray(pen2)

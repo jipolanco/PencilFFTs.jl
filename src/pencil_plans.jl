@@ -279,7 +279,7 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     #   natural order (i1, i2, ..., iN).
     decomp_dims = ntuple(m -> N - M + m, Val(M))
     perm = _make_permutation_in(permute_dims, Val(1), Val(N))
-    @assert perm === nothing
+    @assert perm === NoPermutation()
     Pencil(topology, g.size_global_in, decomp_dims, Ti, permute=perm,
            timer=timer)
 end
@@ -319,7 +319,7 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
 end
 
 # No permutations
-_make_permutation_in(permute_dims::Val{false}, etc...) = nothing
+_make_permutation_in(permute_dims::Val{false}, etc...) = NoPermutation()
 
 function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
     # Here the data is permuted so that the n-th logical dimension is the first
@@ -328,17 +328,17 @@ function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
     t = ntuple(i -> (i == 1) ? n : (i ≤ n) ? (i - 1) : i, Val(N))
     @assert isperm(t)
     @assert t == (n, (1:n-1)..., (n+1:N)...)
-    Val(t)
+    Permutation(t)
 end
 
 # Case n = 1: no permutation of input data
-_make_permutation_in(::Val{true}, dim::Val{1}, ::Val) = nothing
+_make_permutation_in(::Val{true}, dim::Val{1}, ::Val) = NoPermutation()
 
 # Case n = N
 function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     # This is the last transform, and I want the index order to be
     # exactly reversed (easier to work with than the alternative above).
-    Val(ntuple(i -> N - i + 1, Val(N)))  # (N, N-1, ..., 2, 1)
+    Permutation(ntuple(i -> N - i + 1, Val(N)))  # (N, N-1, ..., 2, 1)
 end
 
 function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
@@ -346,7 +346,7 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
                            plan1d_opt::NamedTuple) where {n}
     perm = get_permutation(Pi)
 
-    dims = if perm === nothing
+    dims = if perm === NoPermutation()
         n  # no index permutation
     else
         # Find index of n-th dimension in the permuted array.

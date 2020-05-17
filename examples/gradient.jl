@@ -19,7 +19,7 @@
 #
 # This was obtained when running julia with the default optimisation level -O2.
 #
-# If one uses -O1 instead, `gradient_local_linear_explicit!` becomes much
+# If one uses -O1 instead, `gradient_global_view_explicit!` becomes much
 # slower than the rest, indicating that there's a lot of compiler optimisations
 # going on specifically in that function.
 
@@ -90,7 +90,7 @@ function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
 
     # Note: since the dimensions in Fourier space are permuted as (z, y, x), it
     # is faster to loop with `k` as the fastest index.
-    @assert get_permutation(θ_hat) === Val((3, 2, 1))
+    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
     @inbounds for i in rng[1], j in rng[2], k in rng[3]
         # Wave number vector associated to current Cartesian index.
@@ -110,7 +110,7 @@ end
 
 # Compute and return ∇θ in Fourier space, using local indices.
 function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
-                         kvec_local::NTuple{3,Vector})
+                         kvec_local)
     @inbounds for (n, I) in enumerate(CartesianIndices(θ_hat))
         i, j, k = Tuple(I)  # local indices
 
@@ -132,8 +132,7 @@ end
 # Compute and return ∇θ in Fourier space, using local indices on the raw data
 # (which takes permuted indices).
 function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
-                                θ_hat::PencilArray,
-                                kvec_local::NTuple{3,Vector})
+                                θ_hat::PencilArray, kvec_local)
     θ_p = parent(θ_hat) :: Array
     ∇θ_p = parent.(∇θ_hat)
 
@@ -162,14 +161,13 @@ end
 
 # Similar to gradient_local!, but avoiding CartesianIndices (slightly faster).
 function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
-                                θ_hat::PencilArray,
-                                kvec_local::NTuple{3,Vector})
+                                θ_hat::PencilArray, kvec_local)
     # We want to iterate over the arrays in memory order to maximise
     # performance. For this we need to take into account the permutation of
     # indices in the Fourier-transformed arrays. By default, the memory order in
     # Fourier space is (z, y, x) instead of (x, y, z), but this is never assumed
     # below. The wave numbers must be permuted accordingly.
-    perm = get_permutation(θ_hat)  # e.g. Val((3, 2, 1))
+    perm = get_permutation(θ_hat)  # e.g. Permutation(3, 2, 1)
     kvec_perm = PA.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
 
     # Create wave number iterator.
@@ -200,9 +198,8 @@ end
 # Less generic version of the above, assuming that the permutation is (3, 2, 1).
 # It's basically the same but probably easier to understand.
 function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
-                                         θ_hat::PencilArray,
-                                         kvec_local::NTuple{3,Vector})
-    @assert get_permutation(θ_hat) === Val((3, 2, 1))
+                                         θ_hat::PencilArray, kvec_local)
+    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
     # Create wave number iterator in (kz, ky, kx) order, i.e. in the same order
     # as the array data.
@@ -225,7 +222,8 @@ function main()
     # Input data dimensions (Nx × Ny × Nz)
     dims = INPUT_DIMS
 
-    kvec = generate_wavenumbers_r2c(dims)
+    kvec = generate_wavenumbers_r2c(dims)  # as tuple of Frequencies
+    kvec_collected = collect.(kvec)        # as tuple of Vector
 
     # Apply a 3D real-to-complex (r2c) FFT.
     transform = Transforms.RFFT()
@@ -263,16 +261,26 @@ function main()
 
     # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
     kvec_local = let rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-        ntuple(d -> kvec[d][rng[d]], Val(3))
+        getindex.(kvec, rng)
     end
 
     gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
 
     @printf "%-40s" "gradient_global_view!..."
+    @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec_collected)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+    @printf "%-40s" "gradient_global_view! (lazy)..."
     @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
+    # Slow version: kvec as a tuple of Vector
     @printf "%-40s" "gradient_global_view_explicit!..."
+    @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec_collected)
+    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+    # Fast version: kvec as a tuple of lazy vectors (Frequencies)
+    @printf "%-40s" "gradient_global_view_explicit! (lazy)..."
     @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec)
     @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 

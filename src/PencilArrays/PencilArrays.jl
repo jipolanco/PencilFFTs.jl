@@ -17,6 +17,7 @@ import LinearAlgebra
 
 export Transpositions
 
+export Permutation, NoPermutation
 export Pencil, PencilArray, MPITopology
 export PencilArrayCollection
 export ManyPencilArray
@@ -36,6 +37,7 @@ using .MPITopologies
 import .MPITopologies: get_comm
 
 # Type definitions
+include("types.jl")        # Permutation
 include("pencil.jl")       # Pencil
 include("arrays.jl")       # PencilArray
 include("multiarrays.jl")  # ManyPencilArray

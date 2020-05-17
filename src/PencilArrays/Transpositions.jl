@@ -11,7 +11,6 @@ import ..PencilArrays:
     relative_permutation,
     inverse_permutation,
     permute_indices,
-    same_permutation,
     append_to_permutation,
     extract
 
@@ -138,7 +137,7 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
     ui = parent(in)
     uo = parent(out)
 
-    if same_permutation(get_permutation(Pi), get_permutation(Po))
+    if get_permutation(Pi) == get_permutation(Po)
         @timeit_debug timer "copy!" copy!(uo, ui)
     else
         @timeit_debug timer "permute_local!" permute_local!(out, in)
@@ -475,7 +474,7 @@ end
 
 function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
                         src::Vector{T}, src_offset::Int,
-                        perm::Union{Nothing, Val}, extra_dims::Dims{E},
+                        perm::Permutation, extra_dims::Dims{E},
                         timer) where {T,N,P,E}
     @assert P + E == N
 
@@ -489,7 +488,7 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
     dest_view = let dest_p = parent(dest)  # array with non-permuted indices
         indices = permute_indices(o_range_iperm, perm)
         v = view(dest_p, indices..., Base.OneTo.(extra_dims)...)
-        if perm === nothing
+        if perm isa NoPermutation
             v
         else
             p = append_to_permutation(perm, Val(E))
