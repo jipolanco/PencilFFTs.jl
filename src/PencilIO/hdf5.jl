@@ -41,23 +41,23 @@ function check_hdf5_parallel()
 end
 
 """
-    ph5open(
-        [f::Function], filename, [mode="r"],
-        comm::MPI.Comm, [info::MPI.Info=MPI.Info()],
-        property_lists...
-    ) -> HDF5.File
+    ph5open([f::Function], filename, [mode="r"], comm::MPI.Comm,
+            [info::MPI.Info=MPI.Info()], prop_lists...) -> HDF5.File
 
 Open parallel HDF5 file.
 
 This function is a thin wrapper over `HDF5.h5open`.
 It converts MPI.jl types (`MPI.Comm` and `MPI.Info`) to their counterparts in
 HDF5.jl.
+It also throws an informative error if the loaded HDF5 libraries do not include
+parallel support.
 
 This function automatically sets the
 [`fapl_mpio`](https://portal.hdfgroup.org/display/HDF5/H5P_SET_FAPL_MPIO) file
 access property list to the given MPI communicator and info object.
-Other property lists should be given as string-value pairs, following the
-`h5open` syntax.
+Other property lists should be given as name-value pairs, following the
+[`h5open`
+syntax](https://github.com/JuliaIO/HDF5.jl/blob/master/doc/hdf5.md#passing-parameters).
 """
 function ph5open(
         filename::AbstractString, mode::AbstractString,
@@ -82,10 +82,8 @@ function ph5open(f::Function, args...; kwargs...)
 end
 
 """
-    setindex!(
-        g::Union{HDF5File,HDF5Group}, x::MaybePencilArrayCollection, name::String;
-        chunks=false, collective=true,
-    )
+    setindex!(g::Union{HDF5File,HDF5Group}, x::MaybePencilArrayCollection,
+              name::String, prop_lists...; chunks=false, collective=true)
 
 Write [`PencilArray`](@ref) or [`PencilArrayCollection`](@ref) to parallel HDF5
 file.
@@ -95,7 +93,7 @@ words, if the dimensions of a `PencilArray` are permuted in memory, then the
 data is written in permuted form.
 
 In the case of a `PencilArrayCollection`, each array of the collection is written
-as a single component of a higher dimension dataset.
+as a single component of a higher-dimension dataset.
 
 # Optional arguments
 
@@ -105,6 +103,13 @@ as a single component of a higher dimension dataset.
 
 - if `collective=true`, the dataset is written collectivelly. This is
   usually recommended for performance.
+
+- additional property lists may be specified by name-value pairs in
+  `prop_lists`, following the [HDF5.jl
+  syntax](https://github.com/JuliaIO/HDF5.jl/blob/master/doc/hdf5.md#passing-parameters).
+  These property lists take precedence over the keyword arguments.
+  For instance, if the `"dxpl_mpio", HDF5.H5FD_MPIO_COLLECTIVE` pair is passed,
+  then the value of the `collective` argument is ignored.
 
 # Example
 
@@ -119,39 +124,32 @@ info = MPI.Info()
 
 h5open("filename.h5", "w", "fapl_mpio", (comm, info)) do ff
     ff["u", chunks=true] = u
-    ff["uv"] = (u, v)  # this is a PencilArrayCollection
+    ff["uv"] = (u, v)  # this is a two-component PencilArrayCollection (assuming equal dimensions of `u` and `v`)
 end
 ```
 
 """
 function Base.setindex!(
-        g::HDF5FileOrGroup, x::MaybePencilArrayCollection, name::String;
-        chunks=true, collective=true,
+        g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
+        name::String, prop_pairs...;
+        chunks=false, collective=true,
     )
     check_phdf5_file(g, x)
-    toclose = true  # property lists should be closed by the GC
 
-    lcpl = HDF5._link_properties(name)  # this is the default in HDF5.jl
-    dcpl = p_create(HDF5.H5P_DATASET_CREATE, toclose)
-    dapl = HDF5.DEFAULT_PROPERTIES
-    dxpl = p_create(HDF5.H5P_DATASET_XFER, toclose)
+    # Add extra property lists if required by keyword args.
+    props = collect(Any, prop_pairs)
 
-    if chunks
+    if chunks && "chunk" ∉ prop_pairs
         chunk = h5_chunk_size(x, permute=true)
-        HDF5.set_chunk(dcpl, chunk...)
+        push!(props, "chunk", chunk)
     end
 
-    if collective
-        HDF5.h5p_set_dxpl_mpio(dxpl, HDF5.H5FD_MPIO_COLLECTIVE)
+    if collective && "dxpl_mpio" ∉ prop_pairs
+        push!(props, "dxpl_mpio", HDF5.H5FD_MPIO_COLLECTIVE)
     end
 
     dims_global = h5_dataspace_dims(x)
-
-    dset = d_create(
-        g, name, h5_datatype(x), dataspace(dims_global),
-        lcpl, dcpl, dapl, dxpl,
-    )
-
+    dset = d_create(g, name, h5_datatype(x), dataspace(dims_global), props...)
     inds = range_local(x, permute=true)
     to_hdf5(dset, x, inds)
 
