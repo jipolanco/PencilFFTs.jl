@@ -25,7 +25,7 @@ end
 """
     hdf5_has_parallel() -> Bool
 
-Returns `true` if the loaded HDF5 libraries support MPI I/O.
+Returns `true` if the loaded HDF5 libraries support MPI-IO.
 """
 hdf5_has_parallel() = _HAS_PARALLEL_HDF5
 
@@ -153,6 +153,10 @@ function Base.setindex!(
         name::String, prop_pairs...;
         chunks=false, collective=true,
     )
+    to = get_timer(pencil(x))
+
+    @timeit_debug to "Write HDF5" begin
+
     check_phdf5_file(g, x)
 
     # Add extra property lists if required by keyword args.
@@ -168,9 +172,12 @@ function Base.setindex!(
     end
 
     dims_global = h5_dataspace_dims(x)
-    dset = d_create(g, name, h5_datatype(x), dataspace(dims_global), props...)
+    @timeit_debug to "create dataset" dset =
+        d_create(g, name, h5_datatype(x), dataspace(dims_global), props...)
     inds = range_local(x, permute=true)
-    to_hdf5(dset, x, inds)
+    @timeit_debug to "write data" to_hdf5(dset, x, inds)
+
+    end
 
     x
 end
@@ -212,6 +219,10 @@ end
 """
 function Base.read!(g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
                     name::AbstractString, prop_pairs...; collective=true)
+    to = get_timer(pencil(x))
+
+    @timeit_debug to "Read HDF5" begin
+
     dapl = p_create(HDF5.H5P_DATASET_ACCESS, false, prop_pairs...)
     dxpl = p_create(HDF5.H5P_DATASET_XFER, false, prop_pairs...)
 
@@ -221,7 +232,7 @@ function Base.read!(g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
     end
 
     dims_global = h5_dataspace_dims(x)
-    dset = d_open(g, name, dapl, dxpl)
+    @timeit_debug to "open dataset" dset = d_open(g, name, dapl, dxpl)
     check_phdf5_file(parent(dset), x)
 
     if dims_global != size(dset)
@@ -230,7 +241,9 @@ function Base.read!(g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
     end
 
     inds = range_local(x, permute=true)
-    from_hdf5!(dset, x, inds)
+    @timeit_debug to "read data" from_hdf5!(dset, x, inds)
+
+    end
 
     x
 end
