@@ -3,9 +3,6 @@
 # This is based on the runtests.jl file of MPI.jl.
 
 using MPI: mpiexec
-using HDF5
-using PencilFFTs
-using Test
 
 test_files = [
     "hdf5.jl",
@@ -28,7 +25,9 @@ files = [test_files..., example_files...]
 for fname in files
     @info "Running $fname with $Nproc processes..."
     mpiexec() do cmd
-        run(`$cmd -n $Nproc $(Base.julia_cmd()) $fname`)
+        # Disable precompilation to prevent race conditions when loading
+        # packages.
+        run(`$cmd -n $Nproc $(Base.julia_cmd()) --compiled-modules=no $fname`)
     end
     println()
 end
