@@ -62,8 +62,19 @@ const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
 struct TimerData {
   double avg;
   double std;
-  TimerData() : avg(0), std(0) {}
+  double min;
+  double max;
+  TimerData() : avg(0), std(0), min(1e100), max(-1) {}
 };
+
+template <typename T>
+TimerData &operator*=(TimerData &t, T val) {
+  t.avg *= val;
+  t.std *= val;
+  t.min *= val;
+  t.max *= val;
+  return t;
+}
 
 void print_timers(const std::array<double, TIMER_COUNT> &timers,
                   TimerData time_global);
@@ -192,13 +203,14 @@ TimerData transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
     t += MPI_Wtime();
     times.avg += t;
     times.std += t * t;
+    times.min = std::min(t, times.min);
+    times.max = std::max(t, times.max);
   }
 
   times.avg /= repetitions;
   times.std = std::sqrt(times.std / repetitions - times.avg * times.avg);
 
-  times.avg *= 1000;  // in milliseconds
-  times.std *= 1000;
+  times *= 1000;  // all times in milliseconds
 
   // Gather timing statistics.
   Cget_timers(timers.data());
@@ -298,7 +310,7 @@ struct BenchOptions {
 
 struct BenchResults {
   const BenchOptions &opt;
-  TimerData time_global;
+  TimerData time;
   Dims<2> proc_dims;
 
   void write_to_file() const {
@@ -311,7 +323,7 @@ struct BenchResults {
     if (!file_existed)  // write header
       io << "# (1) Nx  (2) Ny  (3) Nz  (4) num_procs  "
          << "(5) P1  (6) P2  (7) repetitions  (8) t_mean [ms]  "
-         << "(9) t_std [ms]\n";
+         << "(9) t_std [ms]  (10) t_min [ms]  (11) t_max [ms]\n";
 
     auto sep = "  ";
     for (auto d : opt.dims) io << sep << d;
@@ -320,8 +332,8 @@ struct BenchResults {
     io << sep << num_procs;
     for (auto n : proc_dims) io << sep << n;
 
-    io << sep << opt.repetitions << sep << time_global.avg << sep
-       << time_global.std << "\n";
+    io << sep << opt.repetitions << sep << time.avg << sep << time.std << sep
+       << time.min << sep << time.max << "\n";
   }
 };
 
