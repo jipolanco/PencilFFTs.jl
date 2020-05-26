@@ -59,8 +59,14 @@ const std::array<std::string, TIMER_COUNT> TIMERS_TEXT = {
     "normalise",                                // 12
 };
 
+struct TimerData {
+  double avg;
+  double std;
+  TimerData() : avg(0), std(0) {}
+};
+
 void print_timers(const std::array<double, TIMER_COUNT> &timers,
-                  double time_global);
+                  TimerData time_global);
 
 struct PencilSetup {
   const int conf;
@@ -135,9 +141,9 @@ double compare(const std::vector<double> &x, const std::vector<double> &y) {
   return diff2;
 }
 
-double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
-                 std::vector<double> &ui, std::vector<double> &ui_final,
-                 std::vector<Complex> &uo, int repetitions, MPI_Comm comm) {
+TimerData transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
+                    std::vector<double> &ui, std::vector<double> &ui_final,
+                    std::vector<Complex> &uo, int repetitions, MPI_Comm comm) {
   int rank;
   MPI_Comm_rank(comm, &rank);
 
@@ -174,32 +180,42 @@ double transform(const PencilSetup &pencil_x, const PencilSetup &pencil_z,
     if (t != 0.0)
       throw std::runtime_error("timers were not correctly reset.");
 
-  double t = -MPI_Wtime();
+  TimerData times;
+
   for (int n = 0; n < repetitions; ++n) {
+    double t = -MPI_Wtime();
     Cp3dfft_ftran_r2c(ui.data(), uo_ptr, op_f);
     timers[TIMER_normalise] = -MPI_Wtime();
     normalise(uo, pencil_x.dims_global);
     timers[TIMER_normalise] += MPI_Wtime();
     Cp3dfft_btran_c2r(uo_ptr, ui_final.data(), op_b);
+    t += MPI_Wtime();
+    times.avg += t;
+    times.std += t * t;
   }
-  t += MPI_Wtime();
-  t *= 1e3 / repetitions;  // time in ms
+
+  times.avg /= repetitions;
+  times.std = std::sqrt(times.std / repetitions - times.avg * times.avg);
+
+  times.avg *= 1000;  // in milliseconds
+  times.std *= 1000;
 
   // Gather timing statistics.
   Cget_timers(timers.data());
   for (auto &t : timers) t *= 1e3 / repetitions;  // milliseconds
 
   if (rank == 0) {
-    std::cout << "Average time over " << repetitions << " iterations: " << t
+    std::cout << "Average time over " << repetitions
+              << " iterations: " << times.avg << " ± " << (times.std / 2)
               << " ms" << std::endl;
-    print_timers(timers, t);
+    print_timers(timers, times);
   }
 
-  return t;
+  return times;
 }
 
 void print_timers(const std::array<double, TIMER_COUNT> &timers,
-                  double time_global) {
+                  TimerData time_global) {
   double tsum = 0.0;
   std::cout << "\nP3DFFT timers (in milliseconds)"
                "\n===============================\n";
@@ -211,7 +227,7 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers,
     if ((i + 1) % 4 == 0)
       std::cout << std::endl;
   }
-  std::cout << "TOTAL  " << std::setprecision(8) << std::left << tsum << "\n\n";
+  std::cout << "\nTOTAL  " << std::setprecision(8) << std::left << tsum << "\n\n";
 
   // Average some timings for easier comparison with PencilFFTs.
   auto fw_alltoallv =
@@ -252,8 +268,8 @@ void print_timers(const std::array<double, TIMER_COUNT> &timers,
   auto bw_total_time = 2 * (bw_alltoallv + bw_pack_unpack) + 3 * bw_fft;
   auto total_time = fw_total_time + bw_total_time + time_norm;
 
-  auto t_missing = time_global - total_time;
-  auto percent_missing = (1 - total_time / time_global) * 100;
+  auto t_missing = time_global.avg - total_time;
+  auto percent_missing = (1 - total_time / time_global.avg) * 100;
 
   std::cout << "\nTotal from timers: " << total_time << " ms/iteration ("
             << t_missing << " ms / " << std::setprecision(4) << percent_missing
@@ -282,7 +298,7 @@ struct BenchOptions {
 
 struct BenchResults {
   const BenchOptions &opt;
-  double time_avg;
+  TimerData time_global;
   Dims<2> proc_dims;
 
   void write_to_file() const {
@@ -294,7 +310,8 @@ struct BenchResults {
 
     if (!file_existed)  // write header
       io << "# (1) Nx  (2) Ny  (3) Nz  (4) num_procs  "
-         << "(5) P1  (6) P2  (7) repetitions  (8) time_ms\n";
+         << "(5) P1  (6) P2  (7) repetitions  (8) t_mean [ms]  "
+         << "(9) t_std [ms]\n";
 
     auto sep = "  ";
     for (auto d : opt.dims) io << sep << d;
@@ -303,7 +320,8 @@ struct BenchResults {
     io << sep << num_procs;
     for (auto n : proc_dims) io << sep << n;
 
-    io << sep << opt.repetitions << sep << time_avg << "\n";
+    io << sep << opt.repetitions << sep << time_global.avg << sep
+       << time_global.std << "\n";
   }
 };
 
@@ -361,14 +379,14 @@ void run_benchmark(const BenchOptions &opt, MPI_Comm comm) {
   std::vector<Complex> uo(pencil_z.size[0] * pencil_z.size[1] *
                           pencil_z.size[2]);
 
-  double t_ms =
+  auto times =
       transform(pencil_x, pencil_z, ui, ui_final, uo, opt.repetitions, comm);
 
   Cp3dfft_clean();
 
   // Write results
   if (myrank == 0)
-    BenchResults{opt, t_ms, pdims}.write_to_file();
+    BenchResults{opt, times, pdims}.write_to_file();
 }
 
 int main(int argc, char *argv[]) {

@@ -33,8 +33,8 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 const SEPARATOR = string("\n", "*"^80)
 
 const RESULTS_HEADER =
-    """# The last four columns show the times in milliseconds using 2×2 combinations
-    # of parameters.
+    """# The last 8 columns show the average times and their standard deviations
+    # in milliseconds using 2×2 combinations of parameters.
     #
     # The first letter indicates whether dimension permutations are performed:
     #
@@ -219,27 +219,36 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
 
     reset_timer!(to)
 
-    τ = MPI.Wtime()
+    t_avg = 0.0
+    t_std = 0.0
 
     for it = 1:iterations
+        τ = -MPI.Wtime()
         mul!(v, plan, u)
         ldiv!(u, plan, v)
+        τ += MPI.Wtime()
+        t_avg += τ
+        t_std += τ^2
     end
 
-    τ = (MPI.Wtime() - τ) / iterations * 1000  # in milliseconds
+    t_avg /= iterations
+    t_std = sqrt(t_std / iterations - t_avg^2)
+
+    t_avg *= 1000  # in milliseconds
+    t_std *= 1000
 
     events = (to["PencilFFTs mul!"], to["PencilFFTs ldiv!"])
     @assert all(TimerOutputs.ncalls.(events) .== iterations)
-    t_avg = sum(TimerOutputs.time.(events)) / iterations / 1e6  # in milliseconds
+    t_to = sum(TimerOutputs.time.(events)) / iterations / 1e6  # in milliseconds
 
     if isroot
-        @printf "Average time: %.8f ms (MPI_Wtime) over %d repetitions\n" τ iterations
-        @printf "              %.8f ms (TimerOutputs)\n\n" t_avg
+        @printf "Average time: %.8f ms (TimerOutputs) over %d repetitions\n" t_to iterations
+        @printf "              %.8f ms (MPI_Wtime) ± %.8f ms \n\n" t_avg (t_std / 2)
         print_timers(to, iterations, transpose_method)
         println(SEPARATOR)
     end
 
-    τ
+    t_avg, t_std
 end
 
 struct AggregatedTimes{TM}
@@ -342,11 +351,13 @@ function parse_dimensions(arg::String) :: Dims{3}
     end
 end
 
-permute_to_index(::Val{true}) = 1
-permute_to_index(::Val{false}) = 2
+make_index(::Val{true}) = 1
+make_index(::Val{false}) = 2
 
-method_to_index(::Transpositions.IsendIrecv) = 1
-method_to_index(::Transpositions.Alltoallv) = 2
+make_index(::Transpositions.IsendIrecv) = 1
+make_index(::Transpositions.Alltoallv) = 2
+
+make_index(stuff...) = CartesianIndex(make_index.(stuff))
 
 function run_benchmarks(params)
     comm = MPI.COMM_WORLD
@@ -386,7 +397,8 @@ function run_benchmarks(params)
         pdims_list = (proc_dims, )
     end
 
-    timings = zeros(2, 2)
+    timings_avg = zeros(2, 2)
+    timings_std = copy(timings_avg)
 
     map(Iterators.product(
             pdims_list,
@@ -394,13 +406,19 @@ function run_benchmarks(params)
             transpose_methods,
             permutes)
     ) do (pdims, edims, method, permute)
-        t_ms = benchmark_rfft(comm, pdims, dims; extra_dims=edims,
-                              permute_dims=permute, transpose_method=method,
-                              iterations=iterations)
-        i = permute_to_index(permute)
-        j = method_to_index(method)
-        timings[i, j] = t_ms
+        t_avg, t_std = benchmark_rfft(
+            comm, pdims, dims;
+            extra_dims=edims, permute_dims=permute,
+            transpose_method=method, iterations=iterations)
+        I = make_index(permute, method)
+        timings_avg[I] = t_avg
+        timings_std[I] = t_std
     end
+
+    PI = make_index(Val(true), Transpositions.IsendIrecv())
+    PA = make_index(Val(true), Transpositions.Alltoallv())
+    NI = make_index(Val(false), Transpositions.IsendIrecv())
+    NA = make_index(Val(false), Transpositions.Alltoallv())
 
     columns = (
         "(1) Nx" => dims[1],
@@ -410,10 +428,14 @@ function run_benchmarks(params)
         "(5) P1" => proc_dims[1],
         "(6) P2" => proc_dims[2],
         "(7) repetitions" => iterations,
-        "(8) PI" => timings[1, 1],
-        "(9) PA" => timings[1, 2],
-        "(10) NI" => timings[2, 1],
-        "(11) NA" => timings[2, 2],
+        "(8) PI mean" => timings_avg[PI],
+        "(9) PI std " => timings_std[PI],
+        "(10) PA mean" => timings_avg[PA],
+        "(11) PA std " => timings_std[PA],
+        "(12) NI mean" => timings_avg[NI],
+        "(13) NI std " => timings_std[NI],
+        "(14) NA mean" => timings_avg[NA],
+        "(15) NA std " => timings_std[NA],
     )
 
     if !full_benchmarks && myrank == 0
