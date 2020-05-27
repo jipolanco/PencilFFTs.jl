@@ -7,6 +7,7 @@ import FFTW
 using MPI
 
 using ArgParse
+using OrderedCollections: OrderedDict
 using TimerOutputs
 
 using LinearAlgebra
@@ -33,20 +34,36 @@ const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 const SEPARATOR = string("\n", "*"^80)
 
 const RESULTS_HEADER =
-    """# The last 8 columns show the average times and their standard deviations
-    # in milliseconds using 2×2 combinations of parameters.
+"""# The last 16 columns show, by blocks of mean/std/min/max, the timings
+    # in milliseconds for 2×2 combinations of parameters.
     #
     # The first letter indicates whether dimension permutations are performed:
     #
-    #     P = permutations (this is the default in PencilFFTs, it speeds-up FFTs)
+    #     P = permutations (default in PencilFFTs)
     #     N = no permutations
     #
     # The second letter indicates the MPI transposition method:
     #
-    #     I = Isend/Irecv (default)
+    #     I = Isend/Irecv (default in PencilFFTs)
     #     A = Alltoallv
     #
     """
+
+mutable struct TimerData
+    avg :: Float64
+    std :: Float64
+    min :: Float64
+    max :: Float64
+    TimerData() = new(0, 0, Inf, -1)
+end
+
+function Base.:*(t::TimerData, v)
+    t.avg *= v
+    t.std *= v
+    t.min *= v
+    t.max *= v
+    t
+end
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -219,36 +236,38 @@ function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
 
     reset_timer!(to)
 
-    t_avg = 0.0
-    t_std = 0.0
+    t = TimerData()
 
     for it = 1:iterations
         τ = -MPI.Wtime()
         mul!(v, plan, u)
         ldiv!(u, plan, v)
         τ += MPI.Wtime()
-        t_avg += τ
-        t_std += τ^2
+        t.avg += τ
+        t.std += τ^2
+        t.min = min(τ, t.min)
+        t.max = max(τ, t.max)
     end
 
-    t_avg /= iterations
-    t_std = sqrt(t_std / iterations - t_avg^2)
+    t.avg /= iterations
+    t.std = sqrt(t.std / iterations - t.avg^2)
 
-    t_avg *= 1000  # in milliseconds
-    t_std *= 1000
+    t *= 1000  # in milliseconds
 
     events = (to["PencilFFTs mul!"], to["PencilFFTs ldiv!"])
     @assert all(TimerOutputs.ncalls.(events) .== iterations)
     t_to = sum(TimerOutputs.time.(events)) / iterations / 1e6  # in milliseconds
 
     if isroot
-        @printf "Average time: %.8f ms (TimerOutputs) over %d repetitions\n" t_to iterations
-        @printf "              %.8f ms (MPI_Wtime) ± %.8f ms \n\n" t_avg (t_std / 2)
+        @printf("Average time: %.8f ms (TimerOutputs) over %d repetitions\n",
+                t_to, iterations)
+        @printf("              %.8f ms (MPI_Wtime) ± %.8f ms \n\n",
+                t.avg, t.std / 2)
         print_timers(to, iterations, transpose_method)
         println(SEPARATOR)
     end
 
-    t_avg, t_std
+    t
 end
 
 struct AggregatedTimes{TM}
@@ -397,8 +416,7 @@ function run_benchmarks(params)
         pdims_list = (proc_dims, )
     end
 
-    timings_avg = zeros(2, 2)
-    timings_std = copy(timings_avg)
+    timings = Array{TimerData}(undef, 2, 2)
 
     map(Iterators.product(
             pdims_list,
@@ -406,21 +424,14 @@ function run_benchmarks(params)
             transpose_methods,
             permutes)
     ) do (pdims, edims, method, permute)
-        t_avg, t_std = benchmark_rfft(
+        I = make_index(permute, method)
+        timings[I] = benchmark_rfft(
             comm, pdims, dims;
             extra_dims=edims, permute_dims=permute,
             transpose_method=method, iterations=iterations)
-        I = make_index(permute, method)
-        timings_avg[I] = t_avg
-        timings_std[I] = t_std
     end
 
-    PI = make_index(Val(true), Transpositions.IsendIrecv())
-    PA = make_index(Val(true), Transpositions.Alltoallv())
-    NI = make_index(Val(false), Transpositions.IsendIrecv())
-    NA = make_index(Val(false), Transpositions.Alltoallv())
-
-    columns = (
+    columns = OrderedDict{String,Union{Int,Float64}}(
         "(1) Nx" => dims[1],
         "(2) Ny" => dims[2],
         "(3) Nz" => dims[3],
@@ -428,15 +439,23 @@ function run_benchmarks(params)
         "(5) P1" => proc_dims[1],
         "(6) P2" => proc_dims[2],
         "(7) repetitions" => iterations,
-        "(8) PI mean" => timings_avg[PI],
-        "(9) PI std " => timings_std[PI],
-        "(10) PA mean" => timings_avg[PA],
-        "(11) PA std " => timings_std[PA],
-        "(12) NI mean" => timings_avg[NI],
-        "(13) NI std " => timings_std[NI],
-        "(14) NA mean" => timings_avg[NA],
-        "(15) NA std " => timings_std[NA],
     )
+
+    cases = (
+        :PI => make_index(Val(true), Transpositions.IsendIrecv()),
+        :PA => make_index(Val(true), Transpositions.Alltoallv()),
+        :NI => make_index(Val(false), Transpositions.IsendIrecv()),
+        :NA => make_index(Val(false), Transpositions.Alltoallv()),
+    )
+
+    let n = 7
+        for (name, ind) in cases
+            columns["($(n += 1)) $name mean"] = timings[ind].avg
+            columns["($(n += 1)) $name std"] = timings[ind].std
+            columns["($(n += 1)) $name min"] = timings[ind].min
+            columns["($(n += 1)) $name max"] = timings[ind].max
+        end
+    end
 
     if !full_benchmarks && myrank == 0
         write_results(outfile, columns)
@@ -461,10 +480,14 @@ function write_results(outfile, columns)
     open(outfile, "a") do io
         if newfile
             print(io, RESULTS_HEADER, "#")
-            map(x -> print(io, "  ", x[1]), columns)
+            for name in keys(columns)
+                print(io, "  ", name)
+            end
             println(io)
         end
-        map(x -> print(io, "  ", x[2]), columns)
+        for val in values(columns)
+            print(io, "  ", val)
+        end
         println(io)
     end
     nothing
