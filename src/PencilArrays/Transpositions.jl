@@ -25,10 +25,16 @@ function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
 end
 
 """
-    transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
-               method=Transpositions.IsendIrecv())
+    Transposition
 
-Transpose data from one pencil configuration to the other.
+Holds data for transposition between two pencil configurations.
+
+---
+
+    Transposition(dest::PencilArray{T,N}, src::PencilArray{T,N};
+                  method=Transpositions.IsendIrecv())
+
+Prepare transposition of arrays from one pencil configuration to the other.
 
 The two pencil configurations must be compatible for transposition:
 
@@ -58,36 +64,96 @@ Two values are currently accepted:
 
 - `Transpositions.Alltoallv()` uses `MPI_Alltoallv` for global data
   transpositions.
-
 """
-function transpose!(
-        dest::PencilArray{T,N}, src::PencilArray{T,N};
-        method::AbstractTransposeMethod=IsendIrecv(),
-    ) where {T,N}
-    dest === src && return dest  # same pencil & same data
+struct Transposition{T, N,
+                     PencilIn  <: Pencil,
+                     PencilOut <: Pencil,
+                     ArrayIn   <: PencilArray{T,N},
+                     ArrayOut  <: PencilArray{T,N},
+                     M  <: AbstractTransposeMethod,
+                    }
+    Pi :: PencilIn
+    Po :: PencilOut
+    Ai :: ArrayIn
+    Ao :: ArrayOut
+    method :: M
+    dim :: Union{Nothing,Int}  # dimension along which transposition is performed
+    send_requests :: Vector{MPI.Request}
 
-    Pi = pencil(src)
-    Po = pencil(dest)
-    timer = get_timer(Pi)
+    function Transposition(Ao::PencilArray{T,N}, Ai::PencilArray{T,N};
+                           method=IsendIrecv()) where {T,N}
+        Pi = pencil(Ai)
+        Po = pencil(Ao)
 
-    @timeit_debug timer "transpose!" begin
         # Verifications
-        if src.extra_dims !== dest.extra_dims
+        if extra_dims(Ai) !== extra_dims(Ao)
             throw(ArgumentError(
                 "incompatible number of extra dimensions of PencilArrays: " *
-                "$(src.extra_dims) != $(dest.extra_dims)"))
+                "$(extra_dims(Ai)) != $(extra_dims(Ao))"))
         end
 
         assert_compatible(Pi, Po)
 
-        # Note: the `decomp_dims` tuples of both pencils must differ by at most
-        # one value (as just checked by `assert_compatible`). The transposition
+        # The `decomp_dims` tuples of both pencils must differ by at most one
+        # value (as just checked by `assert_compatible`). The transposition
         # is performed along the dimension R where that difference happens.
-        R = findfirst(Pi.decomp_dims .!= Po.decomp_dims)
-        transpose_impl!(R, dest, src, method=method)
-    end
+        dim = findfirst(Pi.decomp_dims .!= Po.decomp_dims)
 
+        reqs = MPI.Request[]
+
+        new{T, N, typeof(Pi), typeof(Po), typeof(Ai), typeof(Ao),
+            typeof(method)}(Pi, Po, Ai, Ao, method, dim, reqs)
+    end
+end
+
+"""
+    MPI.Waitall!(t::Transposition)
+
+Wait for completion of all unfinished MPI communications related to the
+transposition.
+"""
+MPI.Waitall!(t::Transposition) =
+    isempty(t.send_requests) || MPI.Waitall!(t.send_requests)
+
+"""
+    transpose!(t::Transposition; waitall=true)
+    transpose!(dest::PencilArray{T,N}, src::PencilArray{T,N};
+               method=Transpositions.IsendIrecv())
+
+Transpose data from one pencil configuration to the other.
+
+The first variant allows to optionally delay the wait for MPI send operations to
+complete.
+This is useful if the caller wants to perform other operations with the already received data.
+To do this, the caller should pass `waitall=false`, and manually invoke
+[`MPI.Waitall!`](@ref) on the `Transposition` object once the operations are
+done.
+Note that this option only has an effect when the transposition method is
+`IsendIrecv`.
+
+See [`Transposition`](@ref) for details.
+"""
+function transpose! end
+
+function transpose!(
+        dest::PencilArray, src::PencilArray;
+        method::AbstractTransposeMethod = IsendIrecv(),
+    )
+    dest === src && return dest  # same pencil & same data
+    t = Transposition(dest, src, method=method)
+    transpose!(t, waitall=true)
     dest
+end
+
+function transpose!(t::Transposition; waitall=true)
+    timer = get_timer(t.Pi)
+    @timeit_debug timer "transpose!" begin
+        transpose_impl!(t.dim, t)
+        if waitall
+            @timeit_debug timer "wait send" MPI.Waitall!(t)
+        end
+    end
+    t
 end
 
 function assert_compatible(p::Pencil, q::Pencil)
@@ -125,10 +191,11 @@ function unsafe_as_array(::Type{T}, x::Vector{UInt8}, dims) where T
 end
 
 # Only local transposition.
-function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
-                         kwargs...) where {T,N}
-    Pi = pencil(in)
-    Po = pencil(out)
+function transpose_impl!(::Nothing, t::Transposition)
+    Pi = t.Pi
+    Po = t.Po
+    in = t.Ai
+    out = t.Ao
     timer = get_timer(Pi)
 
     # Both pencil configurations are identical, so we just copy the data,
@@ -143,7 +210,7 @@ function transpose_impl!(::Nothing, out::PencilArray{T,N}, in::PencilArray{T,N};
         @timeit_debug timer "permute_local!" permute_local!(out, in)
     end
 
-    out
+    t
 end
 
 function permute_local!(out::PencilArray{T,N},
@@ -188,16 +255,17 @@ _mpi_buffer(p::Ptr{T}, count) where {T} =
 # Transposition among MPI processes in a subcommunicator.
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
-function transpose_impl!(
-        R::Int, Ao::PencilArray{T,N}, Ai::PencilArray{T,N};
-        method::AbstractTransposeMethod=IsendIrecv(),
-    ) where {T,N}
-    Pi = pencil(Ai)
-    Po = pencil(Ao)
+function transpose_impl!(R::Int, t::Transposition{T}) where {T}
+    @assert t.dim === R
+    Pi = t.Pi
+    Po = t.Po
+    Ai = t.Ai
+    Ao = t.Ao
+    method = t.method
     timer = get_timer(Pi)
 
     @assert Pi.topology === Po.topology
-    @assert Ai.extra_dims === Ao.extra_dims
+    @assert extra_dims(Ai) === extra_dims(Ao)
 
     topology = Pi.topology
     comm = topology.subcomms[R]  # exchange among the subgroup R
@@ -224,7 +292,8 @@ function transpose_impl!(
     recv_offsets = Vector{Int}(undef, Nproc)  # all offsets in recv_buf
 
     req_length = method === Alltoallv() ? 0 : Nproc
-    send_req = Vector{MPI.Request}(undef, req_length)
+    send_req = t.send_requests
+    resize!(send_req, req_length)
     recv_req = similar(send_req)
 
     buffers = (send_buf, recv_buf)
@@ -244,12 +313,7 @@ function transpose_impl!(
         Ao, Ai, method, timer,
     )
 
-    # Wait for all our data to be sent before returning.
-    if !isempty(send_req)
-        @timeit_debug timer "wait send" MPI.Waitall!(send_req)
-    end
-
-    Ao
+    t
 end
 
 function _transpose_send!(

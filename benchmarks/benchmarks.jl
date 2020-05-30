@@ -27,15 +27,17 @@ const PROFILE_DEPTH = 8
 
 const MEASURE_GATHER = false
 
-const DIMS_DEFAULT = "128,192,64"
+const DIMS_DEFAULT = "32,64,128"
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 const SEPARATOR = string("\n", "*"^80)
 
 const RESULTS_HEADER =
-"""# The last 16 columns show, by blocks of mean/std/min/max, the timings
-    # in milliseconds for 2×2 combinations of parameters.
+"""# The last 4 columns show timing statistics (mean/std/min/max) in milliseconds.
+    #
+    # The last two letters in the name of this file determine the PencilFFTs
+    # parameters used in the benchmarks.
     #
     # The first letter indicates whether dimension permutations are performed:
     #
@@ -290,13 +292,13 @@ function AggregatedTimes(to::TimerOutput, transpose_method)
     data = avgtime(tf["copy_permuted!"]) + avgtime(tf["copy_range!"])
 
     mpi = if transpose_method === Transpositions.IsendIrecv()
-        t = avgtime(tf["wait send"])
+        t = avgtime(to["MPI.Waitall!"])
         if haskey(tf, "wait receive")  # this will be false in serial mode
             t += avgtime(tf["wait receive"])
         end
         t
     elseif transpose_method === Transpositions.Alltoallv()
-        avgtime(tf["MPI.Alltoallv!"])
+        avgtime(tf["MPI.Alltoallv!"]) + avgtime(to["MPI.Waitall!"])
     end
 
     others = 0.0
@@ -448,17 +450,12 @@ function run_benchmarks(params)
         :NA => make_index(Val(false), Transpositions.Alltoallv()),
     )
 
-    let n = 7
+    if !full_benchmarks && myrank == 0 && outfile !== nothing
         for (name, ind) in cases
-            columns["($(n += 1)) $name mean"] = timings[ind].avg
-            columns["($(n += 1)) $name std"] = timings[ind].std
-            columns["($(n += 1)) $name min"] = timings[ind].min
-            columns["($(n += 1)) $name max"] = timings[ind].max
+            a, b = splitext(outfile)
+            fname = string(a, "_", name, b)
+            write_results(fname, columns, timings[ind])
         end
-    end
-
-    if !full_benchmarks && myrank == 0
-        write_results(outfile, columns)
     end
 
     if full_benchmarks
@@ -472,20 +469,26 @@ function run_benchmarks(params)
     nothing
 end
 
-write_results(::Nothing, etc...) = nothing
-
-function write_results(outfile, columns)
+function write_results(outfile, columns, t)
     @info "Writing to $outfile"
     newfile = !isfile(outfile)
     open(outfile, "a") do io
         if newfile
             print(io, RESULTS_HEADER, "#")
-            for name in keys(columns)
+            n = length(columns)
+            mkname(c, name) = "($(n + c)) $name"
+            names = Iterators.flatten((
+                keys(columns),
+                (mkname(1, "mean"), mkname(2, "std"),
+                 mkname(3, "min"), mkname(4, "max"))
+            ))
+            for name in names
                 print(io, "  ", name)
             end
             println(io)
         end
-        for val in values(columns)
+        vals = Iterators.flatten((values(columns), t.avg, t.std, t.min, t.max))
+        for val in vals
             print(io, "  ", val)
         end
         println(io)
@@ -493,11 +496,6 @@ function write_results(outfile, columns)
     nothing
 end
 
-function main()
-    MPI.Init()
-    params = parse_commandline()
-    run_benchmarks(params)
-    MPI.Finalize()
-end
-
-main()
+MPI.Init()
+params = parse_commandline()
+run_benchmarks(params)
