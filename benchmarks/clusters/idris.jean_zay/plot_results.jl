@@ -7,12 +7,13 @@ using LaTeXStrings
 const plt = PyPlot
 const mpl = PyPlot.matplotlib
 
-struct Benchmark{HasParams, Style}
-    name :: String
+struct Benchmark{Style}
+    name   :: String
     filename_base :: String
+    filename_suffix :: String
     pyplot_style :: Style
-    Benchmark(name, fname, has_params::Bool, style) =
-        new{has_params, typeof(style)}(name, fname, style)
+    Benchmark(name, fname, style; suffix="") =
+        new{typeof(style)}(name, fname, suffix, style)
 end
 
 const MPI_TAG = "intel_19.0.4"
@@ -20,10 +21,11 @@ const MPI_TAG = "intel_19.0.4"
 const RESOLUTIONS = (512, 1024)
 
 const BENCH_PENCILS = Benchmark(
-    "PencilFFTs", "results/PencilFFTs", true, (color=:C0, zorder=5),
+    "PencilFFTs", "results/PencilFFTs", (color=:C0, zorder=5),
+    suffix="_PI",
 )
 const BENCH_P3DFFT = Benchmark(
-    "P3DFFT", "results/P3DFFT2", false, (color=:C1, zorder=3),
+    "P3DFFT", "results/P3DFFT2", (color=:C1, zorder=3),
 )
 const BENCH_LIST = (BENCH_PENCILS, BENCH_P3DFFT)
 
@@ -32,61 +34,51 @@ const STYLE_RESOLUTION = Dict(512 => (marker=:o, ),
 
 const STYLE_IDEAL = (color=:black, ls=:dotted, label="ideal")
 
-struct TransposeParams
-    permute :: Bool
-    isend :: Bool
-    TransposeParams(; permute, isend) = new(permute, isend)
-end
-
-time_column(p::TransposeParams) = 2 * !p.permute + !p.isend + 1
-
-time_columns(bench::Benchmark{true}, params) = time_column.(params)
-time_columns(bench::Benchmark{false}, params) = (1, )
-
-function plot_from_file!(ax, bench::Benchmark, resolution, params;
-                         plot_ideal=false)
-    filename = string(bench.filename_base, "_N$(resolution)_$(MPI_TAG).dat")
+function load_timings(bench::Benchmark, resolution)
+    filename = string(bench.filename_base,
+                      "_N$(resolution)_$(MPI_TAG)$(bench.filename_suffix).dat")
     data = readdlm(filename, Float64, comments=true) :: Matrix{Float64}
     Nxyz = data[:, 1:3]
     @assert all(Nxyz .== resolution)
     procs = data[:, 4]
-    # proc_dims = @view data[:, 5:6]
-    # repetitions = @view data[:, 7]
+    proc_dims = data[:, 5:6]
+    repetitions = data[:, 7]
+    times = data[:, 8]
+    (
+        Nxyz = Nxyz,
+        procs = procs,
+        proc_dims = proc_dims,
+        repetitions = repetitions,
+        times = times,
+    )
+end
 
-    cols = collect(7 .+ time_columns(bench, params))
+function plot_from_file!(ax, bench::Benchmark, resolution; plot_ideal=false)
+    data = load_timings(bench, resolution)
 
-    times = data[:, cols]
-    times_ideal = similar(times)
-
-    for j in axes(times, 2)
-        α = times[1, j] * procs[1]
-        for i in axes(times, 1)
-            times_ideal[i, j] = α / procs[i]
-        end
-    end
-
-    let st = STYLE_RESOLUTION[resolution]
-        ax.plot(procs, times; st..., bench.pyplot_style...)
-    end
+    st = STYLE_RESOLUTION[resolution]
+    ax.plot(data.procs, data.times; st..., bench.pyplot_style...)
 
     if plot_ideal
-        ax.plot(procs, times_ideal[:, 1]; STYLE_IDEAL...)
+        t = data.times
+        p = data.procs
+        t_ideal = similar(t)
+        for n in eachindex(t)
+            t_ideal[n] = t[1] * p[1] / p[n]
+        end
+        p, t_ideal
+        ax.plot(p, t_ideal; STYLE_IDEAL...)
     end
 
     ax
 end
 
 function plot_lib_comparison!(ax, benchs, resolution)
-    params = (
-        TransposeParams(permute=true, isend=true),
-        # TransposeParams(permute=true, isend=false),
-    )
     ax.set_xscale(:log, basex=2)
     ax.set_yscale(:log, basey=10)
     map(benchs) do bench
         plot_from_file!(
-            ax, bench, resolution, params,
-            plot_ideal = bench === BENCH_PENCILS,
+            ax, bench, resolution, plot_ideal = bench === BENCH_PENCILS,
         )
     end
     ax
@@ -120,7 +112,7 @@ function draw_legend!(ax, styles, labels; kwargs...)
     ax
 end
 
-function plot_lib_comparison()
+function plot_timings()
     resolutions = RESOLUTIONS
     benchs = BENCH_LIST
     fig, ax = plt.subplots()
@@ -147,5 +139,13 @@ function plot_lib_comparison()
     fig
 end
 
-plot_lib_comparison()
+function plot_relative_times()
+    resolutions = RESOLUTIONS
+    benchs = BENCH_LIST
+    fig, ax = plt.subplots()
 
+    ax.set_xlabel("MPI processes")
+    ax.set_ylabel("Relative time")
+end
+
+plot_timings()

@@ -59,22 +59,26 @@ for n in $procs; do
 # #SBATCH --ntasks-per-node=40
 #SBATCH --time=30
 #SBATCH --hint=nomultithread
-#SBATCH --output="details/Nproc${n}_N${resolution}_${mpi_label}_%j.out"
-#SBATCH --error="details/Nproc${n}_N${resolution}_${mpi_label}_%j.err"
+#SBATCH --output="details/N${resolution}_Nproc${n}_${mpi_label}.out"
+#SBATCH --error="details/N${resolution}_Nproc${n}_${mpi_label}.err"
 
 #SBATCH --job-name=bench_N${resolution}
 #SBATCH --dependency=singleton
 
 module list
 
+export JULIA_MPI_BINARY=system
+
 # Force precompilation of Julia packages in serial mode, to avoid race conditions.
 julia -O3 -Cnative --project -e \
-    'using Pkg; pkg"instantiate"; pkg"build"; pkg"precompile";
+    'using Pkg; using InteractiveUtils;
+     pkg"instantiate"; pkg"build"; pkg"precompile";
+     pkg"status"; versioninfo();
      using MPI; println("MPI: ", MPI.identify_implementation());'
 
 # 1. Run PencilFFTs benchmark
 srun julia -O3 -Cnative --check-bounds=no --compiled-modules=no --project \
-    ../../benchmarks.jl -N $resolution -r 100 -o $outfile_jl || exit 2
+    ../../benchmarks.jl -N $resolution -r $repetitions -o $outfile_jl || exit 2
 
 # 2. Run P3DFFT benchmark
 srun ./$builddir/bench_p3dfft $resolution $repetitions $outfile_p3d || exit 3
