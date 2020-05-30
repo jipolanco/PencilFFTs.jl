@@ -24,16 +24,6 @@ function Base.show(io::IO, ::T) where {T<:AbstractTransposeMethod}
     print(io, nameof(T))
 end
 
-# TODO
-# Create variant of transpose! that takes preallocated send requests.
-# The idea is to delay the MPI.Waitall! call, so that the caller can execute it
-# later.
-# - create function to allocate send requests for a given transposition setting.
-# - create transpose! variant taking `send_req` argument.
-#   The current transpose! function should call that function, allocating
-#   `send_req` first.
-# - see if it changes anything for FFTs.
-
 """
     Transposition
 
@@ -122,7 +112,8 @@ end
 Wait for completion of all unfinished MPI communications related to the
 transposition.
 """
-MPI.Waitall!(t::Transposition) = MPI.Waitall!(t.send_requests)
+MPI.Waitall!(t::Transposition) =
+    isempty(t.send_requests) || MPI.Waitall!(t.send_requests)
 
 """
     transpose!(t::Transposition; waitall=true)
@@ -154,10 +145,13 @@ function transpose!(
     dest
 end
 
-function transpose!(t::Transposition; kwargs...)
+function transpose!(t::Transposition; waitall=true)
     timer = get_timer(t.Pi)
     @timeit_debug timer "transpose!" begin
-        transpose_impl!(t.dim, t; kwargs...)
+        transpose_impl!(t.dim, t)
+        if waitall
+            @timeit_debug timer "wait send" MPI.Waitall!(t)
+        end
     end
     t
 end
@@ -197,7 +191,7 @@ function unsafe_as_array(::Type{T}, x::Vector{UInt8}, dims) where T
 end
 
 # Only local transposition.
-function transpose_impl!(::Nothing, t::Transposition; kwargs...)
+function transpose_impl!(::Nothing, t::Transposition)
     Pi = t.Pi
     Po = t.Po
     in = t.Ai
@@ -261,7 +255,7 @@ _mpi_buffer(p::Ptr{T}, count) where {T} =
 # Transposition among MPI processes in a subcommunicator.
 # R: index of MPI subgroup (dimension of MPI Cartesian topology) along which the
 # transposition is performed.
-function transpose_impl!(R::Int, t::Transposition{T}; waitall=true) where {T}
+function transpose_impl!(R::Int, t::Transposition{T}) where {T}
     @assert t.dim === R
     Pi = t.Pi
     Po = t.Po
@@ -318,11 +312,6 @@ function transpose_impl!(R::Int, t::Transposition{T}; waitall=true) where {T}
         remote_inds, index_local_req,
         Ao, Ai, method, timer,
     )
-
-    if waitall && !isempty(send_req)
-        # Wait for all our data to be sent before returning.
-        @timeit_debug timer "wait send" MPI.Waitall!(send_req)
-    end
 
     t
 end

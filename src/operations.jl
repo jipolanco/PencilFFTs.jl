@@ -174,11 +174,12 @@ function _apply_plans_out_of_place!(
     Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
 
     # Transpose data if required.
-    u = if pencil(x) === Pi
-        x
+    u, t = if pencil(x) === Pi
+        x, nothing
     else
         u = _temporary_pencil_array(Pi, full_plan.ibuf, full_plan.extra_dims)
-        transpose!(u, x, method=full_plan.transpose_method)
+        t = Transpositions.Transposition(u, x, method=full_plan.transpose_method)
+        u, transpose!(t, waitall=false)
     end
 
     v = if pencil(y) === Po
@@ -189,11 +190,17 @@ function _apply_plans_out_of_place!(
 
     @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
 
+    _wait_mpi_operations!(t, full_plan.timer)
     _apply_plans_out_of_place!(dir, full_plan, y, v, next_plans...)
 end
 
 _apply_plans_out_of_place!(dir::Val, ::PencilFFTPlan, y::PencilArray,
                            x::PencilArray) = y
+
+# Wait for send operations to complete (only has an effect for specific
+# transposition methods).
+_wait_mpi_operations!(t, to) = @timeit_debug to "MPI.Waitall!" MPI.Waitall!(t)
+_wait_mpi_operations!(::Nothing, to) = nothing
 
 function _apply_plans_in_place!(
         dir::Val, full_plan::PencilFFTPlan, u_prev::Union{Nothing, PencilArray},
@@ -208,15 +215,20 @@ function _apply_plans_in_place!(
     # Buffers should take no memory for in-place transforms.
     @assert length(full_plan.ibuf) == length(full_plan.obuf) == 0
 
-    if u_prev !== nothing
+    t = if u_prev === nothing
+        nothing
+    else
         # Transpose data from previous configuration.
         @assert Base.mightalias(u_prev, u)  # they're aliased!
-        transpose!(u, u_prev, method=full_plan.transpose_method)
+        t = Transpositions.Transposition(u, u_prev,
+                                         method=full_plan.transpose_method)
+        transpose!(t, waitall=false)
     end
 
     # Perform in-place FFT
     @timeit_debug full_plan.timer "FFT!" fftw_plan * parent(u)
 
+    _wait_mpi_operations!(t, full_plan.timer)
     _apply_plans_in_place!(dir, full_plan, u, next_pairs...)
 end
 
