@@ -262,7 +262,9 @@ It is generally useful for small problems where the global size of the data can
 easily fit the locally available memory.
 
 ```@docs
+Transpositions.Transposition
 Transpositions.transpose!
+MPI.Waitall!(::Transpositions.Transposition)
 gather
 ```
 
