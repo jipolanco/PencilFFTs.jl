@@ -1,4 +1,6 @@
 Manifest.toml
 
+*.so
+
 # Coverage
 *.jl.*.cov
