@@ -31,8 +31,26 @@ else
     module load intel-mpi/$intel_version
 fi
 
-outfile_jl="results/PencilFFTs_N${resolution}_${mpi_label}.dat"
-outfile_p3d="results/P3DFFT2_N${resolution}_${mpi_label}.dat"
+export JULIA_MPI_BINARY=system
+
+# Comment this to disable loading custom system image.
+julia_sys=../../sys_benchmarks.so
+
+if [[ -n $julia_sys ]]; then
+    if [[ ! -f $julia_sys ]]; then
+        echo "ERROR - system image not found: $julia_sys"
+        exit 1
+    fi
+    julia_opt=(-O3 -Cnative -J$julia_sys --project)
+    julia_precompile='using Pkg; pkg"instantiate"; pkg"precompile";'
+else
+    julia_opt=(-O3 -Cnative --project)
+    julia_precompile='using Pkg; pkg"instantiate"; pkg"build", pkg"precompile";'
+fi
+
+# Force precompilation of Julia packages in serial mode, to avoid race
+# conditions.
+julia "${julia_opt[@]}" -e "$julia_precompile"
 
 # Compile p3dfft
 export CC=icc
@@ -49,6 +67,9 @@ if [[ ! -f $builddir/bench_p3dfft ]]; then
     popd || exit 1
 fi
 
+outfile_jl="results/PencilFFTs_N${resolution}_${mpi_label}.dat"
+outfile_p3d="results/P3DFFT2_N${resolution}_${mpi_label}.dat"
+
 for n in $procs; do
     echo "Submitting N = ${resolution} benchmark with $n processes..."
     sbatch <<EOF
@@ -57,7 +78,7 @@ for n in $procs; do
 #SBATCH --exclusive
 #SBATCH --ntasks=$n
 # #SBATCH --ntasks-per-node=40
-#SBATCH --time=30
+#SBATCH --time=1:00:00
 #SBATCH --hint=nomultithread
 #SBATCH --output="details/N${resolution}_Nproc${n}_${mpi_label}.out"
 #SBATCH --error="details/N${resolution}_Nproc${n}_${mpi_label}.err"
@@ -67,17 +88,14 @@ for n in $procs; do
 
 module list
 
-export JULIA_MPI_BINARY=system
-
-# Force precompilation of Julia packages in serial mode, to avoid race conditions.
-julia -O3 -Cnative --project -e \
+# Print version information
+julia ${julia_opt[@]} -e \
     'using Pkg; using InteractiveUtils;
-     pkg"instantiate"; pkg"build"; pkg"precompile";
-     pkg"status"; versioninfo();
+     pkg"instantiate"; pkg"status"; versioninfo();
      using MPI; println("MPI: ", MPI.identify_implementation());'
 
 # 1. Run PencilFFTs benchmark
-srun julia -O3 -Cnative --check-bounds=no --compiled-modules=no --project \
+srun julia ${julia_opt[@]} --check-bounds=no --compiled-modules=no \
     ../../benchmarks.jl -N $resolution -r $repetitions -o $outfile_jl || exit 2
 
 # 2. Run P3DFFT benchmark

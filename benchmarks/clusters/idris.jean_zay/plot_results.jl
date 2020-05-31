@@ -16,6 +16,13 @@ struct Benchmark{Style}
         new{typeof(style)}(name, fname, suffix, style)
 end
 
+struct TimerData
+    avg :: Vector{Float64}
+    std :: Vector{Float64}
+    min :: Vector{Float64}
+    max :: Vector{Float64}
+end
+
 const MPI_TAG = "intel_19.0.4"
 
 const RESOLUTIONS = (512, 1024)
@@ -43,7 +50,7 @@ function load_timings(bench::Benchmark, resolution)
     procs = data[:, 4]
     proc_dims = data[:, 5:6]
     repetitions = data[:, 7]
-    times = data[:, 8]
+    times = TimerData((data[:, j] for j = 8:11)...)
     (
         Nxyz = Nxyz,
         procs = procs,
@@ -53,14 +60,24 @@ function load_timings(bench::Benchmark, resolution)
     )
 end
 
-function plot_from_file!(ax, bench::Benchmark, resolution; plot_ideal=false)
+function plot_from_file!(ax, bench::Benchmark, resolution;
+                         plot_ideal=false, error_bars=nothing)
     data = load_timings(bench, resolution)
+    times = data.times
+    t = times.avg
 
     st = STYLE_RESOLUTION[resolution]
-    ax.plot(data.procs, data.times; st..., bench.pyplot_style...)
+    ax.plot(data.procs, t; st..., bench.pyplot_style...)
+
+    colour = bench.pyplot_style.color
+    if error_bars == :extrema
+        ax.errorbar(data.procs, t; color=colour)
+    elseif error_bars == :std
+        δ = times.std ./ 2
+        ax.fill_between(data.procs, t .- δ, t .+ δ; alpha=0.2, color=colour)
+    end
 
     if plot_ideal
-        t = data.times
         p = data.procs
         t_ideal = similar(t)
         for n in eachindex(t)
@@ -79,6 +96,7 @@ function plot_lib_comparison!(ax, benchs, resolution)
     map(benchs) do bench
         plot_from_file!(
             ax, bench, resolution, plot_ideal = bench === BENCH_PENCILS,
+            # error_bars = :std,
         )
     end
     ax
