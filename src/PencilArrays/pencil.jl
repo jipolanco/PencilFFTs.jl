@@ -227,7 +227,7 @@ By default the dimensions are not permuted, i.e. they follow the logical order
 of dimensions.
 """
 size_local(p::Pencil; permute::Bool=false) =
-    length.(range_local(p, permute=permute))
+    map(length, range_local(p, permute=permute))
 
 """
     size_global(p::Pencil; permute=false)
