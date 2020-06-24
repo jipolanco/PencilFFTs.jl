@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env julia
 
 using PackageCompiler
 
@@ -35,4 +35,3 @@ mktemp() do fname, io
         precompile_execution_file=fname,
     )
 end
-
