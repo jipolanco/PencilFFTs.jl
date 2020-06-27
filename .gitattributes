@@ -1,0 +1,3 @@
+# https://github.com/github/linguist#overrides
+# Exclude benchmarks code from github language stats.
+benchmarks/* linguist-vendored
