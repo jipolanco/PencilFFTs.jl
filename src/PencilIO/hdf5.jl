@@ -22,6 +22,11 @@ const _HAS_PARALLEL_HDF5 = Libdl.dlopen(HDF5.libhdf5) do lib
     Libdl.dlsym(lib, :H5Pget_fapl_mpio, throw_error=false) !== nothing
 end
 
+# This is for compatibility among HDF5 versions.
+# The `toclose` argument of `HDF5Properties` was removed in HDF5 v0.13.3.
+const HDF5PROPERTIES_HAS_TOCLOSE =
+    hasmethod(HDF5Properties, Tuple{Any, Bool, HDF5.Hid})
+
 """
     hdf5_has_parallel() -> Bool
 
@@ -223,8 +228,13 @@ function Base.read!(g::HDF5FileOrGroup, x::MaybePencilArrayCollection,
 
     @timeit_debug to "Read HDF5" begin
 
-    dapl = p_create(HDF5.H5P_DATASET_ACCESS, false, prop_pairs...)
-    dxpl = p_create(HDF5.H5P_DATASET_XFER, false, prop_pairs...)
+    if HDF5PROPERTIES_HAS_TOCLOSE
+        dapl = p_create(HDF5.H5P_DATASET_ACCESS, false, prop_pairs...)
+        dxpl = p_create(HDF5.H5P_DATASET_XFER, false, prop_pairs...)
+    else
+        dapl = p_create(HDF5.H5P_DATASET_ACCESS, prop_pairs...)
+        dxpl = p_create(HDF5.H5P_DATASET_XFER, prop_pairs...)
+    end
 
     # Add extra property lists if required by keyword args.
     if collective && "dxpl_mpio" ∉ prop_pairs
@@ -252,7 +262,12 @@ function check_phdf5_file(g, x)
     check_hdf5_parallel()
 
     plist_id = HDF5.h5f_get_access_plist(file(g))
-    plist = HDF5Properties(plist_id, true, HDF5.H5P_FILE_ACCESS)
+
+    if HDF5PROPERTIES_HAS_TOCLOSE
+        plist = HDF5Properties(plist_id, true, HDF5.H5P_FILE_ACCESS)
+    else
+        plist = HDF5Properties(plist_id, HDF5.H5P_FILE_ACCESS)
+    end
 
     # Get HDF5 ids of MPIO driver and of the actual driver being used.
     driver_mpio = ccall((:H5FD_mpio_init, HDF5.libhdf5), HDF5.Hid, ())
