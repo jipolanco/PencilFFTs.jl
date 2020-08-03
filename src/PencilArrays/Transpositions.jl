@@ -6,13 +6,8 @@ using TimerOutputs
 import MPI
 
 using ..PencilArrays
-import ..PencilArrays:
-    ArrayRegion,
-    relative_permutation,
-    inverse_permutation,
-    permute_indices,
-    append_to_permutation,
-    extract
+using ..Pencils: ArrayRegion
+using ..Permutations
 
 # Declare transposition approaches.
 abstract type AbstractTransposeMethod end

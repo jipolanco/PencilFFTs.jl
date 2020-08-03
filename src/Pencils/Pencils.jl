@@ -1,4 +1,31 @@
 """
+    Pencils
+
+Base module defining types for multidimensional data decompositions using MPI.
+"""
+module Pencils
+
+using ..Permutations
+
+using MPI
+using TimerOutputs
+
+export Pencil, MPITopology
+export Permutation, NoPermutation
+export get_decomposition, get_permutation
+export get_comm, get_timer
+export range_local, size_local, size_global, to_local
+
+# Describes the portion of an array held by a given MPI process.
+const ArrayRegion{N} = NTuple{N,UnitRange{Int}} where N
+
+include("MPITopologies.jl")
+using .MPITopologies
+import .MPITopologies: get_comm
+
+include("data_ranges.jl")
+
+"""
     Pencil{N,M,T}
 
 Describes the decomposition of an `N`-dimensional Cartesian geometry among MPI
@@ -256,4 +283,11 @@ function to_local(p::Pencil{N}, global_inds::ArrayRegion{N};
         (first(rg) + δ):(last(rg) + δ)
     end :: ArrayRegion{N}
     permute ? permute_indices(ind, p.perm) : ind
+end
+
+Permutations.permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
+
+Permutations.relative_permutation(p::Pencil, q::Pencil) =
+    relative_permutation(p.perm, q.perm)
+
 end

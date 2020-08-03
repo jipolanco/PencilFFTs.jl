@@ -361,7 +361,6 @@ This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
 function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
-
     timer = get_timer(pencil(x))
 
     @timeit_debug timer "gather" begin

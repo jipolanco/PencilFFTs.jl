@@ -16,7 +16,6 @@ end
 
 # Permute tuple values.
 @inline permute_indices(t::Tuple, ::NoPermutation) = t
-@inline permute_indices(t::Tuple, p::Pencil) = permute_indices(t, p.perm)
 @inline function permute_indices(t::Tuple{Vararg{Any,N}},
                                  ::Permutation{perm,N}) where {N, perm}
     @inbounds ntuple(i -> t[perm[i]], Val(N))
@@ -31,8 +30,8 @@ end
 # that `permute_indices(x, perm) == y`.
 # It is assumed that both tuples have the same elements, possibly in different
 # order.
-function relative_permutation(x::Permutation{p,N},
-                              y::Permutation{q,N}) where {p, q, N}
+function relative_permutation(::Permutation{p,N},
+                              ::Permutation{q,N}) where {p, q, N}
     if @generated
         perm = map(v -> findfirst(==(v), p)::Int, q)
         @assert permute_indices(p, Permutation(perm)) === q
@@ -54,9 +53,6 @@ relative_permutation(x::Permutation{p}, ::NoPermutation) where {p} =
     relative_permutation(x, identity_permutation(Val(length(p))))
 
 inverse_permutation(x::Permutation) = relative_permutation(x, NoPermutation())
-
-relative_permutation(p::Pencil, q::Pencil) =
-    relative_permutation(p.perm, q.perm)
 
 # Construct the identity permutation: (1, 2, 3, ...)
 identity_permutation(::Val{N}) where N = Permutation(ntuple(identity, N))

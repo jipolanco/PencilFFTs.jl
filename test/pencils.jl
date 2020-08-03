@@ -1,6 +1,7 @@
 #!/usr/bin/env julia
 
 using PencilFFTs.PencilArrays
+using PencilFFTs.Permutations
 
 const PA = PencilArrays
 
@@ -235,7 +236,7 @@ function main()
         @test_throws ArgumentError Pencil(topo, Nxyz, (1, 4))
         @test_throws ArgumentError Pencil(topo, Nxyz, (0, 2))
 
-        @test PencilArrays.complete_dims(Val(5), (2, 3), (42, 12)) ===
+        @test Pencils.complete_dims(Val(5), (2, 3), (42, 12)) ===
             (1, 42, 12, 1, 1)
     end
 
@@ -383,7 +384,7 @@ function main()
     end
 
     begin
-        MPITopologies = PencilArrays.MPITopologies
+        MPITopologies = Pencils.MPITopologies
         periods = zeros(Int, length(proc_dims))
         comm_cart = MPI.Cart_create(comm, collect(proc_dims), periods, false)
         @inferred MPITopologies.create_subcomms(Val(2), comm_cart)
