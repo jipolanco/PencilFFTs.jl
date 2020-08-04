@@ -9,6 +9,8 @@ DocMeta.setdocmeta!(PencilFFTs, :DocTestSetup,
                     :(using PencilFFTs); recursive=false)
 DocMeta.setdocmeta!(PencilFFTs.PencilArrays, :DocTestSetup,
                     :(using PencilFFTs.PencilArrays); recursive=true)
+DocMeta.setdocmeta!(PencilFFTs.Permutations, :DocTestSetup,
+                    :(using PencilFFTs.Permutations); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
                     :(using PencilFFTs.Transforms); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.PencilIO, :DocTestSetup,
@@ -36,10 +38,13 @@ let with_checks = !MAKE_FAST
                 "Transforms.md",
                 "PencilArrays.md",
                 "PencilIO.md",
+                "Internals" => [
+                    "PermutationUtils.md",
+                ]
             ],
             "benchmarks.md",
         ],
-        doctest=with_checks,
+        doctest=true,
         linkcheck=with_checks,
         checkdocs=:all,
     )
