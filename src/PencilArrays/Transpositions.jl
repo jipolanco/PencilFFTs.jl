@@ -215,7 +215,7 @@ function permute_local!(out::PencilArray{T,N},
 
     perm = let perm_base = relative_permutation(Pi, Po)
         p = append_to_permutation(perm_base, Val(length(in.extra_dims)))
-        extract(p) :: Tuple
+        Tuple(p)
     end
 
     ui = parent(in)
@@ -551,8 +551,8 @@ function copy_permuted!(dest::PencilArray{T,N}, o_range_iperm::ArrayRegion{P},
             v
         else
             p = append_to_permutation(perm, Val(E))
-            pperm = extract(p)
-            iperm = extract(inverse_permutation(p))
+            pperm = Tuple(p)
+            iperm = Tuple(inverse_permutation(p))
             PermutedDimsArray{T, N, iperm, pperm, typeof(v)}(v)
         end
     end

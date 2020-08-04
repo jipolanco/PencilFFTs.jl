@@ -268,6 +268,9 @@ function main()
                                       NoPermutation()) === NoPermutation()
 
         let a = Permutation((2, 1, 3)), b = Permutation((3, 2, 1))
+            @test Tuple(a) === (2, 1, 3)
+            @test_throws ErrorException Tuple(NoPermutation())
+
             @test PA.permute_indices((:a, :b, :c), Permutation((2, 3, 1))) ===
                 (:b, :c, :a)
             a2b = PA.relative_permutation(a, b)

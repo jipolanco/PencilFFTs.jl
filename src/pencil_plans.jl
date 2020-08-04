@@ -352,7 +352,7 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
         # (leftmost) index, then the result of `findfirst` should be 1.
-        findfirst(==(n), PencilArrays.extract(perm)) :: Int
+        findfirst(==(n), Tuple(perm)) :: Int
     end
 
     # Create temporary arrays with the dimensions required for forward and

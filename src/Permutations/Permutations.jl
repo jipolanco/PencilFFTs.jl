@@ -2,9 +2,7 @@ module Permutations
 
 export Permutation, NoPermutation
 
-# TODO remove unused stuff
 export
-    extract,
     is_valid_permutation,
     check_permutation,
     permute_indices,

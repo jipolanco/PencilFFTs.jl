@@ -1,8 +1,9 @@
 ## Permutation operations ##
 
-# This is useful for base functions that don't accept permutations as value
-# types (like `permutedims!`).
-extract(::Permutation{p}) where {p} = p
+# Extract tuple representation of Permutation.
+# The result can be passed to functions like permutedims.
+Base.Tuple(::Permutation{p}) where {p} = p
+Base.Tuple(::NoPermutation) = error("cannot convert NoPermutation to tuple")
 
 Base.length(::Permutation{p}) where {p} = length(p)
 
