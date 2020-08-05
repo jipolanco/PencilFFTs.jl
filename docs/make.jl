@@ -22,8 +22,10 @@ let with_checks = !MAKE_FAST
         format=Documenter.HTML(
             prettyurls=true,
             # load assets in <head>
-            assets=["assets/custom.css",
-                    "assets/matomo.js"],
+            assets=[
+                "assets/custom.css",
+                "assets/matomo.js",
+            ],
         ),
         modules=[PencilFFTs],
         pages=[
@@ -40,12 +42,14 @@ let with_checks = !MAKE_FAST
                     "PencilArrays.md",
                     "Transpositions.md",
                     "PencilArrays_timers.md",
+                    "Internals" => ["PermutationUtils.md"]
                 ],
-                "PencilIO.md",
-                "PencilFFTs.md",
-                "Transforms.md",
-                "Internals" => [
-                    "PermutationUtils.md",
+                 "PencilIO.md",
+                "Distributed FFTs" => [
+                    "PencilFFTs.md",
+                    "Transforms.md",
+                    "PencilFFTs_timers.md",
+                    "Internals" => ["GlobalFFTParams.md"],
                 ]
             ],
             "benchmarks.md",

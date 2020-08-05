@@ -11,6 +11,10 @@ A pencil configuration includes:
 - type of decomposed data (e.g. `Float64`),
 - definition of optional permutation of dimensions.
 
+```@docs
+Pencils
+```
+
 ## Construction
 
 The creation of a new [`Pencil`](@ref) requires a [`MPITopology`](@ref), as
