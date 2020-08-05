@@ -30,16 +30,20 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 
 ---
 
-    PencilFFTPlan(size_global::Dims{N}, transforms,
-                  proc_dims::Dims{M}, comm::MPI.Comm, [real_type=Float64];
-                  extra_dims=(),
-                  fftw_flags=FFTW.ESTIMATE, fftw_timelimit=FFTW.NO_TIMELIMIT,
-                  permute_dims=Val(true),
-                  transpose_method=Transpositions.IsendIrecv(),
-                  timer=TimerOutput(),
-                  )
+    PencilFFTPlan(
+        size_global::Dims{N}, transforms, proc_dims::Dims{M}, comm::MPI.Comm,
+        [real_type = Float64];
+        extra_dims = (),
+        fftw_flags = FFTW.ESTIMATE,
+        fftw_timelimit = FFTW.NO_TIMELIMIT,
+        permute_dims = Val(true),
+        transpose_method = Transpositions.IsendIrecv(),
+        timer = TimerOutput(),
+    )
 
 Create plan for N-dimensional transform.
+
+# Extended help
 
 `size_global` specifies the global dimensions of the input data.
 
@@ -51,9 +55,9 @@ single transform that will be automatically expanded into `N` equivalent
 transforms. This is illustrated in the example below.
 
 The transforms are applied one dimension at a time, with the leftmost
-dimension first for forward transforms. For multidimensional transforms of
-real data, this means that a real-to-complex transform must be performed along
-the first dimension, and then complex-to-complex transforms are performed
+dimension first for forward transforms. For multidimensional FFTs of
+real data, this means that a real-to-complex FFT must be performed along
+the first dimension, and then complex-to-complex FFTs are performed
 along the other two dimensions (see example below).
 
 The data is distributed over the MPI processes in the `comm` communicator.
@@ -61,7 +65,7 @@ The distribution is performed over `M` dimensions (with `M < N`) according to
 the values in `proc_dims`, which specifies the number of MPI processes to put
 along each dimension.
 
-# Optional arguments
+## Optional arguments
 
 - The floating point precision can be selected by setting `real_type` parameter,
   which is `Float64` by default.
@@ -89,7 +93,7 @@ along each dimension.
 - `timer` should be a `TimerOutput` object.
   See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 
-# Extra dimensions
+## Extra dimensions
 
 One possible application of `extra_dims` is for describing the components of a
 vector or tensor field. However, this means that different `PencilFFTPlan`s
@@ -102,9 +106,9 @@ Another more legitimate usage of `extra_dims` is to specify one or more
 Cartesian dimensions that should not be transformed nor split among MPI
 processes.
 
-# Example
+## Example
 
-Suppose we want to perform a 3D transform of real data. The data is to be
+Suppose we want to perform a 3D FFT of real data. The data is to be
 decomposed along two dimensions, over 8 MPI processes:
 
 ```julia
@@ -122,16 +126,17 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 ```
 
 """
-struct PencilFFTPlan{T,
-                     N,   # dimension of arrays (= Nt + Ne)
-                     I,   # in-place (Bool)
-                     Nt,  # number of transformed dimensions
-                     Nd,  # number of decomposed dimensions
-                     Ne,  # number of extra dimensions
-                     G <: GlobalFFTParams,
-                     P <: NTuple{Nt, PencilPlan1D},
-                     TransposeMethod <: AbstractTransposeMethod,
-                    }
+struct PencilFFTPlan{
+        T,
+        N,   # dimension of arrays (= Nt + Ne)
+        I,   # in-place (Bool)
+        Nt,  # number of transformed dimensions
+        Nd,  # number of decomposed dimensions
+        Ne,  # number of extra dimensions
+        G <: GlobalFFTParams,
+        P <: NTuple{Nt, PencilPlan1D},
+        TransposeMethod <: AbstractTransposeMethod,
+    }
     global_params :: G
     topology      :: MPITopology{Nd}
 
@@ -159,19 +164,17 @@ struct PencilFFTPlan{T,
     # - add constructor with Cartesian MPI communicator, in case the user
     #   already created one
     # - allow more control on the decomposition directions
-    function PencilFFTPlan(size_global::Dims{Nt},
-                           transforms::AbstractTransformList{Nt},
-                           proc_dims::Dims{Nd}, comm::MPI.Comm,
-                           ::Type{T}=Float64;
-                           extra_dims::Dims{Ne}=(),
-                           fftw_flags=FFTW.ESTIMATE,
-                           fftw_timelimit=FFTW.NO_TIMELIMIT,
-                           permute_dims::ValBool=Val(true),
-                           transpose_method::AbstractTransposeMethod =
-                               Transpositions.IsendIrecv(),
-                           timer::TimerOutput=TimerOutput(),
-                           ibuf=UInt8[], obuf=UInt8[],  # temporary data buffers
-                          ) where {Nt, Nd, Ne, T <: FFTReal}
+    function PencilFFTPlan(
+            size_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
+            proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{T} = Float64;
+            extra_dims::Dims{Ne} = (),
+            fftw_flags = FFTW.ESTIMATE,
+            fftw_timelimit = FFTW.NO_TIMELIMIT,
+            permute_dims::ValBool = Val(true),
+            transpose_method::AbstractTransposeMethod = Transpositions.IsendIrecv(),
+            timer::TimerOutput = TimerOutput(),
+            ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
+        ) where {Nt, Nd, Ne, T <: FFTReal}
         g = GlobalFFTParams(size_global, transforms, T)
         t = MPITopology(comm, proc_dims)
         inplace = is_inplace(g)
@@ -352,7 +355,7 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         # Find index of n-th dimension in the permuted array.
         # If we permuted data to have the n-th dimension as the fastest
         # (leftmost) index, then the result of `findfirst` should be 1.
-        findfirst(==(n), PencilArrays.extract(perm)) :: Int
+        findfirst(==(n), Tuple(perm)) :: Int
     end
 
     # Create temporary arrays with the dimensions required for forward and

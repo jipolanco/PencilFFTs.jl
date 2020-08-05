@@ -73,7 +73,7 @@ PencilFFTs can be installed using the Julia package manager:
   using pencil decomposition written in Fortran.
 
 [^1]:
-    Figure adapted from [this thesis](https://hal.archives-ouvertes.fr/tel-02084215v1).
+    Figure adapted from [here](https://hal.archives-ouvertes.fr/tel-02084215v1).
 
 [^2]:
     For the pencil decomposition represented in the figure, $N = 3$ and $M = 2$.

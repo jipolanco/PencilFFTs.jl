@@ -9,6 +9,8 @@ DocMeta.setdocmeta!(PencilFFTs, :DocTestSetup,
                     :(using PencilFFTs); recursive=false)
 DocMeta.setdocmeta!(PencilFFTs.PencilArrays, :DocTestSetup,
                     :(using PencilFFTs.PencilArrays); recursive=true)
+DocMeta.setdocmeta!(PencilFFTs.Permutations, :DocTestSetup,
+                    :(using PencilFFTs.Permutations); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
                     :(using PencilFFTs.Transforms); recursive=true)
 DocMeta.setdocmeta!(PencilFFTs.PencilIO, :DocTestSetup,
@@ -20,8 +22,10 @@ let with_checks = !MAKE_FAST
         format=Documenter.HTML(
             prettyurls=true,
             # load assets in <head>
-            assets=["assets/custom.css",
-                    "assets/matomo.js"],
+            assets=[
+                "assets/custom.css",
+                "assets/matomo.js",
+            ],
         ),
         modules=[PencilFFTs],
         pages=[
@@ -32,14 +36,25 @@ let with_checks = !MAKE_FAST
                 "examples/gradient.md",
             ],
             "Library" => [
-                "PencilFFTs.md",
-                "Transforms.md",
-                "PencilArrays.md",
-                "PencilIO.md",
+                "MPI-distributed arrays" => [
+                    "MPITopology.md",
+                    "Pencils.md",
+                    "PencilArrays.md",
+                    "Transpositions.md",
+                    "PencilArrays_timers.md",
+                    "Internals" => ["PermutationUtils.md"]
+                ],
+                 "PencilIO.md",
+                "Distributed FFTs" => [
+                    "PencilFFTs.md",
+                    "Transforms.md",
+                    "PencilFFTs_timers.md",
+                    "Internals" => ["GlobalFFTParams.md"],
+                ]
             ],
             "benchmarks.md",
         ],
-        doctest=with_checks,
+        doctest=true,
         linkcheck=with_checks,
         checkdocs=:all,
     )

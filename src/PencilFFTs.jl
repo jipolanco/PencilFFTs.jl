@@ -7,6 +7,8 @@ using LinearAlgebra
 using Reexport
 using TimerOutputs
 
+include("Permutations/Permutations.jl")
+include("Pencils/Pencils.jl")
 include("PencilArrays/PencilArrays.jl")
 include("PencilIO/PencilIO.jl")
 include("Transforms/Transforms.jl")

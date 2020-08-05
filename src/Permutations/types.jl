@@ -34,12 +34,12 @@ p2 = Permutation((3, 4))
 
 Constructs an identity permutation.
 """
-struct Permutation{p, N}  # TODO do we need the N parameter?
-    Permutation{nothing, 0}() = new{nothing, 0}()
+struct Permutation{p,N}  # TODO do we need the N parameter?
+    Permutation{nothing,0}() = new{nothing,0}()
     Permutation(perm::Vararg{Int}) = new{perm, length(perm)}()
 end
 
-Permutation(::Nothing) = Permutation{nothing, 0}()
+Permutation(::Nothing) = Permutation{nothing,0}()
 Permutation(perm::Tuple) = Permutation(perm...)
 
 """

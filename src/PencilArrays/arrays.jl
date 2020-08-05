@@ -361,7 +361,6 @@ This can be useful for testing, but it shouldn't be used with very large
 datasets!
 """
 function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
-
     timer = get_timer(pencil(x))
 
     @timeit_debug timer "gather" begin
@@ -383,7 +382,7 @@ function gather(x::PencilArray{T,N}, root::Integer=0) where {T, N}
             # Apply inverse permutation.
             invperm = inverse_permutation(perm)
             p = append_to_permutation(invperm, Val(length(extra_dims)))
-            permutedims(x.data, extract(p))  # creates copy!
+            permutedims(x.data, Tuple(p))  # creates copy!
         end
     end
 

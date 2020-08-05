@@ -28,7 +28,7 @@ NoTransform!
 
 ## Internals
 
-What follows is used internally by `PencilFFTs`.
+What follows is used internally in `PencilFFTs`.
 
 ### Types
 
@@ -54,11 +54,4 @@ expand_dims
 is_inplace
 kind
 length_output
-```
-
-## Index
-
-```@index
-Pages = ["Transforms.md"]
-Order = [:module, :type, :function]
 ```
