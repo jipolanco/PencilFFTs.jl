@@ -34,10 +34,16 @@ let with_checks = !MAKE_FAST
                 "examples/gradient.md",
             ],
             "Library" => [
+                "MPI-distributed arrays" => [
+                    "MPITopology.md",
+                    "Pencils.md",
+                    "PencilArrays.md",
+                    "Transpositions.md",
+                    "PencilArrays_timers.md",
+                ],
+                "PencilIO.md",
                 "PencilFFTs.md",
                 "Transforms.md",
-                "PencilArrays.md",
-                "PencilIO.md",
                 "Internals" => [
                     "PermutationUtils.md",
                 ]
