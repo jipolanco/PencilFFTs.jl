@@ -2,7 +2,7 @@ using Documenter
 using HDF5  # to load HDF5 code via Requires
 using PencilFFTs
 
-const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
+const MAKE_FAST = Ref("--fast" in ARGS)  # skip some checks in makedocs
 
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(PencilFFTs, :DocTestSetup,
@@ -16,7 +16,9 @@ DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
 DocMeta.setdocmeta!(PencilFFTs.PencilIO, :DocTestSetup,
                     :(using PencilFFTs.PencilIO); recursive=true)
 
-let with_checks = !MAKE_FAST
+function main()
+    with_checks = !MAKE_FAST[]
+
     @time makedocs(
         sitename="PencilFFTs.jl",
         format=Documenter.HTML(
@@ -44,7 +46,7 @@ let with_checks = !MAKE_FAST
                     "PencilArrays_timers.md",
                     "Internals" => ["PermutationUtils.md"]
                 ],
-                 "PencilIO.md",
+                "PencilIO.md",
                 "Distributed FFTs" => [
                     "PencilFFTs.md",
                     "Transforms.md",
@@ -58,7 +60,11 @@ let with_checks = !MAKE_FAST
         linkcheck=with_checks,
         checkdocs=:all,
     )
+
+    nothing
 end
+
+main()
 
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual

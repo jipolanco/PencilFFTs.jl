@@ -40,6 +40,7 @@ using MPI
 using PencilFFTs
 using Random
 
+MPI.Initialized() ||  # hide
 MPI.Init()
 
 # Input data dimensions (Nx × Ny × Nz)
@@ -145,6 +146,7 @@ for I in CartesianIndices(θ_glob)
     i, j, k = Tuple(I)  # unpack indices
 
     # Wave number vector associated to current Cartesian index.
+    local kx, ky, kz  # hide
     kx = kvec[1][i]
     ky = kvec[2][j]
     kz = kvec[3][k]
@@ -164,6 +166,7 @@ using linear indexing instead:[^1]
 @inbounds for (n, I) in enumerate(CartesianIndices(θ_glob))
     i, j, k = Tuple(I)
 
+    local kx, ky, kz  # hide
     kx = kvec[1][i]
     ky = kvec[2][j]
     kz = kvec[3][k]
@@ -219,6 +222,7 @@ rng = axes(θ_glob)  # = (i1:i2, j1:j2, k1:k2)
 @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
 
 @inbounds for i in rng[1], j in rng[2], k in rng[3]
+    local kx, ky, kz  # hide
     kx = kvec[1][i]
     ky = kvec[2][j]
     kz = kvec[3][k]
@@ -270,6 +274,7 @@ kvec_local = getindex.(kvec, rng)
     i, j, k = Tuple(I)  # local indices
 
     # Wave number vector associated to current Cartesian index.
+    local kx, ky, kz
     kx = kvec_local[1][i]
     ky = kvec_local[2][j]
     kz = kvec_local[3][k]
