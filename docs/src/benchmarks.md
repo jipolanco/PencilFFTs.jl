@@ -7,15 +7,13 @@ Below, we show comparisons with the Fortran implementation of
 libraries.
 The benchmarks were performed on the [Jean--Zay
 cluster](http://www.idris.fr/jean-zay/jean-zay-presentation.html) of the IDRIS
-French computing centre
-([description in
-English](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)).
+French computing centre (CNRS).
 
 The figure below shows [strong
 scaling](https://en.wikipedia.org/wiki/Scalability#Weak_versus_strong_scaling)
 benchmarks of 3D real-to-complex FFTs using 2D ("pencil") decomposition.
 The benchmarks were run for input arrays of dimensions
-$N_x × N_y × N_z = 512^3$ and $1024^3$.
+$N_x × N_y × N_z = 512^3$, $1024^3$ and $2048^3$.
 Each timing is averaged over 100 repetitions.
 
 ```@raw html
@@ -59,8 +57,8 @@ Observed performance gains can be of the order of 10%.
 
 ### Benchmark details
 
-The benchmarks were performed using Julia 1.4.1 and Intel MPI 2019.0.4.
-We used PencilFFTs v0.6.0 with FFTW.jl v1.2.1 and MPI.jl v0.13.1.
+The benchmarks were performed using Julia 1.5.0 and Intel MPI 2019.
+We used PencilFFTs v0.7.3 with FFTW.jl v1.2.2 and MPI.jl v0.15.1.
 We used the Fortran implementation of P3DFFT, version 2.7.6,
 which was built with Intel 2019 compilers and linked to FFTW 3.3.8.
 The cluster where the benchmarks were run has Intel Cascade Lake 6248

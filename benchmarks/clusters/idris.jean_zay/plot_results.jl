@@ -23,23 +23,27 @@ struct TimerData
     max :: Vector{Float64}
 end
 
-const MPI_TAG = "intel_19.0.4"
-
-const RESOLUTIONS = (512, 1024)
+const MPI_TAG = "intelmpi_2019.7"
 
 const BENCH_PENCILS = Benchmark(
     "PencilFFTs", "results/PencilFFTs", (color=:C0, zorder=5),
     suffix="_PI",
 )
+
 const BENCH_P3DFFT = Benchmark(
     "P3DFFT", "results/P3DFFT2", (color=:C1, zorder=3),
 )
+
 const BENCH_LIST = (BENCH_PENCILS, BENCH_P3DFFT)
 
-const STYLE_RESOLUTION = Dict(512 => (marker=:o, ),
-                              1024 => (marker=:^, ))
+const STYLE_RESOLUTION = Dict(
+    512 => (marker=:o, ),
+    1024 => (marker=:^, ),
+    2048 => (marker=:s, ),
+)
 
 const STYLE_IDEAL = (color=:black, ls=:dotted, label="ideal")
+const RESOLUTIONS = Tuple(keys(STYLE_RESOLUTION))
 
 function load_timings(bench::Benchmark, resolution)
     filename = string(bench.filename_base,
@@ -91,11 +95,12 @@ function plot_from_file!(ax, bench::Benchmark, resolution;
 end
 
 function plot_lib_comparison!(ax, benchs, resolution)
-    ax.set_xscale(:log, basex=2)
-    ax.set_yscale(:log, basey=10)
+    ax.set_xscale(:log, base=2)
+    ax.set_yscale(:log, base=10)
     map(benchs) do bench
         plot_from_file!(
-            ax, bench, resolution, plot_ideal = bench === BENCH_PENCILS,
+            ax, bench, resolution,
+            plot_ideal = (bench === BENCH_PENCILS),
             # error_bars = :std,
         )
     end
@@ -150,7 +155,7 @@ function plot_timings()
         axis.set_major_formatter(mpl.ticker.ScalarFormatter())
     end
 
-    ax.set_ylim(top=1.05e3)
+    # ax.set_ylim(top=1.05e3)
 
     fig.savefig("timing_comparison.svg")
 

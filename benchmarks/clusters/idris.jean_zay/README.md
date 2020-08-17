@@ -15,7 +15,7 @@ For instance, a total of 1024 processes is divided into `P1 = P2 = 32`.
 
 Tests run on the [Jean-Zay cluster](http://www.idris.fr/jean-zay/jean-zay-presentation.html)
 ([English version](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)) of
-IDRIS (France).
+IDRIS (CNRS, France).
 
 Some relevant specifications (copied from
 [here](http://www.idris.fr/eng/jean-zay/cpu/jean-zay-cpu-hw-eng.html)):
@@ -32,12 +32,11 @@ Some relevant specifications (copied from
 
 ## Software
 
-The benchmarks were performed using Julia 1.4.1 and Intel MPI 2019.0.4.
-We used PencilFFTs v0.6.0 with FFTW.jl v1.2.1 and MPI.jl v0.13.1.
+The benchmarks were performed using Julia 1.5.0 and Intel MPI 2019.
+We used PencilFFTs v0.7.3 with FFTW.jl v1.2.2 and MPI.jl v0.15.1.
 P3DFFT v2.7.6 (Fortran version) was built with Intel 2019 compilers and linked
 to FFTW 3.3.8.
 
 ## Version
 
-Date: 3 May 2020 (PencilFFTs v0.5.0+, commit
-[`19772e5b`](https://github.com/jipolanco/PencilFFTs.jl/commit/19772e5bdaccc278ad74175ca481e5ec38398076)).
+Date: 17 Aug 2020, PencilFFTs v0.7.3

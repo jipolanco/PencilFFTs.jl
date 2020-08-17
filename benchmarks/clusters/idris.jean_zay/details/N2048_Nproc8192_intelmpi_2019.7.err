@@ -1,0 +1,13 @@
+Currently Loaded Modulefiles:
+ 1) intel-compilers/19.1.1   4) git/2.25.0      7) automake/1.16.1   
+ 2) gcc/9.1.0                5) cmake/3.18.0    8) intel-mpi/2019.7  
+ 3) fftw/3.3.8               6) autoconf/2.69  
+Precompiling project...
+srun: Warning: can't honor --ntasks-per-node set to 40 which doesn't match the requested tasks 8192 with the number of requested nodes 205. Ignoring --ntasks-per-node.
+[ Info: Global dimensions: (2048, 2048, 2048)
+[ Info: Repetitions:       100
+[ Info: Writing to results/PencilFFTs_N2048_intelmpi_2019.7_PI.dat
+[ Info: Writing to results/PencilFFTs_N2048_intelmpi_2019.7_PA.dat
+[ Info: Writing to results/PencilFFTs_N2048_intelmpi_2019.7_NI.dat
+[ Info: Writing to results/PencilFFTs_N2048_intelmpi_2019.7_NA.dat
+srun: Warning: can't honor --ntasks-per-node set to 40 which doesn't match the requested tasks 8192 with the number of requested nodes 205. Ignoring --ntasks-per-node.
