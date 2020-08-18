@@ -25,7 +25,6 @@ struct PencilPlan1D{
 
     function PencilPlan1D{Ti}(p_i, p_o, tr, fw, bw, scale) where {Ti}
         To = eltype_output(tr, Ti)
-        @assert eltype(p_i) == Ti && eltype(p_o) == To  # TODO remove!
         new{Ti, To, typeof(p_i), typeof(p_o), typeof(tr), typeof(fw), typeof(bw)}(
             p_i, p_o, tr, fw, bw, scale,
         )
@@ -195,13 +194,14 @@ struct PencilFFTPlan{
         fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
 
         # Options for creation of 1D plans.
-        plan1d_opt = (permute_dims=permute_dims,
-                      ibuf=ibuf,
-                      obuf=obuf,
-                      timer=timer,
-                      fftw_kw=fftw_kw,
-                      extra_dims=extra_dims,
-                     )
+        plan1d_opt = (
+            permute_dims = permute_dims,
+            ibuf = ibuf,
+            obuf = obuf,
+            timer = timer,
+            fftw_kw = fftw_kw,
+            extra_dims = extra_dims,
+        )
 
         plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> float(p.scale_factor), plans)
@@ -277,21 +277,20 @@ function _create_plans(::Type{Ti},
     so = g.size_global_out
     timer = plan1d_opt.timer
 
-    Pi = _make_pencil_in(Ti, g, topology, Val(n), plan_prev, timer,
+    Pi = _make_pencil_in(g, topology, Val(n), plan_prev, timer,
                          plan1d_opt.permute_dims)
 
     # Output transform along dimension `n`.
-    To = eltype_output(transform_fw, Ti)
     Po = let dims = ntuple(j -> j ≤ n ? so[j] : si[j], Val(N))
-        # TODO can I remove the To === Ti?
-        if dims === size_global(Pi) && To === Ti
+        if dims === size_global(Pi)
             Pi  # in this case Pi and Po are the same
         else
-            Pencil(Pi, To, size_global=dims, timer=timer)
+            Pencil(Pi, size_global=dims, timer=timer)
         end
     end
 
-    plan_n = _make_1d_fft_plan(dim, Pi, Po, transform_fw, plan1d_opt)
+    plan_n = _make_1d_fft_plan(dim, Ti, Pi, Po, transform_fw, plan1d_opt)
+    To = eltype_output(plan_n)
 
     (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
                            transforms_next...)...)
@@ -301,10 +300,10 @@ end
 _create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
               plan_prev) = ()
 
-function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
+function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
                          topology::MPITopology{M}, dim::Val{1},
                          plan_prev::Nothing, timer,
-                         permute_dims::ValBool) where {Ti, N, M}
+                         permute_dims::ValBool) where {N, M}
     # This is the case of the first pencil pair.
     # Generate initial pencils for the first dimension.
     # - Decompose along dimensions "far" from the first one.
@@ -314,17 +313,15 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     decomp_dims = ntuple(m -> N - M + m, Val(M))
     perm = _make_permutation_in(permute_dims, Val(1), Val(N))
     @assert perm === NoPermutation()
-    Pencil(topology, g.size_global_in, decomp_dims, Ti, permute=perm,
-           timer=timer)
+    Pencil(topology, g.size_global_in, decomp_dims, permute=perm, timer=timer)
 end
 
-function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
+function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
                          topology::MPITopology{M}, dim::Val{n},
                          plan_prev::PencilPlan1D, timer,
                          permute_dims::ValBool,
-                        ) where {Ti, N, M, n}
+                        ) where {N, M, n}
     Po_prev = plan_prev.pencil_out
-    @assert eltype(Po_prev) === Ti
 
     # (i) Determine permutation of pencil data.
     perm = _make_permutation_in(permute_dims, dim, Val(N))
@@ -350,7 +347,7 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
 
     # Create new pencil sharing some information with Po_prev.
     # (Including dimensions, MPI topology and data buffers.)
-    Pencil(Po_prev, Ti, decomp_dims=decomp, permute=perm, timer=timer)
+    Pencil(Po_prev, decomp_dims=decomp, permute=perm, timer=timer)
 end
 
 # No permutations
@@ -376,9 +373,9 @@ function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     Permutation(ntuple(i -> N - i + 1, Val(N)))  # (N, N-1, ..., 2, 1)
 end
 
-function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
+function _make_1d_fft_plan(dim::Val{n}, ::Type{Ti}, Pi::Pencil, Po::Pencil,
                            transform_fw::AbstractTransform,
-                           plan1d_opt::NamedTuple) where {n}
+                           plan1d_opt::NamedTuple) where {n, Ti}
     perm = get_permutation(Pi)
 
     dims = if perm === NoPermutation()
@@ -392,10 +389,9 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
 
     # Create temporary arrays with the dimensions required for forward and
     # backward transforms.
-    transform_bw = binv(transform_fw)
     extra_dims = plan1d_opt.extra_dims
-    Ti = eltype(Pi)
-    To = eltype(Po)
+    transform_bw = binv(transform_fw)
+    To = eltype_output(transform_fw, Ti)
     A_fw = _temporary_pencil_array(Ti, Pi, plan1d_opt.ibuf, extra_dims)
     A_bw = _temporary_pencil_array(To, Po, plan1d_opt.obuf, extra_dims)
 
@@ -415,7 +411,6 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         plan(transform_bw, parent(A_bw), dims; fftw_kw...)
     end
 
-    Ti = eltype(Pi)
     PencilPlan1D{Ti}(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end
 
@@ -506,7 +501,8 @@ function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
     # (in-place real-to-complex transforms are not supported!).
     @assert pencils === map(pp -> pp.pencil_out, p.plans)
 
-    ManyPencilArray(pencils...; extra_dims=p.extra_dims)
+    T = eltype_input(p)
+    ManyPencilArray{T}(undef, pencils...; extra_dims=p.extra_dims)
 end
 
 allocate_input(p::PencilFFTPlan, dims...) =
