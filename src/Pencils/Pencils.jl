@@ -26,6 +26,10 @@ import .MPITopologies: get_comm
 
 include("data_ranges.jl")
 
+# TODO
+# - remove `T` parameter
+# - remove `element_type` arguments
+
 """
     Pencil{N,M,T}
 
@@ -36,16 +40,15 @@ The `Pencil` describes the decomposition of arrays of element type `T`.
 
 ---
 
-    Pencil(topology::MPITopology{M}, size_global::Dims{N},
-           decomp_dims::Dims{M}, [element_type=Float64];
+    Pencil(topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
            permute::Permutation=NoPermutation(),
            timer=TimerOutput())
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
 The dimensions of the geometry are given by `size_global = (N1, N2, ...)`. The
-`Pencil` describes the decomposition of an array of dimensions `size_global` and
-type `T` across a group of MPI processes.
+`Pencil` describes the decomposition of an array of dimensions `size_global`
+across a group of MPI processes.
 
 Data is distributed over the given `M`-dimensional MPI topology (with `M < N`).
 The decomposed dimensions are given by `decomp_dims`.
@@ -63,7 +66,7 @@ It is also possible to pass a `TimerOutput` to the constructor. See
 Decompose a 3D geometry of global dimensions ``N_x × N_y × N_z = 4×8×12`` along
 the second (``y``) and third (``z``) dimensions.
 ```julia
-Pencil(topology, (4, 8, 12), (2, 3))                          # data is in (x, y, z) order
+Pencil(topology, (4, 8, 12), (2, 3))                                # data is in (x, y, z) order
 Pencil(topology, (4, 8, 12), (2, 3), permute=Permutation(3, 2, 1))  # data is in (z, y, x) order
 ```
 In the second case, the actual data is stored in `(z, y, x)` order within
@@ -71,7 +74,7 @@ each MPI process.
 
 ---
 
-    Pencil(p::Pencil{N,M}, [element_type=eltype(p)];
+    Pencil(p::Pencil{N,M};
            decomp_dims::Dims{M}=get_decomposition(p),
            size_global::Dims{N}=size_global(p),
            permute::P=get_permutation(p),
@@ -84,7 +87,7 @@ configurations, leading to reduced global memory usage.
 """
 struct Pencil{N,  # spatial dimensions
               M,  # MPI topology dimensions (< N)
-              T <: Number,  # element type (e.g. Float64, Complex{Float64})
+              T <: Number,  # element type (e.g. Float64, Complex{Float64}) [TODO remove!]
               P,  # optional index permutation (see Permutation)
              }
     # M-dimensional MPI decomposition info (with M < N).
