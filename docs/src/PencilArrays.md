@@ -37,9 +37,8 @@ One can also construct a `PencilArray` wrapper from an existing
 configuration.
 For instance, the following works:
 ```julia
-T = eltype(pencil)
 dims = size_local(pencil, permute=true)  # dimensions of data array must be permuted!
-data = Array{T}(undef, dims)
+data = Array{Float64}(undef, dims)
 A = PencilArray(pencil, data)
 ```
 Note that `data` does not need to be a `Array`, but can be any subtype of
