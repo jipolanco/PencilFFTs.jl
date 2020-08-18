@@ -1,26 +1,39 @@
 const ValBool = Union{Val{false}, Val{true}}
 
 # One-dimensional distributed FFT plan.
-struct PencilPlan1D{Pi <: Pencil,
-                    Po <: Pencil,
-                    Tr <: AbstractTransform,
-                    FFTPlanF <: Transforms.Plan,
-                    FFTPlanB <: Transforms.Plan,
-                   }
+struct PencilPlan1D{
+        Ti <: Number,  # input type
+        To <: Number,  # output type
+        Pi <: Pencil,
+        Po <: Pencil,
+        Tr <: AbstractTransform,
+        FFTPlanF <: Transforms.Plan,
+        FFTPlanB <: Transforms.Plan,
+    }
     # Each pencil pair describes the decomposition of input and output FFT
     # data. The two pencils will be different for transforms that do not
-    # preserve the size and element type of the data (e.g. real-to-complex
-    # transforms). Otherwise, they will be typically identical.
-    pencil_in  :: Pi       # pencil before transform
-    pencil_out :: Po       # pencil after transform
-    transform  :: Tr       # transform type
+    # preserve the size of the data (e.g. real-to-complex transforms).
+    # Otherwise, they will be typically identical.
+    pencil_in  :: Pi  # pencil before transform
+    pencil_out :: Po  # pencil after transform
+    transform  :: Tr  # transform type
 
     fft_plan   :: FFTPlanF  # forward FFTW plan
     bfft_plan  :: FFTPlanB  # backward FFTW plan (unnormalised)
 
     scale_factor :: Int  # scale factor for backward transform
+
+    function PencilPlan1D{Ti}(p_i, p_o, tr, fw, bw, scale) where {Ti}
+        To = eltype_output(tr, Ti)
+        @assert eltype(p_i) == Ti && eltype(p_o) == To  # TODO remove!
+        new{Ti, To, typeof(p_i), typeof(p_o), typeof(tr), typeof(fw), typeof(bw)}(
+            p_i, p_o, tr, fw, bw, scale,
+        )
+    end
 end
 
+Transforms.eltype_input(::PencilPlan1D{Ti}) where {Ti} = Ti
+Transforms.eltype_output(::PencilPlan1D{Ti,To}) where {Ti,To} = To
 Transforms.is_inplace(p::PencilPlan1D) = is_inplace(p.transform)
 
 """
@@ -224,6 +237,23 @@ otherwise.
 """
 Transforms.is_inplace(p::PencilFFTPlan{T,N,I}) where {T,N,I} = I :: Bool
 
+"""
+    Transforms.eltype_input(p::PencilFFTPlan)
+
+Returns the element type of the input data.
+"""
+Transforms.eltype_input(p::PencilFFTPlan) = eltype_input(first(p.plans))
+
+"""
+    Transforms.eltype_input(p::PencilFFTPlan)
+
+Returns the element type of the output data.
+"""
+Transforms.eltype_output(p::PencilFFTPlan) = eltype_output(last(p.plans))
+
+pencil_input(p::PencilFFTPlan) = first(p.plans).pencil_in
+pencil_output(p::PencilFFTPlan) = last(p.plans).pencil_out
+
 function _create_plans(g::GlobalFFTParams{T, N} where T,
                        topology::MPITopology{M},
                        plan1d_opt::NamedTuple) where {N, M}
@@ -382,7 +412,8 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
         plan(transform_bw, parent(A_bw), dims; fftw_kw...)
     end
 
-    PencilPlan1D(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
+    Ti = eltype(Pi)
+    PencilPlan1D{Ti}(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end
 
 function Base.show(io::IO, p::PencilFFTPlan)
@@ -457,8 +488,11 @@ size `dims`, and a tuple of `N` `PencilArray`s.
 function allocate_input end
 
 # Out-of-place version
-allocate_input(p::PencilFFTPlan{T,N,false} where {T,N}) =
-    PencilArray(first(p.plans).pencil_in, p.extra_dims)
+function allocate_input(p::PencilFFTPlan{T,N,false} where {T,N})
+    T = eltype_input(p)
+    pen = pencil_input(p)
+    PencilArray{T}(undef, pen, p.extra_dims)
+end
 
 # In-place version
 function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
@@ -490,8 +524,11 @@ See [`allocate_input`](@ref) for details.
 function allocate_output end
 
 # Out-of-place version.
-allocate_output(p::PencilFFTPlan{T,N,false} where {T,N}) =
-    PencilArray(last(p.plans).pencil_out, p.extra_dims)
+function allocate_output(p::PencilFFTPlan{T,N,false} where {T,N})
+    T = eltype_output(p)
+    pen = pencil_output(p)
+    PencilArray{T}(undef, pen, p.extra_dims)
+end
 
 # For in-place plans, the output and input are the same ManyPencilArray.
 allocate_output(p::PencilFFTPlan{T,N,true} where {T,N}) = allocate_input(p)
