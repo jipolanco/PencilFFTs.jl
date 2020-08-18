@@ -135,7 +135,7 @@ struct Pencil{N,  # spatial dimensions
                      axes_local_perm, permute, send_buf, recv_buf, timer)
     end
 
-    function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
+    function Pencil(p::Pencil{N,M}, ::Type{T}=Float64;
                     decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p),
                     permute=get_permutation(p),
@@ -171,7 +171,7 @@ function Base.show(io::IO, p::Pencil)
     print(io,
           """
           Decomposition of $(ndims(p))D data
-              Data dimensions: $(size_global(p)) [$(eltype(p))]
+              Data dimensions: $(size_global(p))
               Decomposed dimensions: $(get_decomposition(p))
               Data permutation: $(perm)""")
 end
@@ -182,7 +182,10 @@ end
 
 Element type associated to the given pencil type.
 """
-Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T} = T
+function Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T}
+    @warn "eltype(::Pencil) is deprecated and will be removed soon!"
+    T
+end
 
 """
     get_timer(p::Pencil)
