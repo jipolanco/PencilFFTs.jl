@@ -8,6 +8,7 @@ module Pencils
 using ..Permutations
 
 using MPI
+using StaticArrays: SVector
 using TimerOutputs
 
 export Pencil, MPITopology
@@ -162,10 +163,8 @@ function _check_selected_dimensions(N, dims::Dims{M}) where M
     nothing
 end
 
-function _sort_dimensions(dims::Dims{N}) where N
-    s = sort(collect(dims))
-    ntuple(n -> s[n], Val(N))  # convert array to tuple
-end
+# Use the `sort` method from StaticArrays and convert back to tuple.
+_sort_dimensions(dims::Dims{N}) where {N} = Tuple(sort(SVector(dims)))
 
 function Base.show(io::IO, p::Pencil)
     perm = get_permutation(p)
