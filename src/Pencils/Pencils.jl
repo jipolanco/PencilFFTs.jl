@@ -138,7 +138,7 @@ struct Pencil{N,  # spatial dimensions
                      axes_local_perm, permute, send_buf, recv_buf, timer)
     end
 
-    function Pencil(p::Pencil{N,M}, ::Type{T}=Float64;
+    function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
                     decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p),
                     permute=get_permutation(p),
