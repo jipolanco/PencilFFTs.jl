@@ -199,7 +199,10 @@ end
 Element type associated to the given pencil type.
 """
 function Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T}
-    @warn "eltype(::Pencil) is deprecated and will be removed soon!"
+    Base.depwarn(
+        "eltype(::Pencil) is deprecated and will be removed soon!",
+        :eltype_Pencil,
+    )
     T
 end
 
