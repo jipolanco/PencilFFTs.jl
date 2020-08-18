@@ -293,6 +293,7 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
                          permute_dims::ValBool,
                         ) where {Ti, N, M, n}
     Po_prev = plan_prev.pencil_out
+    @assert eltype(Po_prev) === Ti
 
     # (i) Determine permutation of pencil data.
     perm = _make_permutation_in(permute_dims, dim, Val(N))
@@ -317,8 +318,8 @@ function _make_pencil_in(::Type{Ti}, g::GlobalFFTParams{T, N} where T,
     @assert allunique(decomp)
 
     # Create new pencil sharing some information with Po_prev.
-    # (Including data type and dimensions, MPI topology and data buffers.)
-    Pencil(Po_prev, decomp_dims=decomp, permute=perm, timer=timer)
+    # (Including dimensions, MPI topology and data buffers.)
+    Pencil(Po_prev, Ti, decomp_dims=decomp, permute=perm, timer=timer)
 end
 
 # No permutations

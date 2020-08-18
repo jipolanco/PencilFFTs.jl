@@ -122,10 +122,11 @@ struct Pencil{N,  # spatial dimensions
     timer :: TimerOutput
 
     function Pencil(topology::MPITopology{M}, size_global::Dims{N},
-                    decomp_dims::Dims{M}, ::Type{T}=Float64;
+                    decomp_dims::Dims{M};
                     permute::Permutation=NoPermutation(),
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
+                    _deprecated_eltype::Type{T} = Float64,
                    ) where {N, M, T<:Number}
         check_permutation(permute)
         _check_selected_dimensions(N, decomp_dims)
@@ -138,17 +139,29 @@ struct Pencil{N,  # spatial dimensions
                      axes_local_perm, permute, send_buf, recv_buf, timer)
     end
 
-    function Pencil(p::Pencil{N,M}, ::Type{T}=eltype(p);
+    function Pencil(p::Pencil{N,M};
                     decomp_dims::Dims{M}=get_decomposition(p),
                     size_global::Dims{N}=size_global(p),
                     permute=get_permutation(p),
                     timer::TimerOutput=get_timer(p),
+                    _deprecated_eltype::Type{T} = Float64,
                    ) where {N, M, T<:Number}
-        Pencil(p.topology, size_global, decomp_dims, T;
+        Pencil(p.topology, size_global, decomp_dims;
                permute=permute, timer=timer,
-               send_buf=p.send_buf, recv_buf=p.recv_buf)
+               send_buf=p.send_buf, recv_buf=p.recv_buf,
+               _deprecated_eltype=T)
     end
 end
+
+@deprecate(
+    Pencil(topo, dims, pdims, ::Type{T}; kw...) where {T},
+    Pencil(topo, dims, pdims; kw..., _deprecated_eltype = T),
+)
+
+@deprecate(
+    Pencil(pencil, ::Type{T}; kw...) where {T},
+    Pencil(pencil; kw..., _deprecated_eltype = T),
+)
 
 # Verify that `dims` is a subselection of dimensions in 1:N.
 function _check_selected_dimensions(N, dims::Dims{M}) where M
