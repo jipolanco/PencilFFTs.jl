@@ -281,9 +281,10 @@ function _create_plans(::Type{Ti},
                          plan1d_opt.permute_dims)
 
     # Output transform along dimension `n`.
-    To = eltype_output(transform_fw, eltype(Pi))
+    To = eltype_output(transform_fw, Ti)
     Po = let dims = ntuple(j -> j ≤ n ? so[j] : si[j], Val(N))
-        if dims === size_global(Pi) && To === eltype(Pi)
+        # TODO can I remove the To === Ti?
+        if dims === size_global(Pi) && To === Ti
             Pi  # in this case Pi and Po are the same
         else
             Pencil(Pi, To, size_global=dims, timer=timer)
@@ -393,8 +394,10 @@ function _make_1d_fft_plan(dim::Val{n}, Pi::Pencil, Po::Pencil,
     # backward transforms.
     transform_bw = binv(transform_fw)
     extra_dims = plan1d_opt.extra_dims
-    A_fw = _temporary_pencil_array(Pi, plan1d_opt.ibuf, extra_dims)
-    A_bw = _temporary_pencil_array(Po, plan1d_opt.obuf, extra_dims)
+    Ti = eltype(Pi)
+    To = eltype(Po)
+    A_fw = _temporary_pencil_array(Ti, Pi, plan1d_opt.ibuf, extra_dims)
+    A_bw = _temporary_pencil_array(To, Po, plan1d_opt.obuf, extra_dims)
 
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output

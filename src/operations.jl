@@ -122,11 +122,11 @@ for f in (:*, :\)
         $f.(p, src)
 end
 
-_get_pencils_and_plan(::Val{FFTW.FORWARD}, p::PencilPlan1D) =
-    (p.pencil_in, p.pencil_out, p.fft_plan)
+@inline transform_info(::Val{FFTW.FORWARD}, p::PencilPlan1D{Ti,To}) where {Ti,To} =
+    (Ti = Ti, To = To, Pi = p.pencil_in, Po = p.pencil_out, fftw_plan = p.fft_plan)
 
-_get_pencils_and_plan(::Val{FFTW.BACKWARD}, p::PencilPlan1D) =
-    (p.pencil_out, p.pencil_in, p.bfft_plan)
+@inline transform_info(::Val{FFTW.BACKWARD}, p::PencilPlan1D{Ti,To}) where {Ti,To} =
+    (Ti = To, To = Ti, Pi = p.pencil_out, Po = p.pencil_in, fftw_plan = p.bfft_plan)
 
 # Out-of-place version
 function _apply_plans!(
@@ -171,24 +171,26 @@ function _apply_plans_out_of_place!(
         dir::Val, full_plan::PencilFFTPlan, y::PencilArray, x::PencilArray,
         plan::PencilPlan1D, next_plans::Vararg{PencilPlan1D})
     @assert !is_inplace(full_plan) && !is_inplace(plan)
-    Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
+    r = transform_info(dir, plan)
 
     # Transpose data if required.
-    u, t = if pencil(x) === Pi
+    u, t = if pencil(x) === r.Pi
         x, nothing
     else
-        u = _temporary_pencil_array(Pi, full_plan.ibuf, full_plan.extra_dims)
+        u = _temporary_pencil_array(r.Ti, r.Pi, full_plan.ibuf,
+                                    full_plan.extra_dims)
         t = Transpositions.Transposition(u, x, method=full_plan.transpose_method)
         u, transpose!(t, waitall=false)
     end
 
-    v = if pencil(y) === Po
+    v = if pencil(y) === r.Po
         y
     else
-        _temporary_pencil_array(Po, full_plan.obuf, full_plan.extra_dims)
+        _temporary_pencil_array(r.To, r.Po, full_plan.obuf,
+                                full_plan.extra_dims)
     end
 
-    @timeit_debug full_plan.timer "FFT" mul!(parent(v), fftw_plan, parent(u))
+    @timeit_debug full_plan.timer "FFT" mul!(parent(v), r.fftw_plan, parent(u))
 
     _wait_mpi_operations!(t, full_plan.timer)
     _apply_plans_out_of_place!(dir, full_plan, y, v, next_plans...)
@@ -207,10 +209,10 @@ function _apply_plans_in_place!(
         pair::PlanArrayPair, next_pairs...)
     plan = pair.first
     u = pair.second
-    Pi, Po, fftw_plan = _get_pencils_and_plan(dir, plan)
+    r = transform_info(dir, plan)
 
     @assert is_inplace(full_plan) && is_inplace(plan)
-    @assert pencil(u) === plan.pencil_in === plan.pencil_out
+    @assert pencil(u) === r.Pi === r.Po
 
     # Buffers should take no memory for in-place transforms.
     @assert length(full_plan.ibuf) == length(full_plan.obuf) == 0
@@ -226,7 +228,7 @@ function _apply_plans_in_place!(
     end
 
     # Perform in-place FFT
-    @timeit_debug full_plan.timer "FFT!" fftw_plan * parent(u)
+    @timeit_debug full_plan.timer "FFT!" r.fftw_plan * parent(u)
 
     _wait_mpi_operations!(t, full_plan.timer)
     _apply_plans_in_place!(dir, full_plan, u, next_pairs...)
@@ -245,10 +247,9 @@ end
 
 _make_pairs(::Tuple{}, ::Tuple{}) = ()
 
-function _temporary_pencil_array(p::Pencil, buf::Vector{UInt8},
-                                 extra_dims::Dims)
+@inline function _temporary_pencil_array(
+        ::Type{T}, p::Pencil, buf::Vector{UInt8}, extra_dims::Dims) where {T}
     # Create "unsafe" pencil array wrapping buffer data.
-    T = eltype(p)
     dims = (size_local(p, permute=true)..., extra_dims...)
     nb = prod(dims) * sizeof(T)
     resize!(buf, nb)
