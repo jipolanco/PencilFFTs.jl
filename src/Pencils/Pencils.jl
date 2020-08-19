@@ -126,7 +126,7 @@ struct Pencil{N,  # spatial dimensions
                     permute::Permutation=NoPermutation(),
                     send_buf=UInt8[], recv_buf=UInt8[],
                     timer=TimerOutput(),
-                    _deprecated_eltype::Type{T} = Float64,
+                    _deprecated_eltype::Val{T} = Val(Float64),
                    ) where {N, M, T<:Number}
         check_permutation(permute)
         _check_selected_dimensions(N, decomp_dims)
@@ -144,23 +144,23 @@ struct Pencil{N,  # spatial dimensions
                     size_global::Dims{N}=size_global(p),
                     permute=get_permutation(p),
                     timer::TimerOutput=get_timer(p),
-                    _deprecated_eltype::Type{T} = Float64,
-                   ) where {N, M, T<:Number}
+                    etc...
+                   ) where {N, M}
         Pencil(p.topology, size_global, decomp_dims;
                permute=permute, timer=timer,
                send_buf=p.send_buf, recv_buf=p.recv_buf,
-               _deprecated_eltype=T)
+               etc...)
     end
 end
 
 @deprecate(
     Pencil(topo, dims, pdims, ::Type{T}; kw...) where {T},
-    Pencil(topo, dims, pdims; kw..., _deprecated_eltype = T),
+    Pencil(topo, dims, pdims; kw..., _deprecated_eltype = Val(T)),
 )
 
 @deprecate(
     Pencil(pencil, ::Type{T}; kw...) where {T},
-    Pencil(pencil; kw..., _deprecated_eltype = T),
+    Pencil(pencil; kw..., _deprecated_eltype = Val(T)),
 )
 
 # Verify that `dims` is a subselection of dimensions in 1:N.
