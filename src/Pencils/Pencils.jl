@@ -195,12 +195,6 @@ function Base.show(io::IO, p::Pencil)
               Data permutation: $(perm)""")
 end
 
-"""
-    eltype(Pencil)
-    eltype(p::Pencil)
-
-Element type associated to the given pencil type.
-"""
 function Base.eltype(::Type{<:Pencil{N, M, T}}) where {N, M, T}
     Base.depwarn(
         "eltype(::Pencil) is deprecated and will be removed soon!",
