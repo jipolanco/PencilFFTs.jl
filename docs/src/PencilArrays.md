@@ -23,11 +23,12 @@ PencilArrays
 
 ## Construction
 
-A `PencilArray` wrapper can be constructed from a [`Pencil`](@ref) instance as
+An uninitialised `PencilArray` can be constructed from a [`Pencil`](@ref)
+instance as
 ```julia
 pencil = Pencil(#= ... =#)
-A = PencilArray(pencil)
-parent(A)  # returns the allocated Array
+A = PencilArray{Float64}(undef, pencil)
+parent(A)  # returns the Array wrapped by `A`
 ```
 This allocates a new `Array` with the local dimensions and data type associated
 to the `Pencil`.
@@ -37,9 +38,8 @@ One can also construct a `PencilArray` wrapper from an existing
 configuration.
 For instance, the following works:
 ```julia
-T = eltype(pencil)
 dims = size_local(pencil, permute=true)  # dimensions of data array must be permuted!
-data = Array{T}(undef, dims)
+data = Array{Float64}(undef, dims)
 A = PencilArray(pencil, data)
 ```
 Note that `data` does not need to be a `Array`, but can be any subtype of

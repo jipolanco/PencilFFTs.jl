@@ -48,7 +48,7 @@ pencil.
 
 ---
 
-    PencilArray(pencil::Pencil, [extra_dims=()])
+    PencilArray{T}(undef, pencil::Pencil, [extra_dims=()])
 
 Allocate an uninitialised `PencilArray` that can hold data in the local pencil.
 
@@ -59,22 +59,24 @@ array.
 # Example
 Suppose `pencil` has local dimensions `(20, 10, 30)` after permutation. Then:
 ```julia
-PencilArray(pencil)          # array dimensions are (20, 10, 30)
-PencilArray(pencil, (4, 3))  # array dimensions are (20, 10, 30, 4, 3)
+PencilArray{Float64}(undef, pencil)          # array dimensions are (20, 10, 30)
+PencilArray{Float64}(undef, pencil, (4, 3))  # array dimensions are (20, 10, 30, 4, 3)
 ```
 """
-struct PencilArray{T, N,
-                   A <: AbstractArray{T,N},
-                   Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
-                   E,   # number of "extra" dimensions (= N - Np)
-                   P <: Pencil,
-                  } <: AbstractArray{T,N}
+struct PencilArray{
+        T,
+        N,
+        A <: AbstractArray{T,N},
+        Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
+        E,   # number of "extra" dimensions (= N - Np)
+        P <: Pencil,
+    } <: AbstractArray{T,N}
     pencil   :: P
     data     :: A
     space_dims :: Dims{Np}  # *unpermuted* spatial dimensions
     extra_dims :: Dims{E}
 
-    function PencilArray(pencil::Pencil{Np, Mp, T} where {Np, Mp},
+    function PencilArray(pencil::Pencil{Np, Mp} where {Np, Mp},
                          data::AbstractArray{T, N}) where {T, N}
         P = typeof(pencil)
         A = typeof(data)
@@ -100,10 +102,14 @@ struct PencilArray{T, N,
     end
 end
 
-function PencilArray(pencil::Pencil, extra_dims::Dims=())
-    T = eltype(pencil)
+@deprecate(
+    PencilArray(p::Pencil, extra_dims=()),
+    PencilArray{eltype(p)}(undef, p, extra_dims),
+)
+
+function PencilArray{T}(init, pencil::Pencil, extra_dims::Dims=()) where {T}
     dims = (size_local(pencil, permute=true)..., extra_dims...)
-    PencilArray(pencil, Array{T}(undef, dims))
+    PencilArray(pencil, Array{T}(init, dims))
 end
 
 """

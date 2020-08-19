@@ -9,10 +9,10 @@ This can be useful to perform in-place operations on `PencilArray` data.
 
 ---
 
-    ManyPencilArray(pencils...; extra_dims=())
+    ManyPencilArray{T}(undef, pencils...; extra_dims=())
 
-Create a `ManyPencilArray` container that can hold data associated to all the
-given [`Pencil`](@ref)s.
+Create a `ManyPencilArray` container that can hold data of type `T` associated
+to all the given [`Pencil`](@ref)s.
 
 The optional `extra_dims` argument is the same as for [`PencilArray`](@ref).
 """
@@ -21,16 +21,16 @@ struct ManyPencilArray{
         N,  # number of dimensions of each array (including extra_dims)
         M,  # number of arrays
         Arrays <: Tuple{Vararg{PencilArray,M}},
-       }
+    }
     data :: Vector{T}
     arrays :: Arrays
 
-    function ManyPencilArray(
-            pencils::Vararg{Pencil{Np,X,T}, M} where {X};
+    function ManyPencilArray{T}(
+            init, pencils::Vararg{Pencil{Np},M};
             extra_dims::Dims=(),
-           ) where {Np,M,T}
+        ) where {Np,M,T}
         data_length = max(length.(pencils)...) * prod(extra_dims)
-        data = Vector{T}(undef, data_length)
+        data = Vector{T}(init, data_length)
         arrays = _make_arrays(data, extra_dims, pencils...)
         A = typeof(arrays)
         N = Np + length(extra_dims)
@@ -38,8 +38,16 @@ struct ManyPencilArray{
     end
 end
 
-function _make_arrays(data::Vector, extra_dims::Dims, p::Pencil,
-                      pens::Vararg{Pencil})
+@deprecate(
+    ManyPencilArray(
+        pencils::Vararg{Pencil{Np,X,T}, M} where {X};
+        extra_dims::Dims=()) where {Np,M,T},
+    ManyPencilArray{eltype(first(pencils))}(
+        undef, pencils...; extra_dims=extra_dims),
+)
+
+function _make_arrays(data::Vector{T}, extra_dims::Dims, p::Pencil,
+                      pens::Vararg{Pencil}) where {T}
     dims = (size_local(p, permute=true)..., extra_dims...)
     n = prod(dims)
     @assert n == length(p) * prod(extra_dims)

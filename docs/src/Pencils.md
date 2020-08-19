@@ -82,7 +82,6 @@ NoPermutation
 ## Methods
 
 ```@docs
-eltype(::Pencil)
 get_comm(::Pencil)
 get_decomposition(::Pencil)
 get_permutation(::Pencil)

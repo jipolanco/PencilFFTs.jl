@@ -29,9 +29,8 @@ function test_fill!(::Type{T}, u, val) where {T <: IndexStyle}
     u
 end
 
-function test_array_wrappers(p::Pencil)
-    T = eltype(p)
-    u = PencilArray(p)
+function test_array_wrappers(p::Pencil, ::Type{T} = Float64) where {T}
+    u = PencilArray{T}(undef, p)
     perm = get_permutation(p)
 
     @test eltype(u) === eltype(u.data) === T
@@ -88,14 +87,15 @@ function test_array_wrappers(p::Pencil)
     nothing
 end
 
-function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
+function test_multiarrays(pencils::Vararg{Pencil,M};
+                          element_type::Type{T} = Float64) where {M,T}
     @assert M >= 3
-    @inferred ManyPencilArray(pencils...)
+    @inferred ManyPencilArray{T}(undef, pencils...)
 
-    A = ManyPencilArray(pencils...)
+    A = ManyPencilArray{T}(undef, pencils...)
 
     @test ndims(A) === ndims(first(pencils))
-    @test eltype(A) === eltype(first(pencils))
+    @test eltype(A) === T
     @test length(A) === M
 
     @inferred first(A)
@@ -114,8 +114,8 @@ function test_multiarrays(pencils::Vararg{Pencil,M}) where {M}
 
     @testset "In-place extra dimensions" begin
         e = (3, 2)
-        @inferred ManyPencilArray(pencils...; extra_dims=e)
-        A = ManyPencilArray(pencils...; extra_dims=e)
+        @inferred ManyPencilArray{T}(undef, pencils...; extra_dims=e)
+        A = ManyPencilArray{T}(undef, pencils...; extra_dims=e)
         @test extra_dims(first(A)) === extra_dims(last(A)) === e
         @test ndims_extra(first(A)) == ndims_extra(last(A)) == length(e)
     end
@@ -242,8 +242,7 @@ function main()
 
     @testset "PencilArray" begin
         test_array_wrappers(pen1)
-        test_array_wrappers(Pencil(pen2, Float32))
-        test_array_wrappers(Pencil(pen3, Float64))
+        test_array_wrappers(pen3)
     end
 
     @testset "permutations" begin
@@ -297,9 +296,10 @@ function main()
                          Transpositions.Alltoallv())
 
     @testset "transpose! $method" for method in transpose_methods
-        u1 = PencilArray(pen1)
-        u2 = PencilArray(pen2)
-        u3 = PencilArray(pen3)
+        T = Float64
+        u1 = PencilArray{T}(undef, pen1)
+        u2 = PencilArray{T}(undef, pen2)
+        u3 = PencilArray{T}(undef, pen3)
 
         # Set initial random data.
         randn!(rng, u1)
@@ -326,7 +326,7 @@ function main()
 
         # Test transpositions without permutations.
         let pen2 = Pencil(pen1, decomp_dims=(1, 3))
-            u2 = PencilArray(pen2)
+            u2 = PencilArray{T}(undef, pen2)
             transpose!(u2, u1)
             @test compare_distributed_arrays(u1, u2)
         end
@@ -335,9 +335,10 @@ function main()
 
     # Test arrays with extra dimensions.
     @testset "extra dimensions" begin
-        u1 = PencilArray(pen1, (3, 4))
-        u2 = PencilArray(pen2, (3, 4))
-        u3 = PencilArray(pen3, (3, 4))
+        T = Float32
+        u1 = PencilArray{T}(undef, pen1, (3, 4))
+        u2 = PencilArray{T}(undef, pen2, (3, 4))
+        u3 = PencilArray{T}(undef, pen3, (3, 4))
         randn!(rng, u1)
         transpose!(u2, u1)
         @test compare_distributed_arrays(u1, u2)
@@ -353,6 +354,7 @@ function main()
 
     # Test slab (1D) decomposition.
     @testset "1D decomposition" begin
+        T = Float32
         topo = MPITopology(comm, (Nproc, ))
 
         pen1 = Pencil(topo, Nxyz, (1, ))
@@ -361,9 +363,9 @@ function main()
         # Same decomposed dimension as pen2, but different permutation.
         pen3 = Pencil(pen2, permute=Permutation(3, 2, 1))
 
-        u1 = PencilArray(pen1)
-        u2 = PencilArray(pen2)
-        u3 = PencilArray(pen3)
+        u1 = PencilArray{T}(undef, pen1)
+        u2 = PencilArray{T}(undef, pen2)
+        u3 = PencilArray{T}(undef, pen3)
 
         randn!(rng, u1)
         transpose!(u2, u1)
@@ -398,16 +400,17 @@ function main()
 
         @inferred PencilArrays.size_local(pen2, permute=true)
 
-        @inferred PencilArray(pen2)
-        @inferred PencilArray(pen2, (3, 4))
+        T = Int
+        @inferred PencilArray{T}(undef, pen2)
+        @inferred PencilArray{T}(undef, pen2, (3, 4))
 
         @inferred PA.permute_indices(Nxyz, Permutation(2, 3, 1))
         @inferred PA.relative_permutation(Permutation(1, 2, 3),
                                           Permutation(2, 3, 1))
         @inferred PA.relative_permutation(Permutation(1, 2, 3), NoPermutation())
 
-        u1 = PencilArray(pen1)
-        u2 = PencilArray(pen2)
+        u1 = PencilArray{T}(undef, pen1)
+        u2 = PencilArray{T}(undef, pen2)
 
         @inferred Nothing gather(u2)
         @inferred transpose!(u2, u1)

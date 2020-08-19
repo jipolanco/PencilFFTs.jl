@@ -146,7 +146,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
 
     pens = create_pencils(topo, data_dims, with_permutations, timer=to)
 
-    u = map(p -> PencilArray(p, extra_dims), pens)
+    u = map(p -> PencilArray{Float64}(undef, p, extra_dims), pens)
 
     myrank = MPI.Comm_rank(comm)
     rng = MersenneTwister(42 + myrank)
