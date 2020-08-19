@@ -26,23 +26,23 @@ import .MPITopologies: get_comm
 
 include("data_ranges.jl")
 
-# TODO
+# TODO [deprecation]
 # - remove `T` parameter
 # - remove `element_type` arguments
 
 """
-    Pencil{N,M,T}
+    Pencil{N,M}
 
-Describes the decomposition of an `N`-dimensional Cartesian geometry among MPI
-processes along `M` directions (with `M < N`).
-
-The `Pencil` describes the decomposition of arrays of element type `T`.
+Describes the decomposition of an `N`-dimensional array among MPI processes
+along `M` directions (with `M < N`).
 
 ---
 
-    Pencil(topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
-           permute::Permutation=NoPermutation(),
-           timer=TimerOutput())
+    Pencil(
+        topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
+        permute::Permutation = NoPermutation(),
+        timer = TimerOutput(),
+    )
 
 Define the decomposition of an `N`-dimensional geometry along `M` dimensions.
 
@@ -74,22 +74,25 @@ each MPI process.
 
 ---
 
-    Pencil(p::Pencil{N,M};
-           decomp_dims::Dims{M}=get_decomposition(p),
-           size_global::Dims{N}=size_global(p),
-           permute::P=get_permutation(p),
-           timer::TimerOutput=get_timer(p))
+    Pencil(
+        p::Pencil{N,M};
+        decomp_dims::Dims{M} = get_decomposition(p),
+        size_global::Dims{N} = size_global(p),
+        permute::P = get_permutation(p),
+        timer::TimerOutput = get_timer(p),
+    )
 
 Create new pencil configuration from an existent one.
 
 This constructor enables sharing temporary data buffers between the two pencil
 configurations, leading to reduced global memory usage.
 """
-struct Pencil{N,  # spatial dimensions
-              M,  # MPI topology dimensions (< N)
-              T <: Number,  # element type (e.g. Float64, Complex{Float64}) [TODO remove!]
-              P,  # optional index permutation (see Permutation)
-             }
+struct Pencil{
+        N,  # spatial dimensions
+        M,  # MPI topology dimensions (< N)
+        T <: Number,  # element type [TODO deprecated -- remove!]
+        P,  # optional index permutation (see Permutation)
+    }
     # M-dimensional MPI decomposition info (with M < N).
     topology :: MPITopology{M}
 
@@ -121,13 +124,13 @@ struct Pencil{N,  # spatial dimensions
     # Timing information.
     timer :: TimerOutput
 
-    function Pencil(topology::MPITopology{M}, size_global::Dims{N},
-                    decomp_dims::Dims{M};
-                    permute::Permutation=NoPermutation(),
-                    send_buf=UInt8[], recv_buf=UInt8[],
-                    timer=TimerOutput(),
-                    _deprecated_eltype::Val{T} = Val(Float64),
-                   ) where {N, M, T<:Number}
+    function Pencil(
+            topology::MPITopology{M}, size_global::Dims{N}, decomp_dims::Dims{M};
+            permute::Permutation = NoPermutation(),
+            send_buf = UInt8[], recv_buf = UInt8[],
+            timer = TimerOutput(),
+            _deprecated_eltype::Val{T} = Val(Float64),
+        ) where {N, M, T<:Number}
         check_permutation(permute)
         _check_selected_dimensions(N, decomp_dims)
         decomp_dims = _sort_dimensions(decomp_dims)
