@@ -140,8 +140,11 @@ The following property types are recognised:
 Open a parallel HDF5 file and write some `PencilArray`s to the file:
 
 ```julia
-u = PencilArray(...)
-v = PencilArray(...)
+pencil = Pencil(#= ... =#)
+u = PencilArray{Float64}(undef, pencil)
+v = similar(u)
+
+# [fill the arrays with interesting values...]
 
 comm = get_comm(u)
 info = MPI.Info()
@@ -210,8 +213,9 @@ The following property types are recognised:
 Open a parallel HDF5 file and read some `PencilArray`s:
 
 ```julia
-u = PencilArray(...)
-v = PencilArray(...)
+pencil = Pencil(#= ... =#)
+u = PencilArray{Float64}(undef, pencil)
+v = similar(u)
 
 comm = get_comm(u)
 info = MPI.Info()

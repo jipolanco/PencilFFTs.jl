@@ -206,16 +206,9 @@ function test_rfft(size_in; benchmark=true)
     MPI.Barrier(comm)
 end
 
-function main()
-    MPI.Init()
+MPI.Initialized() || MPI.Init()
+silence_stdout(MPI.COMM_WORLD)
 
-    silence_stdout(MPI.COMM_WORLD)
-
-    test_rfft(DATA_DIMS_EVEN)
-    println()
-    test_rfft(DATA_DIMS_ODD, benchmark=false)
-
-    MPI.Finalize()
-end
-
-main()
+test_rfft(DATA_DIMS_EVEN)
+println()
+test_rfft(DATA_DIMS_ODD, benchmark=false)

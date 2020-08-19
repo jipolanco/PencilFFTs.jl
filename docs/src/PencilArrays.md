@@ -23,11 +23,12 @@ PencilArrays
 
 ## Construction
 
-A `PencilArray` wrapper can be constructed from a [`Pencil`](@ref) instance as
+An uninitialised `PencilArray` can be constructed from a [`Pencil`](@ref)
+instance as
 ```julia
 pencil = Pencil(#= ... =#)
-A = PencilArray(pencil)
-parent(A)  # returns the allocated Array
+A = PencilArray{Float64}(undef, pencil)
+parent(A)  # returns the Array wrapped by `A`
 ```
 This allocates a new `Array` with the local dimensions and data type associated
 to the `Pencil`.

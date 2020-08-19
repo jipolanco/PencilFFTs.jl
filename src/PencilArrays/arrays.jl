@@ -63,12 +63,14 @@ PencilArray{Float64}(undef, pencil)          # array dimensions are (20, 10, 30)
 PencilArray{Float64}(undef, pencil, (4, 3))  # array dimensions are (20, 10, 30, 4, 3)
 ```
 """
-struct PencilArray{T, N,
-                   A <: AbstractArray{T,N},
-                   Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
-                   E,   # number of "extra" dimensions (= N - Np)
-                   P <: Pencil,
-                  } <: AbstractArray{T,N}
+struct PencilArray{
+        T,
+        N,
+        A <: AbstractArray{T,N},
+        Np,  # number of "spatial" dimensions (i.e. dimensions of the Pencil)
+        E,   # number of "extra" dimensions (= N - Np)
+        P <: Pencil,
+    } <: AbstractArray{T,N}
     pencil   :: P
     data     :: A
     space_dims :: Dims{Np}  # *unpermuted* spatial dimensions
