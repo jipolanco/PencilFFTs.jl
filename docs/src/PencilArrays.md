@@ -34,16 +34,25 @@ This allocates a new `Array` with the local dimensions and data type associated
 to the `Pencil`.
 
 One can also construct a `PencilArray` wrapper from an existing
-`AbstractArray`, whose dimensions and type must be compatible with the `Pencil`
+`AbstractArray`, whose dimensions must be compatible with the `Pencil`
 configuration.
 For instance, the following works:
 ```julia
 dims = size_local(pencil, permute=true)  # dimensions of data array must be permuted!
-data = Array{Float64}(undef, dims)
+data = zeros(dims)
 A = PencilArray(pencil, data)
 ```
 Note that `data` does not need to be a `Array`, but can be any subtype of
 `AbstractArray`.
+
+It is also possible to construct higher dimensional arrays, as in:
+```julia
+data = zeros(dims..., 3, 2)
+A = PencilArray(pencil, data)
+```
+This will construct a `PencilArray` where the rightmost dimensions (called
+*extra dimensions* in the PencilArrays API) will never be split among MPI
+processes.
 
 ## Dimension permutations
 
