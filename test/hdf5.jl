@@ -84,7 +84,7 @@ function main()
 
     topo = MPITopology(comm, proc_dims)
     pen = Pencil(topo, Nxyz, (1, 3), permute=Permutation(2, 3, 1))
-    u = PencilArray(pen)
+    u = PencilArray{Float64}(undef, pen)
     randn!(rng, u)
     u .+= 10 * myrank
 
