@@ -5,7 +5,6 @@ using PencilFFTs
 import FFTW
 using MPI
 
-using InteractiveUtils
 using LinearAlgebra
 using Random
 using Test

@@ -5,10 +5,8 @@
 using MPI: mpiexec
 
 test_files = [
-    "hdf5.jl",
     "taylor_green.jl",
     "rfft.jl",
-    "pencils.jl",
     "transforms.jl",
 ]
 
