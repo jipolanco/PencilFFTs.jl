@@ -115,7 +115,7 @@ of the domain handled by the local MPI process.
 
 ## [Method 1: global views](@id gradient_method_global)
 
-[`PencilArray`](@ref)s, returned for instance by [`allocate_input`](@ref)
+[`PencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.PencilArray)s, returned for instance by [`allocate_input`](@ref)
 and  [`allocate_output`](@ref), take indices that start at 1, regardless of the
 location of the subdomain associated to the local process on the global grid.
 (We say that `PencilArray`s take *local* indices.)
@@ -125,7 +125,7 @@ for each MPI process, is defined over the global domain, and as such it takes
 
 One straightforward way of making data arrays compatible with wave numbers is
 to use global views, i.e. arrays that take global indices.
-These are generated from `PencilArray`s by calling the [`global_view`](@ref)
+These are generated from `PencilArray`s by calling the [`global_view`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.global_view-Tuple{PencilArray})
 function.
 Note that, in general, global indices do *not* start at 1 for a given MPI
 process.
@@ -258,8 +258,8 @@ Alternatively, we can avoid global views and work directly on `PencilArray`s
 using local indices that start at 1.
 In this case, part of the strategy is to construct a "local" grid of wave
 numbers that can also be accessed with local indices.
-Moreover, to obtain the local data range associated to a [`PencilArray`](@ref),
-we call the [`range_local`](@ref) function.
+Moreover, to obtain the local data range associated to a `PencilArray`,
+we call the [`range_local`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.Pencils.range_local-Tuple{Union{PencilArray,%20Union{Tuple{Vararg{A,N}%20where%20N},%20AbstractArray{A,N}%20where%20N}%20where%20A%3C:PencilArray}}) function.
 Apart from these details, this method is very similar to the [first one](@ref
 gradient_method_global).
 
@@ -300,7 +300,7 @@ In
 [`examples/gradient.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl),
 additional implementations using local indices can be found which rely on
 a more advanced understanding of permutations and on the internals of the
-[`PencilArrays`](@ref) module.
+[`PencilArrays`](https://jipolanco.github.io/PencilArrays.jl/dev/) package.
 See for instance `gradient_local_parent!`, which directly works with the raw
 data stored in Julia `Array`s; or `gradient_local_linear!`, which completely
 avoids `CartesianIndices` while staying generic and efficient. We have found

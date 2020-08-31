@@ -46,8 +46,8 @@ Note that in-place real-to-complex transforms are not currently supported.
 As with out-of-place plans, data should be allocated using
 [`allocate_input`](@ref).
 The difference is that, for in-place plans, this function returns
-a [`ManyPencilArray`](@ref) object, which is a container holding multiple
-[`PencilArray`](@ref) views sharing the same memory space.
+a [`ManyPencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.ManyPencilArray) object, which is a container holding multiple
+[`PencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.PencilArray) views sharing the same memory space.
 
 ```julia
 # Allocate data for the plan.
@@ -63,7 +63,7 @@ As shown in the next section, in-place plans must be applied on the returned
 On the other hand, one usually wants to access and modify data, and for this
 one needs the `PencilArray` views contained in the `ManyPencilArray`.
 The input and output array views can be obtained by calling
-[`first(::ManyPencilArray)`](@ref) and [`last(::ManyPencilArray)`](@ref).
+[`first(::ManyPencilArray)`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Base.first-Tuple{ManyPencilArray}) and [`last(::ManyPencilArray)`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Base.last-Tuple{ManyPencilArray}).
 
 For instance, we can initialise the input array with some data before
 transforming:

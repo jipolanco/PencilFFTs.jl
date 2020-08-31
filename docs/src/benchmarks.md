@@ -50,7 +50,7 @@ large (and extensible) variety of transformations.
 
 Note that PencilFFTs can optionally use `MPI_Alltoallv` instead of
 point-to-point communications (see the docs for [`PencilFFTPlan`](@ref) and
-[`transpose!`](@ref Transpositions.transpose!)).
+for [`PencilArray` transpositions](https://jipolanco.github.io/PencilArrays.jl/dev/Transpositions/#PencilArrays.Transpositions.Transposition)).
 We have verified that the implementation with `MPI_Isend` and `MPI_Irecv` generally
 outperforms the one based on `MPI_Alltoallv`.
 Observed performance gains can be of the order of 10%.

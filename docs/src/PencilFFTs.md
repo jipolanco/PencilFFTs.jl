@@ -1,7 +1,7 @@
 # Distributed FFT plans
 
 Distributed FFTs are implemented in the `PencilFFTs` module, and are built on
-top of [`PencilArrays`](@ref).
+top of the [PencilArrays](https://github.com/jipolanco/PencilArrays.jl) package.
 
 ```@meta
 CurrentModule = PencilFFTs
