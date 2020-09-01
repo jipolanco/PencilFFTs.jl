@@ -64,7 +64,9 @@ described in [Measuring performance](@ref PencilFFTs.measuring_performance).
 ## Allocating data
 
 Next, we want to apply the plan on some data.
-Transforms may only be applied on [`PencilArray`](@ref)s, which are array
+Transforms may only be applied on
+[`PencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/)s,
+which are array
 wrappers that include MPI decomposition information (in some sense, analogous
 to [`DistributedArray`](https://github.com/JuliaParallel/Distributedarrays.jl)s
 in Julia's distributed computing approach).
@@ -129,7 +131,7 @@ and Cartesian indexing (see [the Julia
 docs](https://docs.julialang.org/en/latest/manual/arrays/#Number-of-indices-1)
 for details).
 
-For convenience, the [`global_view`](@ref) function can be used to generate an
+For convenience, the [`global_view`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Global-views) function can be used to generate an
 [`OffsetArray`](https://github.com/JuliaArrays/OffsetArrays.jl) wrapper that
 takes global indices.
 
@@ -143,7 +145,7 @@ This detail is hidden from the user, and **output arrays are always accessed in
 the same order as the input data**, regardless of the underlying output
 dimension permutation.
 This applies to `PencilArray`s and to `OffsetArray`s returned by
-[`global_view`](@ref).
+[`global_view`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.global_view-Tuple{PencilArray}).
 
 The reasoning behind dimension permutations, is that they allow to always
 perform FFTs along the fastest array dimension and to avoid a local data
@@ -166,7 +168,7 @@ This has been achieved, in part, by making sure that permutations such as `(3,
 It is possible to read and write `PencilArray`s to disk using [Parallel
 HDF5](https://portal.hdfgroup.org/display/HDF5/Parallel+HDF5) via the
 [HDF5.jl](https://github.com/JuliaIO/HDF5.jl) package.
-Assuming [everything is set-up correctly](@ref setting_up_parallel_hdf5), the
+Assuming [everything is set-up correctly](https://jipolanco.github.io/PencilArrays.jl/dev/PencilIO/#setting_up_parallel_hdf5), the
 following code writes the arrays `u` and `v` created in the previous sections:
 
 ```julia
@@ -217,8 +219,7 @@ application.
 
 ### More documentation
 
-The Parallel I/O feature is documented in its [dedicated section](@ref
-PencilIO_module).
+The Parallel I/O feature is documented in its dedicated section of the [PencilArrays docs](https://jipolanco.github.io/PencilArrays.jl/dev/PencilIO/).
 In particular, a short step-by-step guide is provided on how to set-up the
 MPI.jl and HDF5.jl packages in order to make things work.
 This is not trivial, as it requires the HDF5 libraries to be built with

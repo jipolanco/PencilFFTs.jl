@@ -1,18 +1,18 @@
-# PencilFFTs.jl
+# PencilFFTs
 
-[![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/stable/)
-[![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/dev/)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/PencilFFTs.jl/dev/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3618781.svg)](https://doi.org/10.5281/zenodo.3618781)
 
-[![Build status](https://travis-ci.com/jipolanco/PencilFFTs.jl.svg?branch=master)](https://travis-ci.com/jipolanco/PencilFFTs.jl)
+[![Build Status](https://travis-ci.com/jipolanco/PencilFFTs.jl.svg?branch=master)](https://travis-ci.com/jipolanco/PencilFFTs.jl)
 [![codecov](https://codecov.io/gh/jipolanco/PencilFFTs.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jipolanco/PencilFFTs.jl)
 [![coveralls](https://coveralls.io/repos/github/jipolanco/PencilFFTs.jl/badge.svg?branch=master)](https://coveralls.io/github/jipolanco/PencilFFTs.jl?branch=master)
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
-This package provides functionality to distribute multidimensional arrays among
-MPI processes, and to perform multidimensional FFTs (and related transforms) on
-them.
+This package provides multidimensional FFTs and related transforms on
+MPI-distributed Julia arrays via the
+[PencilArrays](https://github.com/jipolanco/PencilArrays.jl) package.
 
 The name of this package originates from the decomposition of 3D domains along
 two out of three dimensions, sometimes called *pencil* decomposition.
@@ -30,9 +30,18 @@ configuration to the other and perform FFTs along the other dimensions.
   <img width="85%" alt="Pencil decomposition of 3D domains" src="docs/src/img/pencils.svg">
 </p>
 
-Note that PencilFFTs can decompose grids of arbitrary dimension `N`, along an
-arbitrary number of subdimensions `M < N`.
-(In the example above, `N = 3` and `M = 2`.)
+## Features
+
+- distributed `N`-dimensional FFTs of MPI-distributed Julia arrays, using
+  the [`PencilArrays`](https://github.com/jipolanco/PencilArrays.jl) package;
+
+- FFTs and related transforms (e.g.
+  [DCTs](https://en.wikipedia.org/wiki/Discrete_cosine_transform) / Chebyshev
+  transforms) may be arbitrarily combined along different dimensions;
+
+- in-place and out-of-place transforms;
+
+- high scalability up to (at least) tens of thousands of MPI processes.
 
 ## Installation
 

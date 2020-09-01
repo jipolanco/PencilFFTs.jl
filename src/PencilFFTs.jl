@@ -7,25 +7,20 @@ using LinearAlgebra
 using Reexport
 using TimerOutputs
 
-include("Permutations/Permutations.jl")
-include("Pencils/Pencils.jl")
-include("PencilArrays/PencilArrays.jl")
-include("PencilIO/PencilIO.jl")
-include("Transforms/Transforms.jl")
+@reexport using PencilArrays
 
-@reexport using .PencilArrays
-@reexport using .PencilIO
+include("Transforms/Transforms.jl")
 @reexport using .Transforms
 
 # For convenience...
+import PencilArrays.Transpositions: AbstractTransposeMethod
 import .Transforms: AbstractTransform, FFTReal
-import .PencilArrays.Transpositions: AbstractTransposeMethod
 
 export PencilFFTPlan
 export allocate_input, allocate_output, get_scale_factor
 
 # Functions to be extended for PencilFFTs types.
-import .PencilArrays: get_comm, get_timer
+import PencilArrays: get_comm, get_timer
 
 const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 

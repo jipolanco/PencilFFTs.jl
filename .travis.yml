@@ -1,74 +1,82 @@
+# Documentation: http://docs.travis-ci.com/user/languages/julia
 language: julia
 
-os:
-  - linux
-
-dist: bionic
+notifications:
+  email: false
 
 julia:
   - 1.3
   - 1.5
   - nightly
 
-env:
-  global:
-    - JULIA_MPI_BINARY=system
-    # - JULIA_MPIEXEC_TEST_ARGS="--oversubscribe"  # useful for OpenMPI
-    - JULIA_HDF5_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/hdf5/mpich
+os:
+  - linux
 
-cache:
-  directories:
-    - $HOME/.julia/registries
-    - $HOME/.julia/artifacts
-
-script:
-  # Force precompilation of packages in serial mode.
-  # Otherwise, if precompilation runs in parallel, there may be race
-  # conditions...
-  # Also install and build HDF5.jl, and show version info.
-  - julia --project=@. -e 'using Pkg;
-                           using InteractiveUtils;
-                           versioninfo();
-                           pkg"add HDF5";
-                           using HDF5;
-                           @show HDF5.libhdf5;
-                           pkg"instantiate";
-                           pkg"precompile";
-                           using MPI;
-                           println("\n", MPI.MPI_LIBRARY_VERSION_STRING);'
-  - julia --project=@. --color=yes -e 'import Pkg; Pkg.test(coverage=true)'
-
-jobs:
-  allow_failures:
-    - julia: nightly
-  include:
-    - stage: "Documentation"
-      julia: 1.5
-      os: linux
-      script:
-        - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));
-                                               Pkg.instantiate()'
-        - julia --project=docs/ docs/make.jl
-      after_success: skip
-
-# https://docs.travis-ci.com/user/installing-dependencies/
-before_install:
-  - sudo apt-get -y install mpich libmpich-dev libhdf5-mpich-dev
-
-after_success:
-  - if [[ $TRAVIS_JULIA_VERSION == 1.5 ]]; then
-      julia -e 'using Pkg;
-                pkg"add Coverage";
-                using Coverage;
-                Codecov.submit(Codecov.process_folder());
-                Coveralls.submit(Coveralls.process_folder());';
-    fi
+dist: bionic
 
 addons:
   apt:
-    update: true  # runs apt-get update
+    update: true
+    packages:
+      - mpich
+      - libmpich-dev
+      - libhdf5-mpich-dev
 
-notifications:
-  email: false
+env:
+  global:
+    - JULIA_MPI_BINARY=system
+    - JULIA_HDF5_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/hdf5/mpich
+
+arch:
+  - x64
+
+cache:
+  directories:
+    - ~/.julia/artifacts
+
+script:
+  # Force precompilation of packages in serial mode.
+  # Also install and build HDF5.jl, and show version info.
+  - |
+    julia --project -e '
+      using Pkg
+      using InteractiveUtils
+      versioninfo()
+      pkg"add HDF5"
+      using HDF5
+      @show HDF5.libhdf5
+      pkg"instantiate"
+      pkg"precompile"
+      using MPI
+      println("\n", MPI.MPI_LIBRARY_VERSION_STRING)'
+  - julia --project -e 'import Pkg; Pkg.test(coverage=true)'
+
+jobs:
+  fast_finish: true
+  allow_failures:
+    - julia: nightly
+  include:
+    - stage: Documentation
+      julia: 1.5
+      script: |
+        julia --project=docs -e '
+          using Pkg
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()
+          using Documenter: DocMeta, doctest
+          using PencilFFTs
+          DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
+                              :(using PencilFFTs.Transforms); recursive=true)
+          doctest(PencilFFTs)
+          include("docs/make.jl")'
+      after_success: skip
+
+after_success:
+  - |
+    julia -e '
+      using Pkg
+      Pkg.add("Coverage")
+      using Coverage
+      Codecov.submit(process_folder())'
 
 # vim: shiftwidth=2

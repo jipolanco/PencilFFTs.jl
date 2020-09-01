@@ -1,16 +1,16 @@
-# PencilFFTs.jl
-
 ```@meta
 CurrentModule = PencilFFTs
 ```
+
+# PencilFFTs
 
 Fast Fourier transforms of MPI-distributed Julia arrays.
 
 ## Introduction
 
-This package provides functionality to distribute multidimensional arrays among
-MPI processes, and to perform multidimensional FFTs (and related transforms) on
-them.
+This package provides multidimensional FFTs and related transforms on
+MPI-distributed Julia arrays via the
+[PencilArrays](https://github.com/jipolanco/PencilArrays.jl) package.
 
 The name of this package originates from the decomposition of 3D domains along
 two out of three dimensions, sometimes called *pencil* decomposition.
@@ -50,6 +50,19 @@ numbers of processes, and performs similarly to the Fortran implementation of
 [P3DFFT](https://www.p3dfft.net), possibly the most popular library for
 computing parallel FFTs using 2D domain decomposition.
 
+## Features
+
+- distributed `N`-dimensional FFTs of MPI-distributed Julia arrays, using
+  the [`PencilArrays`](https://github.com/jipolanco/PencilArrays.jl) package;
+
+- FFTs and related transforms (e.g.
+  [DCTs](https://en.wikipedia.org/wiki/Discrete_cosine_transform) / Chebyshev
+  transforms) may be arbitrarily combined along different dimensions;
+
+- in-place and out-of-place transforms;
+
+- high scalability up to (at least) tens of thousands of MPI processes.
+
 ## Installation
 
 PencilFFTs can be installed using the Julia package manager:
@@ -73,7 +86,7 @@ PencilFFTs can be installed using the Julia package manager:
   using pencil decomposition written in Fortran.
 
 [^1]:
-    Figure adapted from [here](https://hal.archives-ouvertes.fr/tel-02084215v1).
+    Figure adapted from [this PhD thesis](https://hal.archives-ouvertes.fr/tel-02084215v1).
 
 [^2]:
     For the pencil decomposition represented in the figure, $N = 3$ and $M = 2$.
