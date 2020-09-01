@@ -65,8 +65,8 @@ jobs:
           Pkg.instantiate()
           using Documenter: DocMeta, doctest
           using PencilFFTs
-          DocMeta.setdocmeta!(PencilFFTs.Transforms, :DocTestSetup,
-                              :(using PencilFFTs.Transforms); recursive=true)
+          DocMeta.setdocmeta!(
+              PencilFFTs, :DocTestSetup, :(using PencilFFTs); recursive=true)
           doctest(PencilFFTs)
           include("docs/make.jl")'
       after_success: skip
