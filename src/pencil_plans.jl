@@ -49,7 +49,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
         fftw_flags = FFTW.ESTIMATE,
         fftw_timelimit = FFTW.NO_TIMELIMIT,
         permute_dims = Val(true),
-        transpose_method = Transpositions.IsendIrecv(),
+        transpose_method = Transpositions.PointToPoint(),
         timer = TimerOutput(),
     )
 
@@ -185,7 +185,7 @@ struct PencilFFTPlan{
             fftw_flags = FFTW.ESTIMATE,
             fftw_timelimit = FFTW.NO_TIMELIMIT,
             permute_dims::ValBool = Val(true),
-            transpose_method::AbstractTransposeMethod = Transpositions.IsendIrecv(),
+            transpose_method::AbstractTransposeMethod = Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
             ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
         ) where {Nt, Nd, Ne, T <: FFTReal}

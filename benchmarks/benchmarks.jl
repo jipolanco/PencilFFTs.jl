@@ -136,7 +136,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
                            iterations=1,
                            with_permutations::Val=Val(true),
                            extra_dims::Tuple=(),
-                           transpose_method=Transpositions.IsendIrecv(),
+                           transpose_method=Transpositions.PointToPoint(),
                           )
     topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
@@ -207,7 +207,7 @@ end
 function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
                         iterations=1,
-                        transpose_method=Transpositions.IsendIrecv(),
+                        transpose_method=Transpositions.PointToPoint(),
                         permute_dims=Val(true),
                        )
     isroot = MPI.Comm_rank(comm) == 0
@@ -291,7 +291,7 @@ function AggregatedTimes(to::TimerOutput, transpose_method)
     tf = TimerOutputs.flatten(to)
     data = avgtime(tf["copy_permuted!"]) + avgtime(tf["copy_range!"])
 
-    mpi = if transpose_method === Transpositions.IsendIrecv()
+    mpi = if transpose_method === Transpositions.PointToPoint()
         t = avgtime(to["MPI.Waitall!"])
         if haskey(tf, "wait receive")  # this will be false in serial mode
             t += avgtime(tf["wait receive"])
@@ -375,7 +375,7 @@ end
 make_index(::Val{true}) = 1
 make_index(::Val{false}) = 2
 
-make_index(::Transpositions.IsendIrecv) = 1
+make_index(::Transpositions.PointToPoint) = 1
 make_index(::Transpositions.Alltoallv) = 2
 
 make_index(stuff...) = CartesianIndex(make_index.(stuff))
@@ -401,7 +401,7 @@ function run_benchmarks(params)
         pdims[1], pdims[2]
     end
 
-    transpose_methods = (Transpositions.IsendIrecv(),
+    transpose_methods = (Transpositions.PointToPoint(),
                          Transpositions.Alltoallv())
     permutes = (Val(true), Val(false))
 
@@ -444,9 +444,9 @@ function run_benchmarks(params)
     )
 
     cases = (
-        :PI => make_index(Val(true), Transpositions.IsendIrecv()),
+        :PI => make_index(Val(true), Transpositions.PointToPoint()),
         :PA => make_index(Val(true), Transpositions.Alltoallv()),
-        :NI => make_index(Val(false), Transpositions.IsendIrecv()),
+        :NI => make_index(Val(false), Transpositions.PointToPoint()),
         :NA => make_index(Val(false), Transpositions.Alltoallv()),
     )
 
