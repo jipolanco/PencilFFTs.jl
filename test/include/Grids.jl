@@ -88,7 +88,7 @@ end
 # Get range of geometry associated to a given pencil.
 @propagate_inbounds Base.getindex(g::AbstractGrid{T, N} where T,
                                   p::Pencil{N}) where N =
-    g[range_local(p, permute=false)]
+    g[range_local(p, LogicalOrder())]
 
 """
     LocalGridIterator{T, N, G<:AbstractGrid}
@@ -139,7 +139,7 @@ LocalGridIterator(grid::AbstractGrid, u::PA.MaybePencilArrayCollection) =
     LocalGridIterator(grid, pencil(u))
 
 LocalGridIterator(grid::AbstractGrid, p::Pencil) =
-    LocalGridIterator(grid, range_local(p, permute=false))
+    LocalGridIterator(grid, range_local(p, LogicalOrder()))
 
 Base.parent(g::LocalGridIterator) = g.grid
 Base.size(g::LocalGridIterator) = size(g.iter)
