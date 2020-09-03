@@ -104,7 +104,7 @@ function init_random_field!(u::PencilArray{T}, rng) where {T <: Complex}
 
     dims_global = size_global(pencil(u))
     ind_space = CartesianIndices(dims_global)
-    ind_space_local = CartesianIndices(range_local(pencil(u), permute=false))
+    ind_space_local = CartesianIndices(range_local(pencil(u), LogicalOrder()))
     @assert ndims(ind_space_local) == ndims(ind_space)
 
     scale = sqrt(2 * prod(dims_global))  # to get order-1 average values

@@ -250,7 +250,7 @@ _make_pairs(::Tuple{}, ::Tuple{}) = ()
 @inline function _temporary_pencil_array(
         ::Type{T}, p::Pencil, buf::Vector{UInt8}, extra_dims::Dims) where {T}
     # Create "unsafe" pencil array wrapping buffer data.
-    dims = (size_local(p, permute=true)..., extra_dims...)
+    dims = (size_local(p, MemoryOrder())..., extra_dims...)
     nb = prod(dims) * sizeof(T)
     resize!(buf, nb)
     x = Transpositions.unsafe_as_array(T, buf, dims)

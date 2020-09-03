@@ -49,7 +49,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
         fftw_flags = FFTW.ESTIMATE,
         fftw_timelimit = FFTW.NO_TIMELIMIT,
         permute_dims = Val(true),
-        transpose_method = Transpositions.IsendIrecv(),
+        transpose_method = Transpositions.PointToPoint(),
         timer = TimerOutput(),
     )
 
@@ -185,7 +185,7 @@ struct PencilFFTPlan{
             fftw_flags = FFTW.ESTIMATE,
             fftw_timelimit = FFTW.NO_TIMELIMIT,
             permute_dims::ValBool = Val(true),
-            transpose_method::AbstractTransposeMethod = Transpositions.IsendIrecv(),
+            transpose_method::AbstractTransposeMethod = Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
             ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
         ) where {Nt, Nd, Ne, T <: FFTReal}
@@ -494,7 +494,7 @@ function allocate_input end
 function allocate_input(p::PencilFFTPlan{T,N,false} where {T,N})
     T = eltype_input(p)
     pen = pencil_input(p)
-    PencilArray{T}(undef, pen, p.extra_dims)
+    PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # In-place version
@@ -531,7 +531,7 @@ function allocate_output end
 function allocate_output(p::PencilFFTPlan{T,N,false} where {T,N})
     T = eltype_output(p)
     pen = pencil_output(p)
-    PencilArray{T}(undef, pen, p.extra_dims)
+    PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # For in-place plans, the output and input are the same ManyPencilArray.
