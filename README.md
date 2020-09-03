@@ -33,7 +33,7 @@ configuration to the other and perform FFTs along the other dimensions.
 ## Features
 
 - distributed `N`-dimensional FFTs of MPI-distributed Julia arrays, using
-  the [`PencilArrays`](https://github.com/jipolanco/PencilArrays.jl) package;
+  the [PencilArrays](https://github.com/jipolanco/PencilArrays.jl) package;
 
 - FFTs and related transforms (e.g.
   [DCTs](https://en.wikipedia.org/wiki/Discrete_cosine_transform) / Chebyshev
