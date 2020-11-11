@@ -216,94 +216,88 @@ function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
     ∇θ_hat
 end
 
-function main()
-    MPI.Init()
+MPI.Init()
 
-    # Input data dimensions (Nx × Ny × Nz)
-    dims = INPUT_DIMS
+# Input data dimensions (Nx × Ny × Nz)
+dims = INPUT_DIMS
 
-    kvec = generate_wavenumbers_r2c(dims)  # as tuple of Frequencies
-    kvec_collected = collect.(kvec)        # as tuple of Vector
+kvec = generate_wavenumbers_r2c(dims)  # as tuple of Frequencies
+kvec_collected = collect.(kvec)        # as tuple of Vector
 
-    # Apply a 3D real-to-complex (r2c) FFT.
-    transform = Transforms.RFFT()
+# Apply a 3D real-to-complex (r2c) FFT.
+transform = Transforms.RFFT()
 
-    # MPI topology information
-    comm = MPI.COMM_WORLD
-    Nproc = MPI.Comm_size(comm)
-    rank = MPI.Comm_rank(comm)
+# MPI topology information
+comm = MPI.COMM_WORLD
+Nproc = MPI.Comm_size(comm)
+rank = MPI.Comm_rank(comm)
 
-    # Disable output on all but one process.
-    rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+# Disable output on all but one process.
+rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
 
-    # Let MPI_Dims_create choose the decomposition.
-    proc_dims = let pdims = zeros(Int, 2)
-        MPI.Dims_create!(Nproc, pdims)
-        pdims[1], pdims[2]
-    end
-
-    # Create plan
-    plan = PencilFFTPlan(dims, transform, proc_dims, comm)
-    println(plan, "\n")
-
-    # Allocate data and initialise field
-    θ = allocate_input(plan)
-    randn!(θ)
-
-    # Perform distributed FFT
-    θ_hat = plan * θ
-
-    # Compute and compare gradients using different methods.
-    # Note that these return a tuple of 3 PencilArrays representing a vector
-    # field.
-    ∇θ_hat_base = allocate_output(plan, Val(3))
-    ∇θ_hat_other = similar.(∇θ_hat_base)
-
-    # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-    kvec_local = let rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-        getindex.(kvec, rng)
-    end
-
-    gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
-
-    @printf "%-40s" "gradient_global_view!..."
-    @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec_collected)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    @printf "%-40s" "gradient_global_view! (lazy)..."
-    @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    # Slow version: kvec as a tuple of Vector
-    @printf "%-40s" "gradient_global_view_explicit!..."
-    @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec_collected)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    # Fast version: kvec as a tuple of lazy vectors (Frequencies)
-    @printf "%-40s" "gradient_global_view_explicit! (lazy)..."
-    @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    @printf "%-40s" "gradient_local!..."
-    @btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec_local)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    @printf "%-40s" "gradient_local_parent!..."
-    @btime gradient_local_parent!($∇θ_hat_other, $θ_hat, $kvec_local)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    @printf "%-40s" "gradient_local_linear!..."
-    @btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec_local)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    @printf "%-40s" "gradient_local_linear_explicit!..."
-    @btime gradient_local_linear_explicit!($∇θ_hat_other, $θ_hat, $kvec_local)
-    @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
-
-    # Get gradient in physical space.
-    ∇θ = plan \ ∇θ_hat_base
-
-    MPI.Finalize()
+# Let MPI_Dims_create choose the decomposition.
+proc_dims = let pdims = zeros(Int, 2)
+    MPI.Dims_create!(Nproc, pdims)
+    pdims[1], pdims[2]
 end
 
-main()
+# Create plan
+plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+println(plan, "\n")
+
+# Allocate data and initialise field
+θ = allocate_input(plan)
+randn!(θ)
+
+# Perform distributed FFT
+θ_hat = plan * θ
+
+# Compute and compare gradients using different methods.
+# Note that these return a tuple of 3 PencilArrays representing a vector
+# field.
+∇θ_hat_base = allocate_output(plan, Val(3))
+∇θ_hat_other = similar.(∇θ_hat_base)
+
+# Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
+kvec_local = let rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
+    getindex.(kvec, rng)
+end
+
+gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
+
+@printf "%-40s" "gradient_global_view!..."
+@btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec_collected)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_global_view! (lazy)..."
+@btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+# Slow version: kvec as a tuple of Vector
+@printf "%-40s" "gradient_global_view_explicit!..."
+@btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec_collected)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+# Fast version: kvec as a tuple of lazy vectors (Frequencies)
+@printf "%-40s" "gradient_global_view_explicit! (lazy)..."
+@btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_local!..."
+@btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec_local)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_local_parent!..."
+@btime gradient_local_parent!($∇θ_hat_other, $θ_hat, $kvec_local)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_local_linear!..."
+@btime gradient_local_linear!($∇θ_hat_other, $θ_hat, $kvec_local)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_local_linear_explicit!..."
+@btime gradient_local_linear_explicit!($∇θ_hat_other, $θ_hat, $kvec_local)
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+# Get gradient in physical space.
+∇θ = plan \ ∇θ_hat_base
