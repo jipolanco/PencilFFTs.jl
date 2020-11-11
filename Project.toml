@@ -13,7 +13,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 FFTW = "1"
-MPI = "0.12, 0.13, 0.14, 0.15"
+MPI = "0.12, 0.13, 0.14, 0.15, 0.16"
 PencilArrays = "0.2, 0.3"
 Reexport = "0.2"
 TimerOutputs = "0.5"
