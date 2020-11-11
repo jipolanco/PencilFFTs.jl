@@ -138,7 +138,7 @@ portion of global indices owned by the local MPI process, as shown below.
 ```@example gradient
 # Generate global views of PencilArrays.
 θ_glob = global_view(θ_hat)
-∇θ_glob = global_view.(∇θ_hat)  # we broadcast over the 3 elements of ∇θ_hat
+∇θ_glob = map(global_view, ∇θ_hat)  # we map over the 3 elements of ∇θ_hat
 
 # We can use CartesianIndices to iterate over the global indices associated to
 # the local process.

@@ -59,7 +59,7 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
                                θ_hat::PencilArray, kvec_global)
     # Generate OffsetArrays that take global indices.
     θ_glob = global_view(θ_hat)
-    ∇θ_glob = global_view.(∇θ_hat)
+    ∇θ_glob = map(global_view, ∇θ_hat)
 
     @inbounds for (n, I) in enumerate(CartesianIndices(θ_glob))
         i, j, k = Tuple(I)  # global indices
@@ -84,7 +84,7 @@ function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
                                         θ_hat::PencilArray, kvec_global)
     # Generate OffsetArrays that take global indices.
     θ_glob = global_view(θ_hat)
-    ∇θ_glob = global_view.(∇θ_hat)
+    ∇θ_glob = map(global_view, ∇θ_hat)
 
     rng = axes(θ_glob)  # (i1:i2, j1:j2, k1:k2)
 

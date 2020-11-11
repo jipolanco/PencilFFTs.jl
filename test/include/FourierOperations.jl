@@ -19,7 +19,7 @@ function divergence(uF_local::VectorField{T},
                     grid::FourierGrid) where {T <: Complex}
     div2 = real(zero(T))
 
-    uF = global_view.(uF_local)
+    uF = map(global_view, uF_local)
     ux = first(uF)
 
     @inbounds for (l, I) in enumerate(CartesianIndices(ux))
@@ -58,8 +58,8 @@ Compute ``ω = ∇×u`` in Fourier space.
 function curl!(ωF_local::VectorField{T},
                uF_local::VectorField{T},
                grid::FourierGrid) where {T <: Complex}
-    u = global_view.(uF_local)
-    ω = global_view.(ωF_local)
+    u = map(global_view, uF_local)
+    ω = map(global_view, ωF_local)
 
     @inbounds for I in CartesianIndices(u[1])
         k = grid[I]  # (kx, ky, kz)

@@ -33,7 +33,7 @@ const TG_K0 = 2.0
 
 # Initialise TG flow (global view version).
 function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
-    u = global_view.(u_local)
+    u = map(global_view, u_local)
 
     @inbounds for (n, I) in enumerate(CartesianIndices(u[1]))
         x, y, z = g[I]
@@ -97,8 +97,6 @@ function fields_to_vtk(g::PhysicalGridIterator, basename, fields::Vararg{Pair})
 end
 
 function main()
-    MPI.Init()
-
     size_in = DATA_DIMS
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
@@ -169,7 +167,8 @@ function main()
                       "u" => u, "ω" => ω)
     end
 
-    MPI.Finalize()
+    nothing
 end
 
+MPI.Init()
 main()
