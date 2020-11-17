@@ -10,10 +10,8 @@ struct OrderDst <: IterationOrder end
 iter_indices(::OrderSrc, src, dst) = CartesianIndices(src)
 iter_indices(::OrderDst, src, dst) = CartesianIndices(dst)
 
-indices(::OrderSrc, I, perm) = (I, PencilArrays.permute_indices(I, perm))
-indices(::OrderDst, J, perm) = let iperm = PencilArrays.inverse_permutation(perm)
-    (PencilArrays.permute_indices(J, iperm), J)
-end
+indices(::OrderSrc, I, perm) = (I, perm * I)
+indices(::OrderDst, J, perm) = (perm \ J, J)
 
 function copy_permuted!(dst::AbstractArray{To,3}, src::AbstractArray{Ti,3},
                         perm, order::IterationOrder) where {To,Ti}

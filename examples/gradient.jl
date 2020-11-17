@@ -167,7 +167,7 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
     # Fourier space is (z, y, x) instead of (x, y, z), but this is never assumed
     # below. The wave numbers must be permuted accordingly.
     perm = permutation(θ_hat)  # e.g. Permutation(3, 2, 1)
-    kvec_perm = PA.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
+    kvec_perm = perm * kvec_local  # e.g. (kz, ky, kx)
 
     # Create wave number iterator.
     kvec_iter = Iterators.product(kvec_perm...)

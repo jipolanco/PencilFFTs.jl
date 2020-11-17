@@ -29,7 +29,7 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             LinRange{T}(first(l), last(l), d + 1)
         end
         dims = dims_in
-        iperm = PA.inverse_permutation(perm)
+        iperm = inv(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
     end
@@ -52,7 +52,7 @@ struct FourierGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
             n == 1 ? rfftfreq(M, fs)::F : fftfreq(M, fs)::F
         end
         dims = dims_in
-        iperm = PA.inverse_permutation(perm)
+        iperm = inv(perm)
         Perm = typeof(iperm)
         new{T,N,Perm}(dims, r, iperm)
     end
@@ -117,14 +117,14 @@ struct LocalGridIterator{
         end
 
         iperm = grid.iperm
-        perm = PA.inverse_permutation(iperm)
+        perm = inv(iperm)
 
         # Note: grid[range] returns non-permuted coordinates from a non-permuted
         # `range`.
         # We want the coordinates permuted. This way we can iterate in the
         # right memory order, according to the current dimension permutation.
         # Then, we unpermute the coordinates at each call to `iterate`.
-        grid_perm = PA.permute_indices(grid[range], perm)
+        grid_perm = perm * grid[range]
         iter = Iterators.product(grid_perm...)
 
         G = typeof(grid)
@@ -150,7 +150,7 @@ Base.eltype(::Type{G} where G <: LocalGridIterator{T}) where {T} = T
     next === nothing && return nothing
     coords_perm, state_new = next  # `coords_perm` is permuted, e.g. (z, y, x)
     # We return unpermuted coordinates, e.g. (x, y, z)
-    PA.permute_indices(coords_perm, g.iperm), state_new
+    g.iperm * coords_perm, state_new
 end
 
 const FourierGridIterator{T, N} =
