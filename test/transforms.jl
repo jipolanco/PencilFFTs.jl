@@ -344,7 +344,7 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     let to = TimerOutput()
         plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64,
                              timer=to)
-        @test get_timer(plan) === to
+        @test timer(plan) === to
     end
 
     @testset "Transform types" begin

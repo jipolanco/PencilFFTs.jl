@@ -141,7 +141,7 @@ function _apply_plans!(
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
-        ldiv!(get_scale_factor(full_plan), y)
+        ldiv!(scale_factor(full_plan), y)
     end
 
     y
@@ -161,7 +161,7 @@ function _apply_plans!(
 
     if dir === Val(FFTW.BACKWARD)
         # Scale transform.
-        ldiv!(get_scale_factor(full_plan), first(A))
+        ldiv!(scale_factor(full_plan), first(A))
     end
 
     A

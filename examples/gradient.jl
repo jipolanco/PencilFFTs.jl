@@ -90,7 +90,7 @@ function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
 
     # Note: since the dimensions in Fourier space are permuted as (z, y, x), it
     # is faster to loop with `k` as the fastest index.
-    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
+    @assert permutation(θ_hat) === Permutation(3, 2, 1)
 
     @inbounds for i in rng[1], j in rng[2], k in rng[3]
         # Wave number vector associated to current Cartesian index.
@@ -136,12 +136,11 @@ function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
     θ_p = parent(θ_hat) :: Array
     ∇θ_p = parent.(∇θ_hat)
 
-    perm = get_permutation(θ_hat)
-    iperm = PA.inverse_permutation(perm)
+    perm = permutation(θ_hat)
 
     @inbounds for (n, I) in enumerate(CartesianIndices(θ_p))
         # Unpermute indices to (i, j, k)
-        J = PA.permute_indices(I, iperm)
+        J = perm \ I
 
         # Wave number vector associated to current Cartesian index.
         i, j, k = Tuple(J)  # local indices
@@ -167,22 +166,19 @@ function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
     # indices in the Fourier-transformed arrays. By default, the memory order in
     # Fourier space is (z, y, x) instead of (x, y, z), but this is never assumed
     # below. The wave numbers must be permuted accordingly.
-    perm = get_permutation(θ_hat)  # e.g. Permutation(3, 2, 1)
-    kvec_perm = PA.permute_indices(kvec_local, perm)  # e.g. (kz, ky, kx)
+    perm = permutation(θ_hat)  # e.g. Permutation(3, 2, 1)
+    kvec_perm = perm * kvec_local  # e.g. (kz, ky, kx)
 
     # Create wave number iterator.
     kvec_iter = Iterators.product(kvec_perm...)
 
-    # Inverse permutation, to pass from (kz, ky, kx) to (kx, ky, kz).
-    iperm = PA.inverse_permutation(perm)
-
     @inbounds for (n, kvec_n) in enumerate(kvec_iter)
         # Apply inverse permutation to the current wave number vector.
-        # Note that this permutation has zero cost, since iperm is a
+        # Note that this permutation has zero cost, since perm is a
         # compile-time constant!
         # (This can be verified by comparing the performance of this function
         # with the "explicit" variant of `gradient_local_linear`, below.)
-        κ = PA.permute_indices(kvec_n, iperm)  # = (kx, ky, kz)
+        κ = perm \ kvec_n  # = (kx, ky, kz)
 
         u = im * θ_hat[n]
 
@@ -199,7 +195,7 @@ end
 # It's basically the same but probably easier to understand.
 function gradient_local_linear_explicit!(∇θ_hat::NTuple{3,PencilArray},
                                          θ_hat::PencilArray, kvec_local)
-    @assert get_permutation(θ_hat) === Permutation(3, 2, 1)
+    @assert permutation(θ_hat) === Permutation(3, 2, 1)
 
     # Create wave number iterator in (kz, ky, kx) order, i.e. in the same order
     # as the array data.

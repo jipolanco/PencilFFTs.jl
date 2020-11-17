@@ -17,7 +17,9 @@ example_files = joinpath.(
     filter(fname -> splitext(fname)[2] == ".jl", readdir(example_dir))
 )
 
-Nproc = clamp(Sys.CPU_THREADS, 4, 6)
+Nproc = let N = get(ENV, "JULIA_MPI_NPROC", nothing)
+    N === nothing ? clamp(Sys.CPU_THREADS, 4, 6) : parse(Int, N)
+end
 files = [test_files..., example_files...]
 
 for fname in files

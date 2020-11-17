@@ -113,13 +113,13 @@ function main()
                          permute_dims=Val(true))
     u = allocate_input(plan, Val(3))  # allocate vector field
 
-    g_global = PhysicalGrid(GEOMETRY, size_in, get_permutation(u))
+    g_global = PhysicalGrid(GEOMETRY, size_in, permutation(u))
     g_local = LocalGridIterator(g_global, u)
     taylor_green!(u, g_local)   # initialise TG velocity field
 
     uF = plan * u  # apply 3D FFT
 
-    gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
+    gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
     gF_local = LocalGridIterator(gF_global, uF)
     ωF = similar.(uF)
 

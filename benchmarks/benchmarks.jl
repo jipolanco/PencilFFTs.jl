@@ -180,7 +180,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
             """
             Processes:               $proc_dims
             Data dimensions:         $data_dims $(isempty(extra_dims) ? "" : "× $extra_dims")
-            Permutations (1, 2, 3):  $(get_permutation.(pens))
+            Permutations (1, 2, 3):  $(permutation.(pens))
             Transpositions:          1 -> 2 -> 3 -> 2 -> 1
             Method:                  $(transpose_method)
             """)

@@ -27,7 +27,7 @@ plan = PencilFFTPlan(#= args... =#)
 # [do stuff with `plan`...]
 
 # Retrieve and print timing data associated to `plan`
-to = get_timer(plan)
+to = timer(plan)
 print_timer(to)
 ```
 
