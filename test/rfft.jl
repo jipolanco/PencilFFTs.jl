@@ -25,7 +25,7 @@ const GEOMETRY = ((0.0, 4pi), (0.0, 2pi), (0.0, 2pi))
 function test_global_average(u, uF, plan::PencilFFTPlan,
                              gF::FourierGridIterator)
     comm = get_comm(plan)
-    scale = get_scale_factor(plan)
+    scale = scale_factor(plan)
 
     sum_u2_local = sqnorm(u)
     sum_uF2_local = sqnorm(uF, gF)
@@ -177,7 +177,7 @@ function test_rfft(size_in; benchmark=true)
     u = allocate_input(plan, Val(3))
     ldiv!(u, plan, uF)
 
-    gF_global = FourierGrid(GEOMETRY, size_in, get_permutation(uF))
+    gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
     gF_local = LocalGridIterator(gF_global, uF)
 
     # Compare different methods for computing stuff in Fourier space.

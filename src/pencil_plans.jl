@@ -333,7 +333,7 @@ function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
     # If `n` was decomposed previously, shift its associated value
     # in `decomp_prev` to the left.
     # Example: if n = 3 and decomp_prev = (1, 3), then decomp = (1, 2).
-    decomp_prev = get_decomposition(Po_prev)
+    decomp_prev = decomposition(Po_prev)
     decomp = ntuple(Val(M)) do i
         p = decomp_prev[i]
         p == n ? p - 1 : p
@@ -378,9 +378,9 @@ end
 function _make_1d_fft_plan(dim::Val{n}, ::Type{Ti}, Pi::Pencil, Po::Pencil,
                            transform_fw::AbstractTransform,
                            plan1d_opt::NamedTuple) where {n, Ti}
-    perm = get_permutation(Pi)
+    perm = permutation(Pi)
 
-    dims = if perm === NoPermutation()
+    dims = if PencilArrays.isidentity(perm)
         n  # no index permutation
     else
         # Find index of n-th dimension in the permuted array.
@@ -432,20 +432,20 @@ Get MPI communicator associated to a `PencilFFTPlan`.
 get_comm(p::PencilFFTPlan) = get_comm(p.topology)
 
 """
-    get_scale_factor(p::PencilFFTPlan)
+    scale_factor(p::PencilFFTPlan)
 
 Get scale factor associated to a `PencilFFTPlan`.
 """
-get_scale_factor(p::PencilFFTPlan) = p.scale_factor
+scale_factor(p::PencilFFTPlan) = p.scale_factor
 
 """
-    get_timer(p::PencilFFTPlan)
+    timer(p::PencilFFTPlan)
 
 Get `TimerOutput` attached to a `PencilFFTPlan`.
 
 See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
-get_timer(p::PencilFFTPlan) = p.timer
+timer(p::PencilFFTPlan) = p.timer
 
 """
     allocate_input(p::PencilFFTPlan)          -> PencilArray

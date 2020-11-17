@@ -94,7 +94,7 @@ This is assumed to be the first *logical* dimension of the array.
 Since indices in the array may be permuted, the actual dimension may be other
 than the first.
 """
-index_r2c(u::PencilArray) = index_r2c(get_permutation(u))
+index_r2c(u::PencilArray) = index_r2c(permutation(u))
 index_r2c(::Nothing) = 1
 index_r2c(::Val{p}) where {p} = findfirst(==(1), p) :: Int
 

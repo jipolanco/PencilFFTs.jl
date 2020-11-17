@@ -24,7 +24,7 @@ allocate_output
 
 ```@docs
 get_comm(::PencilFFTPlan)
-get_scale_factor(::PencilFFTPlan)
-get_timer(::PencilFFTPlan)
+scale_factor(::PencilFFTPlan)
+timer(::PencilFFTPlan)
 is_inplace(::PencilFFTPlan)
 ```
