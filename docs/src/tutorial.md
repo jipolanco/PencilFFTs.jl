@@ -128,7 +128,7 @@ local partition in the global geometry.
 the location of the local process in the MPI topology.
 Note that `PencilArray`s, being based on regular `Array`s, support both linear
 and Cartesian indexing (see [the Julia
-docs](https://docs.julialang.org/en/latest/manual/arrays/#Number-of-indices-1)
+docs](https://docs.julialang.org/en/v1/manual/arrays/#man-supported-index-types)
 for details).
 
 For convenience, the [`global_view`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Global-views) function can be used to generate an

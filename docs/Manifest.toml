@@ -157,7 +157,7 @@ version = "1.0.12"
 
 [[PencilArrays]]
 deps = ["JSON3", "Libdl", "LinearAlgebra", "MPI", "OffsetArrays", "Reexport", "Requires", "StaticArrays", "StaticPermutations", "TimerOutputs"]
-path = "../../PencilArrays"
+git-tree-sha1 = "9eb2fbb9047df8b2ada13914ad1ba3b8afe82f54"
 uuid = "0e08944d-e94e-41b1-9406-dcf66b6a9d2e"
 version = "0.4.0"
 
