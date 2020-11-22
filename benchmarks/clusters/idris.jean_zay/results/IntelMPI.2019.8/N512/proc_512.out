@@ -1,0 +1,278 @@
+Status `/gpfsdswork/projects/rech/rhl/uxs76mg/pencils/PencilFFTs/benchmarks/Project.toml`
+  [6e4b80f9] BenchmarkTools v0.5.0
+  [7a1cc6ca] FFTW v1.2.4
+  [da04e1cc] MPI v0.16.1
+  [bac558e1] OrderedCollections v1.3.2
+  [4a48f351] PencilFFTs v0.10.0 `..`
+  [a759f4b9] TimerOutputs v0.5.7
+Julia Version 1.5.2
+Commit 539f3ce943* (2020-09-23 23:17 UTC)
+Platform Info:
+  OS: Linux (x86_64-redhat-linux)
+  CPU: Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
+  WORD_SIZE: 64
+  LIBM: libopenlibm
+  LLVM: libLLVM-9.0.1 (ORCJIT, cascadelake)
+Environment:
+  JULIA_DEPOT_PATH = /gpfswork/rech/rhl/uxs76mg/home/julia-depot
+  JULIA_MPI_BINARY = system
+  JULIA_HDF5_LIBRARY_PATH = /gpfslocalsup/spack_soft/hdf5/1.12.0/intel-19.1.2-jnraoocj6v34776mtuoyacdfaowmzye4/lib
+MPI: (MPI.IntelMPI, v"2019.8.0")
+
+Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (512, 512, 512)  ->  (257, 512, 512)
+MPI topology: 2D decomposition (32×16 processes)
+Method: PointToPoint
+Permutations: Val{true}()
+
+Average time: 40.21184496 ms (TimerOutputs) over 100 repetitions
+              40.21609311 ms (MPI_Wtime) ± 9.57346244 ms 
+
+ ──────────────────────────────────────────────────────────────────────────────
+                                       Time                   Allocations      
+                               ──────────────────────   ───────────────────────
+       Tot / % measured:            4.84s / 83.0%           19.1MiB / 37.4%    
+
+ Section               ncalls     time   %tot     avg     alloc   %tot      avg
+ ──────────────────────────────────────────────────────────────────────────────
+ PencilFFTs ldiv!         100    2.02s  50.1%  20.2ms   3.49MiB  48.8%  35.8KiB
+   transpose!             200    1.49s  37.1%  7.45ms   2.88MiB  40.3%  14.8KiB
+     unpack data          200    1.23s  30.6%  6.14ms   2.14MiB  29.9%  11.0KiB
+       wait receive     4.60k    890ms  22.1%   193μs    841KiB  11.5%     187B
+       copy_permuted!   4.80k    336ms  8.34%  69.9μs   1.32MiB  18.4%     288B
+     pack data            200    260ms  6.46%  1.30ms    582KiB  7.94%  2.91KiB
+       copy_range!      4.80k    178ms  4.44%  37.2μs     0.00B  0.00%    0.00B
+   FFT                    300    386ms  9.61%  1.29ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200    103ms  2.55%   513μs    145KiB  1.98%     744B
+ PencilFFTs mul!          100    2.00s  49.9%  20.0ms   3.67MiB  51.2%  37.5KiB
+   transpose!             200    1.60s  39.8%  8.01ms   3.06MiB  42.7%  15.6KiB
+     unpack data          200    1.36s  33.9%  6.81ms   2.31MiB  32.3%  11.8KiB
+       wait receive     4.60k    1.10s  27.2%   238μs    841KiB  11.5%     187B
+       copy_permuted!   4.80k    263ms  6.54%  54.8μs   1.49MiB  20.8%     325B
+     pack data            200    238ms  5.92%  1.19ms    582KiB  7.94%  2.91KiB
+       copy_range!      4.80k    164ms  4.08%  34.2μs     0.00B  0.00%    0.00B
+   FFT                    300    335ms  8.33%  1.12ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200   61.8ms  1.54%   309μs    145KiB  1.98%     744B
+ ──────────────────────────────────────────────────────────────────────────────
+
+Forward transforms
+  Average PointToPoint = 5.786229 ms
+  Average FFT        = 1.116418 ms
+  Average (un)pack   = 2.134879 ms
+  Average others     = 0.000000 ms
+
+Backward transforms
+  Average PointToPoint = 4.961524 ms
+  Average FFT        = 1.287735 ms
+  Average (un)pack   = 2.569840 ms
+  Average others     = 0.000000 ms
+
+Total from timers: 38.1174 ms/iteration (2.0944 ms / 5.21% missing)
+
+********************************************************************************
+
+Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (512, 512, 512)  ->  (257, 512, 512)
+MPI topology: 2D decomposition (32×16 processes)
+Method: Alltoallv
+Permutations: Val{true}()
+
+Average time: 48.48140442 ms (TimerOutputs) over 100 repetitions
+              48.48663860 ms (MPI_Wtime) ± 5.14805481 ms 
+
+ ──────────────────────────────────────────────────────────────────────────────
+                                       Time                   Allocations      
+                               ──────────────────────   ───────────────────────
+       Tot / % measured:            4.85s / 100%            4.22MiB / 100%     
+
+ Section               ncalls     time   %tot     avg     alloc   %tot      avg
+ ──────────────────────────────────────────────────────────────────────────────
+ PencilFFTs ldiv!         100    2.49s  51.4%  24.9ms   2.02MiB  48.0%  20.7KiB
+   transpose!             200    2.03s  42.0%  10.2ms   1.55MiB  36.9%  7.96KiB
+     pack data            200    1.73s  35.8%  8.67ms    139KiB  3.22%     712B
+       MPI.Alltoallv!     200    1.49s  30.8%  7.47ms   68.8KiB  1.59%     352B
+       copy_range!      4.80k    234ms  4.82%  48.7μs     0.00B  0.00%    0.00B
+     unpack data          200    299ms  6.16%  1.49ms   1.32MiB  31.3%  6.75KiB
+       copy_permuted!   4.80k    297ms  6.12%  61.8μs   1.32MiB  31.3%     288B
+   FFT                    300    411ms  8.48%  1.37ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200    153μs  0.00%   765ns     0.00B  0.00%    0.00B
+ PencilFFTs mul!          100    2.36s  48.6%  23.6ms   2.19MiB  52.0%  22.5KiB
+   transpose!             200    1.98s  40.9%  9.92ms   1.73MiB  40.9%  8.83KiB
+     pack data            200    1.72s  35.5%  8.61ms    139KiB  3.22%     712B
+       MPI.Alltoallv!     200    1.55s  32.1%  7.77ms   68.8KiB  1.59%     352B
+       copy_range!      4.80k    164ms  3.37%  34.1μs     0.00B  0.00%    0.00B
+     unpack data          200    261ms  5.38%  1.30ms   1.49MiB  35.3%  7.63KiB
+       copy_permuted!   4.80k    259ms  5.34%  53.9μs   1.49MiB  35.3%     325B
+   FFT                    300    366ms  7.55%  1.22ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200    141μs  0.00%   704ns     0.00B  0.00%    0.00B
+ ──────────────────────────────────────────────────────────────────────────────
+
+Forward transforms
+  Average Alltoallv  = 7.775441 ms
+  Average FFT        = 1.219732 ms
+  Average (un)pack   = 2.111018 ms
+  Average others     = 0.000000 ms
+
+Backward transforms
+  Average Alltoallv  = 7.473400 ms
+  Average FFT        = 1.370066 ms
+  Average (un)pack   = 2.651368 ms
+  Average others     = 0.000000 ms
+
+Total from timers: 47.7918 ms/iteration (0.6896 ms / 1.42% missing)
+
+********************************************************************************
+
+Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (512, 512, 512)  ->  (257, 512, 512)
+MPI topology: 2D decomposition (32×16 processes)
+Method: PointToPoint
+Permutations: Val{false}()
+
+Average time: 40.77634140 ms (TimerOutputs) over 100 repetitions
+              40.77966649 ms (MPI_Wtime) ± 1.72160525 ms 
+
+ ──────────────────────────────────────────────────────────────────────────────
+                                       Time                   Allocations      
+                               ──────────────────────   ───────────────────────
+       Tot / % measured:            4.08s / 100%            4.36MiB / 100%     
+
+ Section               ncalls     time   %tot     avg     alloc   %tot      avg
+ ──────────────────────────────────────────────────────────────────────────────
+ PencilFFTs mul!          100    2.08s  51.0%  20.8ms   2.18MiB  50.0%  22.3KiB
+   transpose!             200    1.50s  36.7%  7.49ms   1.57MiB  36.0%  8.02KiB
+     unpack data          200    1.27s  31.1%  6.35ms    842KiB  18.9%  4.21KiB
+       wait receive     4.60k    1.05s  25.7%   228μs    841KiB  18.9%     187B
+       copy_permuted!   4.80k    220ms  5.39%  45.8μs     0.00B  0.00%    0.00B
+     pack data            200    227ms  5.57%  1.13ms    582KiB  13.1%  2.91KiB
+       copy_range!      4.80k    160ms  3.91%  33.3μs     0.00B  0.00%    0.00B
+   FFT                    300    553ms  13.6%  1.84ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200   21.9ms  0.54%   109μs    145KiB  3.26%     744B
+ PencilFFTs ldiv!         100    2.00s  49.0%  20.0ms   2.18MiB  50.0%  22.3KiB
+   transpose!             200    1.32s  32.4%  6.61ms   1.57MiB  36.0%  8.02KiB
+     unpack data          200    1.08s  26.6%  5.42ms    842KiB  18.9%  4.21KiB
+       wait receive     4.60k    691ms  16.9%   150μs    841KiB  18.9%     187B
+       copy_permuted!   4.80k    390ms  9.56%  81.2μs     0.00B  0.00%    0.00B
+     pack data            200    236ms  5.80%  1.18ms    582KiB  13.1%  2.91KiB
+       copy_range!      4.80k    161ms  3.94%  33.5μs     0.00B  0.00%    0.00B
+   FFT                    300    618ms  15.2%  2.06ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200   21.4ms  0.53%   107μs    145KiB  3.26%     744B
+ ──────────────────────────────────────────────────────────────────────────────
+
+Forward transforms
+  Average PointToPoint = 5.343522 ms
+  Average FFT        = 1.844873 ms
+  Average (un)pack   = 1.897633 ms
+  Average others     = 0.000000 ms
+
+Backward transforms
+  Average PointToPoint = 3.561840 ms
+  Average FFT        = 2.060856 ms
+  Average (un)pack   = 2.752623 ms
+  Average others     = 0.000000 ms
+
+Total from timers: 38.8284 ms/iteration (1.9479 ms / 4.78% missing)
+
+********************************************************************************
+
+Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (512, 512, 512)  ->  (257, 512, 512)
+MPI topology: 2D decomposition (32×16 processes)
+Method: Alltoallv
+Permutations: Val{false}()
+
+Average time: 49.62235952 ms (TimerOutputs) over 100 repetitions
+              49.62624656 ms (MPI_Wtime) ± 1.22699078 ms 
+
+ ──────────────────────────────────────────────────────────────────────────────
+                                       Time                   Allocations      
+                               ──────────────────────   ───────────────────────
+       Tot / % measured:            4.96s / 100%            1.41MiB / 100%     
+
+ Section               ncalls     time   %tot     avg     alloc   %tot      avg
+ ──────────────────────────────────────────────────────────────────────────────
+ PencilFFTs ldiv!         100    2.59s  52.2%  25.9ms    721KiB  50.0%  7.21KiB
+   transpose!             200    1.89s  38.1%  9.45ms    242KiB  16.8%  1.21KiB
+     pack data            200    1.48s  29.9%  7.42ms    139KiB  9.65%     712B
+       MPI.Alltoallv!     200    1.35s  27.1%  6.73ms   68.8KiB  4.77%     352B
+       copy_range!      4.80k    133ms  2.68%  27.7μs     0.00B  0.00%    0.00B
+     unpack data          200    405ms  8.16%  2.02ms      848B  0.06%    4.24B
+       copy_permuted!   4.80k    403ms  8.12%  83.9μs     0.00B  0.00%    0.00B
+   FFT                    300    653ms  13.2%  2.18ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200    179μs  0.00%   893ns     0.00B  0.00%    0.00B
+ PencilFFTs mul!          100    2.37s  47.8%  23.7ms    721KiB  50.0%  7.21KiB
+   transpose!             200    1.77s  35.7%  8.87ms    242KiB  16.8%  1.21KiB
+     pack data            200    1.53s  30.9%  7.67ms    139KiB  9.65%     712B
+       MPI.Alltoallv!     200    1.39s  27.9%  6.93ms   68.8KiB  4.77%     352B
+       copy_range!      4.80k    145ms  2.93%  30.3μs     0.00B  0.00%    0.00B
+     unpack data          200    238ms  4.80%  1.19ms      848B  0.06%    4.24B
+       copy_permuted!   4.80k    236ms  4.75%  49.1μs     0.00B  0.00%    0.00B
+   FFT                    300    592ms  11.9%  1.97ms     0.00B  0.00%    0.00B
+   MPI.Waitall!           200    113μs  0.00%   563ns     0.00B  0.00%    0.00B
+ ──────────────────────────────────────────────────────────────────────────────
+
+Forward transforms
+  Average Alltoallv  = 6.928516 ms
+  Average FFT        = 1.973653 ms
+  Average (un)pack   = 1.906511 ms
+  Average others     = 0.000000 ms
+
+Backward transforms
+  Average Alltoallv  = 6.733020 ms
+  Average FFT        = 2.177792 ms
+  Average (un)pack   = 2.678476 ms
+  Average others     = 0.000000 ms
+
+Total from timers: 48.9474 ms/iteration (0.6750 ms / 1.36% missing)
+
+********************************************************************************
+Number of processes:   512
+Dimensions:            512×512×512
+Number of repetitions: 100
+Output file:           results/IntelMPI.2019.8/N512/P3DFFT2.dat
+
+Dimensions: (512, 512, 512)
+Processes:  (16, 32)
+ Using stride-1 layout
+ Using loop block sizes            2          64           2           1
+ Running on            1 threads
+L2 error: 2.87144e-24
+Average time over 100 iterations: 45.6983 ± 1.15432 ms
+
+P3DFFT timers (in milliseconds)
+===============================
+ ( 1)  2.2349      MPI_Alltoallv (X -> Y)
+ ( 2)  11.695      MPI_Alltoallv (Y -> Z)
+ ( 3)  10.609      MPI_Alltoallv (Y <- Z)
+ ( 4)  3.3364      MPI_Alltoallv (X <- Y)
+
+ ( 5)  1.5531      FFT r2c X
+ ( 6)  2.4691      pack + unpack data (X -> Y)
+ ( 7)  1.179       FFT c2c Y
+ ( 8)  3.7379      pack + unpack data (Y -> Z) + FFT c2c Z
+
+ ( 9)  3.4301      pack + unpack data (Y <- Z) + iFFT c2c Z
+ (10)  1.1899      iFFT c2c Y
+ (11)  2.1241      pack + unpack data (X <- Y)
+ (12)  1.8108      iFFT c2r X
+
+ (13)  0.0028902   normalise
+
+TOTAL  45.372671
+
+Forward transforms
+  Average Alltoallv = 6.9651054
+  Average FFT       = 1.3036907
+  Average (un)pack  = 2.5140294
+
+Backward transforms
+  Average Alltoallv = 6.9728071
+  Average FFT       = 1.3968646
+  Average (un)pack  = 2.1821156
+  Average normalise = 0.0028902479
+
+Total from timers: 45.372671 ms/iteration (0.32558556 ms / 0.7125% missing)

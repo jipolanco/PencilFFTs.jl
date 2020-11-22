@@ -8,12 +8,10 @@ const plt = PyPlot
 const mpl = PyPlot.matplotlib
 
 struct Benchmark{Style}
-    name   :: String
-    filename_base :: String
-    filename_suffix :: String
+    name     :: String
+    filename :: String
     pyplot_style :: Style
-    Benchmark(name, fname, style; suffix="") =
-        new{typeof(style)}(name, fname, suffix, style)
+    Benchmark(name, fname, style) = new{typeof(style)}(name, fname, style)
 end
 
 struct TimerData
@@ -23,31 +21,12 @@ struct TimerData
     max :: Vector{Float64}
 end
 
-const MPI_TAG = "intelmpi_2019.7"
-
-const BENCH_PENCILS = Benchmark(
-    "PencilFFTs", "results/PencilFFTs", (color=:C0, zorder=5),
-    suffix="_PI",
-)
-
-const BENCH_P3DFFT = Benchmark(
-    "P3DFFT", "results/P3DFFT2", (color=:C1, zorder=3),
-)
-
-const BENCH_LIST = (BENCH_PENCILS, BENCH_P3DFFT)
-
-const STYLE_RESOLUTION = Dict(
-    512 => (marker=:o, ),
-    1024 => (marker=:^, ),
-    2048 => (marker=:s, ),
-)
+const MPI_TAG = Ref("IntelMPI.2019.8")
 
 const STYLE_IDEAL = (color=:black, ls=:dotted, label="ideal")
-const RESOLUTIONS = Tuple(keys(STYLE_RESOLUTION))
 
 function load_timings(bench::Benchmark, resolution)
-    filename = string(bench.filename_base,
-                      "_N$(resolution)_$(MPI_TAG)$(bench.filename_suffix).dat")
+    filename = joinpath("results", MPI_TAG[], "N$resolution", bench.filename)
     data = readdlm(filename, Float64, comments=true) :: Matrix{Float64}
     Nxyz = data[:, 1:3]
     @assert all(Nxyz .== resolution)
@@ -70,8 +49,7 @@ function plot_from_file!(ax, bench::Benchmark, resolution;
     times = data.times
     t = times.avg
 
-    st = STYLE_RESOLUTION[resolution]
-    ax.plot(data.procs, t; st..., bench.pyplot_style...)
+    ax.plot(data.procs, t; bench.pyplot_style...)
 
     colour = bench.pyplot_style.color
     if error_bars == :extrema
@@ -82,46 +60,68 @@ function plot_from_file!(ax, bench::Benchmark, resolution;
     end
 
     if plot_ideal
-        p = data.procs
-        t_ideal = similar(t)
-        for n in eachindex(t)
-            t_ideal[n] = t[1] * p[1] / p[n]
-        end
-        p, t_ideal
-        ax.plot(p, t_ideal; STYLE_IDEAL...)
+        plot_ideal_scaling!(ax, data, t)
+        add_text_resolution!(ax, resolution, data.procs, t)
     end
 
     ax
+end
+
+function plot_ideal_scaling!(ax, data, t)
+    p = data.procs
+    t_ideal = similar(t)
+    for n in eachindex(t)
+        t_ideal[n] = t[1] * p[1] / p[n]
+    end
+    ax.plot(p, t_ideal; STYLE_IDEAL...)
+end
+
+function add_text_resolution!(ax, N, xs, ys)
+    x = first(xs)
+    y = first(ys)
+    if N == 512
+        kws = (ha = :left, va = :top)
+        x *= 0.95
+        y *= 0.65
+    else
+        kws = (ha = :right, va = :center)
+        x *= 0.9
+        y *= 1.02
+    end
+    ax.text(
+        x, y, latexstring("$N^3");
+        fontsize = "large",
+        kws...
+    )
 end
 
 function plot_lib_comparison!(ax, benchs, resolution)
     ax.set_xscale(:log, base=2)
     ax.set_yscale(:log, base=10)
     map(benchs) do bench
+        plot_ideal = bench === first(benchs)
         plot_from_file!(
-            ax, bench, resolution,
-            plot_ideal = (bench === BENCH_PENCILS),
+            ax, bench, resolution;
+            plot_ideal,
             # error_bars = :std,
         )
     end
     ax
 end
 
-function legend_libs!(ax, benchs; with_ideal=false)
+function legend_libs!(ax, benchs; with_ideal=false, outside=false)
     styles = Any[getfield.(benchs, :pyplot_style)...]
     labels = Any[getfield.(benchs, :name)...]
     if with_ideal
         push!(styles, STYLE_IDEAL)
         push!(labels, "Ideal")
     end
-    draw_legend!(ax, styles, labels, loc="upper right")
-end
-
-function legend_resolution!(ax, resolutions)
-    styles = [(color=:black, ls=:solid, STYLE_RESOLUTION[n]...)
-              for n in resolutions]
-    labels = map(n -> "$(n)³", resolutions)
-    draw_legend!(ax, styles, labels, loc="lower left", title="Resolution")
+    kws = if outside
+        (loc = "center left", bbox_to_anchor = (1.0, 0.5))
+    else
+        (loc = "lower left", )
+    end
+    draw_legend!(ax, styles, labels; frameon=false, kws...)
 end
 
 function draw_legend!(ax, styles, labels; kwargs...)
@@ -135,10 +135,50 @@ function draw_legend!(ax, styles, labels; kwargs...)
     ax
 end
 
+# Wrap matplotlib's SVG writer.
+struct SVGWriter{File<:IO} <: IO
+    fh :: File
+end
+
+Base.isreadable(io::SVGWriter) = isreadable(io.fh)
+Base.iswritable(io::SVGWriter) = iswritable(io.fh)
+Base.isopen(io::SVGWriter) = isopen(io.fh)
+
+function Base.write(io::SVGWriter, s::Union{SubString{String}, String})
+    # We remove the image height and width from the header.
+    # This way the SVG image takes all available space in browsers.
+    p = "\"\\S+pt\""  # "316.8pt"
+    pat = Regex("(<svg .*)height=$p (.*) width=$p")
+    rep = replace(s, pat => s"\1\2")
+    write(io.fh, rep)
+end
+
 function plot_timings()
-    resolutions = RESOLUTIONS
-    benchs = BENCH_LIST
-    fig, ax = plt.subplots()
+    resolutions = (
+        # 256,
+        512,
+        1024,
+        2048,
+    )
+    style = (fillstyle = :none, ms = 7, markeredgewidth = 1.5, linewidth = 1.5)
+    benchs = (
+        Benchmark(
+            "PencilFFTs (default)", "PencilFFTs_PI.dat",
+            (style..., color = :C0, marker = :o, zorder = 5),
+        ),
+        Benchmark(
+            "PencilFFTs (Alltoallv)", "PencilFFTs_PA.dat",
+            (style..., color = :C2, marker = :s, zorder = 8,
+             linestyle = :dashed, linewidth = 1.0),
+        ),
+        Benchmark(
+            "P3DFFT", "P3DFFT2.dat",
+            (style..., color = :C1, marker = :x, zorder = 4, markeredgewidth = 2),
+        ),
+    )
+
+    fig = plt.figure(figsize = (6, 4.2) .* 1.1, dpi = 150)
+    ax = fig.subplots()
 
     ax.set_xlabel("MPI processes")
     ax.set_ylabel("Time (milliseconds)")
@@ -147,28 +187,19 @@ function plot_timings()
         plot_lib_comparison!(ax, benchs, N)
     end
 
-    legend_libs!(ax, benchs, with_ideal=true)
-    legend_resolution!(ax, resolutions)
+    legend_libs!(ax, benchs, with_ideal=true, outside=false)
 
     # Show '1024' instead of '2^10'
     for axis in (ax.xaxis, ax.yaxis)
         axis.set_major_formatter(mpl.ticker.ScalarFormatter())
     end
 
-    # ax.set_ylim(top=1.05e3)
-
-    fig.savefig("timing_comparison.svg")
+    open("timing_comparison.svg", "w") do ff
+        io = SVGWriter(ff)
+        @time fig.savefig(io)
+    end
 
     fig
-end
-
-function plot_relative_times()
-    resolutions = RESOLUTIONS
-    benchs = BENCH_LIST
-    fig, ax = plt.subplots()
-
-    ax.set_xlabel("MPI processes")
-    ax.set_ylabel("Relative time")
 end
 
 plot_timings()

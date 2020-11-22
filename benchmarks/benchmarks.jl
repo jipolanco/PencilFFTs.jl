@@ -6,7 +6,6 @@ using PencilFFTs.PencilArrays
 import FFTW
 using MPI
 
-using ArgParse
 using OrderedCollections: OrderedDict
 using TimerOutputs
 
@@ -67,34 +66,27 @@ function Base.:*(t::TimerData, v)
     t
 end
 
-function parse_commandline()
-    s = ArgParseSettings()
-
-    @add_arg_table! s begin
-        "--dimensions", "-N"
-            help = """
-            comma-separated list of 3D dataset dimensions.
-            A single integer may also be provided."""
-            default = DIMS_DEFAULT
-        "--repetitions", "-r"
-            help = "number of repetitions per benchmark"
-            default = 100
-            arg_type = Int
-        "--full", "-f"
-            help = "perform full set of benchmarks (takes a lot more time!)"
-            action = :store_true
-        "--output", "-o"
-            help = "append benchmark results to the given file"
-            default = nothing
+function getenv(::Type{T}, key, default = nothing) where {T}
+    s = get(ENV, key, nothing)
+    if s === nothing
+        default
+    elseif T <: AbstractString
+        s
+    else
+        parse(T, s)
     end
+end
 
-    args = parse_args(s)
+getenv(key, default::T) where {T} = getenv(T, key, default)
 
+function parse_params()
+    dims_str = getenv("PENCILFFTS_BENCH_DIMENSIONS", DIMS_DEFAULT)
+    repetitions = getenv("PENCILFFTS_BENCH_REPETITIONS", 100)
+    outfile = getenv(String, "PENCILFFTS_BENCH_OUTPUT", nothing)
     (
-        dims = parse_dimensions(args["dimensions"]) :: Dims{3},
-        iterations = args["repetitions"] :: Int,
-        full_benchmarks = Val(args["full"] :: Bool),
-        outfile = args["output"] :: Union{Nothing,String},
+        dims = parse_dimensions(dims_str) :: Dims{3},
+        iterations = repetitions :: Int,
+        outfile = outfile :: Union{Nothing,String},
     )
 end
 
@@ -355,7 +347,7 @@ function print_timers(to::TimerOutput, iterations, transpose_method)
     nothing
 end
 
-function parse_dimensions(arg::String) :: Dims{3}
+function parse_dimensions(arg::AbstractString) :: Dims{3}
     ints = try
         sp = split(arg, ',')
         parse.(Int, sp)
@@ -387,7 +379,6 @@ function run_benchmarks(params)
 
     dims = params.dims
     iterations = params.iterations
-    full_benchmarks = params.full_benchmarks === Val(true)
     outfile = params.outfile
 
     if myrank == 0
@@ -404,33 +395,14 @@ function run_benchmarks(params)
     transpose_methods = (Transpositions.PointToPoint(),
                          Transpositions.Alltoallv())
     permutes = (Val(true), Val(false))
-
-    if full_benchmarks
-        extra_dims = ((), (3, ))
-        pdims_list = (
-                      (Nproc, ),  # slab (1D) decomposition
-                      (Nproc, 1),
-                      (1, Nproc),
-                      proc_dims,
-                     )
-    else
-        extra_dims = ((), )
-        pdims_list = (proc_dims, )
-    end
-
     timings = Array{TimerData}(undef, 2, 2)
 
-    map(Iterators.product(
-            pdims_list,
-            extra_dims,
-            transpose_methods,
-            permutes)
-    ) do (pdims, edims, method, permute)
+    map(Iterators.product(transpose_methods, permutes)) do (method, permute)
         I = make_index(permute, method)
         timings[I] = benchmark_rfft(
-            comm, pdims, dims;
-            extra_dims=edims, permute_dims=permute,
-            transpose_method=method, iterations=iterations)
+            comm, proc_dims, dims;
+            iterations = iterations, permute_dims = permute, transpose_method = method,
+        )
     end
 
     columns = OrderedDict{String,Union{Int,Float64}}(
@@ -450,20 +422,12 @@ function run_benchmarks(params)
         :NA => make_index(Val(false), Transpositions.Alltoallv()),
     )
 
-    if !full_benchmarks && myrank == 0 && outfile !== nothing
+    if myrank == 0 && outfile !== nothing
         for (name, ind) in cases
             a, b = splitext(outfile)
             fname = string(a, "_", name, b)
             write_results(fname, columns, timings[ind])
         end
-    end
-
-    if full_benchmarks
-        benchmark_pencils(comm, proc_dims, dims; with_permutations=Val(false),
-                          kwargs...)
-        benchmark_pencils(comm, proc_dims, dims; extra_dims=(2, ), kwargs...)
-        benchmark_pencils(comm, proc_dims, dims; extra_dims=(2, ),
-                          with_permutations=Val(false), kwargs...)
     end
 
     nothing
@@ -497,5 +461,5 @@ function write_results(outfile, columns, t)
 end
 
 MPI.Init()
-params = parse_commandline()
+params = parse_params()
 run_benchmarks(params)

@@ -87,10 +87,9 @@ For more details see the
 
 ## Performance
 
-The performance of PencilFFTs is similar to that of widely adopted MPI-based
+The performance of PencilFFTs is comparable to that of widely adopted MPI-based
 FFT libraries implemented in lower-level languages.
-This is seen in the below comparison with [P3DFFT](https://www.p3dfft.net/)
-v2.7.6, implemented in Fortran.
+As seen below, with its default settings, PencilFFTs generally outperforms the Fortran [P3DFFT](https://www.p3dfft.net/) libraries.
 
 <p align="center">
   <br/>
