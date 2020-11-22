@@ -30,35 +30,30 @@ Each timing is averaged over 100 repetitions.
 </div>
 ```
 
-The performance and scalability of PencilFFTs are similar to those displayed by
-P3DFFT, slightly outperforming the latter in most cases.
-An important difference between the two libraries, is that PencilFFTs uses
-non-blocking
-point-to-point MPI communications by default (using
+As seen above, PencilFFTs generally outperforms P3DFFT in its default setting.
+This is largely explained by the choice of using non-blocking point-to-point
+MPI communications (via
 [`MPI_Isend`](https://www.open-mpi.org/doc/current/man3/MPI_Isend.3.php) and
 [`MPI_Irecv`](https://www.open-mpi.org/doc/current/man3/MPI_Irecv.3.php)),
-while P3DFFT uses global
+while P3DFFT uses collective
 [`MPI_Alltoallv`](https://www.open-mpi.org/doc/current/man3/MPI_Alltoallv.3.php)
 calls.
-This enables us to perform data reordering operations on the partially received
-data while we wait for the incoming data.
-This can lead to better performance especially when running on a large number
-of processes, in which case the cost of MPI communications is largely dominant.
-And unlike P3DFFT, the high performance of PencilFFTs comes with a highly
-generic code, handling decompositions in arbitrary dimensions and a relatively
-large (and extensible) variety of transformations.
+This enables PencilFFTs to perform data reordering operations on the partially received data while waiting for the incoming data, leading to better performance.
+Moreover, in contrast with P3DFFT, the high performance and scalability of
+PencilFFTs results from a highly generic code, handling decompositions in
+arbitrary dimensions and a relatively large (and extensible) variety of
+transformations.
 
-Note that PencilFFTs can optionally use `MPI_Alltoallv` instead of
-point-to-point communications (see the docs for [`PencilFFTPlan`](@ref) and
-for [`PencilArray` transpositions](https://jipolanco.github.io/PencilArrays.jl/dev/Transpositions/#PencilArrays.Transpositions.Transposition)).
-We have verified that the implementation with `MPI_Isend` and `MPI_Irecv` generally
-outperforms the one based on `MPI_Alltoallv`.
-Observed performance gains can be of the order of 10%.
+Note that PencilFFTs can optionally use collective communications (using
+`MPI_Alltoallv`) instead of point-to-point communications.
+For details, see the docs for [`PencilFFTPlan`](@ref) and
+for [`PencilArray` transpositions](https://jipolanco.github.io/PencilArrays.jl/dev/Transpositions/#PencilArrays.Transpositions.Transposition).
+As seen above, collective communications generally perform worse than point-to-point ones, and runtimes are nearly indistinguishable from those of P3DFFT.
 
 ### Benchmark details
 
-The benchmarks were performed using Julia 1.5.0 and Intel MPI 2019.
-We used PencilFFTs v0.7.3 with FFTW.jl v1.2.2 and MPI.jl v0.15.1.
+The benchmarks were performed using Julia 1.5.2 and Intel MPI 2019.
+We used PencilFFTs v0.10.0 with FFTW.jl v1.2.4 and MPI.jl v0.16.1.
 We used the Fortran implementation of P3DFFT, version 2.7.6,
 which was built with Intel 2019 compilers and linked to FFTW 3.3.8.
 The cluster where the benchmarks were run has Intel Cascade Lake 6248
