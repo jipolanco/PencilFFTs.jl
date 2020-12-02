@@ -59,6 +59,8 @@ struct GlobalFFTParams{T, N, inplace, F <: AbstractTransformList{N}}
     end
 end
 
+Base.ndims(::Type{<:GlobalFFTParams{T,N}}) where {T,N} = N
+Base.ndims(g::GlobalFFTParams) = ndims(typeof(g))
 Transforms.is_inplace(g::GlobalFFTParams{T,N,I}) where {T,N,I} = I
 
 function Base.show(io::IO, g::GlobalFFTParams)
