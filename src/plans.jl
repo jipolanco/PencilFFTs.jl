@@ -478,7 +478,7 @@ end
 
 function Base.show(io::IO, p::PencilFFTPlan)
     show(io, p.global_params)
-    edims = p.extra_dims
+    edims = extra_dims(p)
     isempty(edims) || println(io, "Extra dimensions: $edims")
     show(io, p.topology)
     nothing
@@ -489,7 +489,7 @@ end
 
 Get MPI communicator associated to a `PencilFFTPlan`.
 """
-get_comm(p::PencilFFTPlan) = get_comm(p.topology)
+get_comm(p::PencilFFTPlan) = get_comm(topology(p))
 
 """
     scale_factor(p::PencilFFTPlan)
@@ -506,3 +506,6 @@ Get `TimerOutput` attached to a `PencilFFTPlan`.
 See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
 timer(p::PencilFFTPlan) = p.timer
+
+topology(p::PencilFFTPlan) = p.topology
+extra_dims(p::PencilFFTPlan) = p.extra_dims
