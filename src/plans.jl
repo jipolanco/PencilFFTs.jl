@@ -184,10 +184,10 @@ struct PencilFFTPlan{
             timer::TimerOutput = TimerOutput(),
             ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
         )
-        check_input_array(A, transforms)
-        T = real(eltype(A))
+        Tr = real(eltype(A))
         dims_global = size_global(pencil(A), LogicalOrder())
-        g = GlobalFFTParams(dims_global, transforms, T)
+        g = GlobalFFTParams(dims_global, transforms, Tr)
+        check_input_array(A, g)
         inplace = is_inplace(g)
         fftw_kw = (; flags = fftw_flags, timelimit = fftw_timelimit)
 
@@ -218,24 +218,23 @@ struct PencilFFTPlan{
         t = topology(A)
         Nd = ndims(t)
 
-        new{T, N, inplace, Nt, Nd, Ne, G, P, TM}(
+        new{Tr, N, inplace, Nt, Nd, Ne, G, P, TM}(
             g, t, edims, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 end
 
 function PencilFFTPlan(
         dims_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
-        proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{T} = Float64;
+        proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{Tr} = Float64;
         extra_dims::Dims{Ne} = (),
         timer = TimerOutput(),
         ibuf = UInt8[],
         kws...,
-    ) where {Nt, Nd, Ne, T <: FFTReal}
+    ) where {Nt, Nd, Ne, Tr <: FFTReal}
     t = MPITopology(comm, proc_dims)
     pen = _make_input_pencil(dims_global, t, timer)
-    Ti = eltype_input(first(transforms), T)
-    Tf = Ti === Nothing ? T : Ti
-    A = _temporary_pencil_array(Tf, pen, ibuf, extra_dims)
+    T = _input_data_type(Tr, transforms...)
+    A = _temporary_pencil_array(T, pen, ibuf, extra_dims)
     PencilFFTPlan(A, transforms; timer = timer, ibuf = ibuf, kws...)
 end
 
@@ -274,10 +273,10 @@ Transforms.eltype_output(p::PencilFFTPlan) = eltype_output(last(p.plans))
 pencil_input(p::PencilFFTPlan) = first(p.plans).pencil_in
 pencil_output(p::PencilFFTPlan) = last(p.plans).pencil_out
 
-function check_input_array(A::PencilArray, transforms)
+function check_input_array(A::PencilArray, g::GlobalFFTParams)
     # TODO relax condition to ndims(A) >= N and transform the first N
     # dimensions (and forget about extra_dims)
-    N = length(transforms)
+    N = ndims(g)
     if ndims(pencil(A)) != N
         throw(ArgumentError(
             "number of transforms ($N) must be equal to number " *
@@ -300,12 +299,9 @@ function check_input_array(A::PencilArray, transforms)
     end
 
     T = eltype(A)
-    tr = first(transforms)
-    T_expected = eltype_input(tr, real(T))
-    if T_expected ∉ (Nothing, T)  # if Nothing, both real and complex inputs are allowed
-        throw(ArgumentError(
-            "wrong input datatype ($T) for transform $tr (expected $T_expected)"
-        ))
+    T_expected = input_data_type(g)
+    if T_expected !== T
+        throw(ArgumentError("wrong input datatype $T, expected $T_expected\n$g"))
     end
 
     nothing
