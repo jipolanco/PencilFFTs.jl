@@ -345,7 +345,8 @@ function _create_plans(
     plan_n = _make_1d_fft_plan(dim, Ti, Ai, Ao, transform_fw; fftw_kw = fftw_kw)
 
     # These are both `nothing` when there's no transforms left
-    Pi_next = _make_pencil_in(g, topology(Pi), Val(n + 1), plan_n, timer, permute_dims)
+    Pi_next = _make_intermediate_pencil(
+        g, topology(Pi), Val(n + 1), plan_n, timer, permute_dims)
     Ai_next = _temporary_pencil_array(To, Pi_next, ibuf, extra_dims(Ai))
 
     (
@@ -374,18 +375,13 @@ function _make_input_pencil(dims_global, topology, timer)
     Pencil(topology, dims_global, decomp_dims; permute=perm, timer=timer)
 end
 
-function _make_pencil_in(g::GlobalFFTParams,
-                         topology::MPITopology, dim::Val{1},
-                         plan_prev::Nothing, timer,
-                         permute_dims::ValBool)
-    _make_input_pencil(g.size_global_in, topology, timer)
-end
-
-function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
-                         topology::MPITopology{M}, dim::Val{n},
-                         plan_prev::PencilPlan1D, timer,
-                         permute_dims::ValBool,
-                        ) where {N, M, n}
+function _make_intermediate_pencil(
+        g::GlobalFFTParams{T,N} where T,
+        topology::MPITopology{M}, dim::Val{n},
+        plan_prev::PencilPlan1D, timer,
+        permute_dims::ValBool,
+    ) where {N, M, n}
+    @assert n ≥ 2  # this is an intermediate pencil
     n > N && return nothing
     Po_prev = plan_prev.pencil_out
 
@@ -429,9 +425,6 @@ function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
     @assert t == (n, (1:n-1)..., (n+1:N)...)
     Permutation(t)
 end
-
-# Case n = 1: no permutation of input data
-_make_permutation_in(::Val{true}, dim::Val{1}, ::Val) = NoPermutation()
 
 # Case n = N
 function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
