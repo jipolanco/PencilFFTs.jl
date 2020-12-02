@@ -167,14 +167,24 @@ function test_rfft(size_in; benchmark=true)
         pdims[1], pdims[2]
     end
 
-    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm)
+    # Test creating Pencil and PencilArray first, and creating plan afterwards.
+    topo = MPITopology(comm, pdims_2d)
+    pen = Pencil(topo, size_in, (2, 3))
+    u1 = PencilArray{Float64}(undef, pen)
+
+    plan = PencilFFTPlan(u1, Transforms.RFFT())
 
     # Allocate and initialise vector field in Fourier space.
     uF = allocate_output(plan, Val(3))
     rng = MersenneTwister(42)
     init_random_field!.(uF, (rng, ))
 
-    u = allocate_input(plan, Val(3))
+    u = (u1, similar(u1), allocate_input(plan))
+    map(u) do v
+        @test typeof(v) === typeof(u1)
+        @test pencil(v) === pencil(u1)
+        @test size(v) == size(u1)
+    end
     ldiv!(u, plan, uF)
 
     gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
