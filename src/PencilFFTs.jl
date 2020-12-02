@@ -26,8 +26,9 @@ import PencilArrays: get_comm, timer
 
 const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 
-include("global_fft.jl")
-include("pencil_plans.jl")
+include("global_params.jl")
+include("plans.jl")
+include("allocate.jl")
 include("operations.jl")
 
 end # module
