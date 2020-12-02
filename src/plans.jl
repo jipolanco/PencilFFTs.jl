@@ -43,9 +43,7 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
 ---
 
     PencilFFTPlan(
-        size_global::Dims{N}, transforms, proc_dims::Dims{M}, comm::MPI.Comm,
-        [real_type = Float64];
-        extra_dims = (),
+        A::PencilArray, transforms;
         fftw_flags = FFTW.ESTIMATE,
         fftw_timelimit = FFTW.NO_TIMELIMIT,
         permute_dims = Val(true),
@@ -53,39 +51,59 @@ Plan for N-dimensional FFT-based transform on MPI-distributed data.
         timer = TimerOutput(),
     )
 
-Create plan for N-dimensional transform.
+Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
 
 # Extended help
 
-`size_global` specifies the global dimensions of the input data.
+This creates a `PencilFFTPlan` for arrays sharing the same properties as `A`
+(dimensions, MPI decomposition, memory layout, ...), which describe data on an
+`N`-dimensional domain.
 
-`transforms` should be a tuple of length `N` specifying the transforms to be
-applied along each dimension. Each element must be a subtype of
-[`Transforms.AbstractTransform`](@ref). For all the possible transforms, see
-[Transform types](@ref). Alternatively, `transforms` may be a
-single transform that will be automatically expanded into `N` equivalent
-transforms. This is illustrated in the example below.
+## Transforms
 
-The transforms are applied one dimension at a time, with the leftmost
-dimension first for forward transforms. For multidimensional FFTs of
-real data, this means that a real-to-complex FFT must be performed along
-the first dimension, and then complex-to-complex FFTs are performed
-along the other two dimensions (see example below).
+The transforms to be applied along each dimension are specified by the
+`transforms` argument. Possible transforms are defined as subtypes of
+[`Transforms.AbstractTransform`](@ref), and are listed in [Transform
+types](@ref). This argument may be either:
 
-The data is distributed over the MPI processes in the `comm` communicator.
-The distribution is performed over `M` dimensions (with `M < N`) according to
-the values in `proc_dims`, which specifies the number of MPI processes to put
-along each dimension.
+- a tuple of `N` transforms to be applied along each dimension. For instance,
+  `transforms = (Transforms.R2R(FFTW.REDFT01), Transforms.RFFT(), Transforms.FFT())`;
 
-## Optional arguments
+- a single transform to be applied along all dimensions. The input is
+  automatically expanded into `N` equivalent transforms. For instance, for a
+  three-dimensional array, `transforms = Transforms.RFFT()` specifies a 3D
+  real-to-complex transform, and is equivalent to passing `(Transforms.RFFT(),
+  Transforms.FFT(), Transforms.FFT())`.
 
-- The floating point precision can be selected by setting `real_type` parameter,
-  which is `Float64` by default.
+Note that forward transforms are applied from left to right. In the last
+example, this means that a real-to-complex transform (`RFFT`) is first performed along
+the first dimension. This is followed by complex-to-complex transforms (`FFT`)
+along the second and third dimensions.
 
-- `extra_dims` may be used to specify the sizes of one or more extra dimensions
-  that should not be transformed. These dimensions will be added to the rightmost
-  (i.e. slowest) indices of the arrays. See **Extra dimensions** below for usage
-  hints.
+## Input data layout
+
+The input `PencilArray` must satisfy the following constraints:
+
+- array dimensions must *not* be permuted. This is the default when constructing
+  `PencilArray`s.
+
+- for an `M`-dimensional domain decomposition (with `M < N`), the input array
+  must be decomposed along the *last `M` dimensions*. For example, for a 2D
+  decomposition of 3D data, the decomposed dimensions must be `(2, 3)`. In
+  particular, the first array dimension must *not* be distributed among
+  different MPI processes.
+
+  In the PencilArrays package, the decomposed dimensions are specified
+  at the moment of constructing a [`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.Pencil).
+  Starting from PencilArrays v0.6, the last `M` dimensions are decomposed by
+  default.
+
+- the element type must be compatible with the specified transform. For
+  instance, real-to-complex transforms (`Transforms.RFFT`) require the input to
+  be real floating point values. Other transforms, such as `Transforms.R2R`,
+  accept both real and complex data.
+
+## Keyword arguments
 
 - The keyword arguments `fftw_flags` and `fftw_timelimit` are passed to the
   `FFTW` plan creation functions (see [`AbstractFFTs`
@@ -106,6 +124,40 @@ along each dimension.
 
 - `timer` should be a `TimerOutput` object.
   See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
+
+---
+
+    PencilFFTPlan(
+        size_global::Dims{N}, transforms, proc_dims::Dims{M}, comm::MPI.Comm,
+        [real_type = Float64]; extra_dims = (), kws...
+    )
+
+Create plan for N-dimensional transform.
+
+# Extended help
+
+Instead of taking a `PencilArray`, this constructor requires the global
+dimensions of the input data, passed via the `size_global` argument.
+
+The data is distributed over the MPI processes in the `comm` communicator.
+The distribution is performed over `M` dimensions (with `M < N`) according to
+the values in `proc_dims`, which specifies the number of MPI processes to put
+along each dimension.
+
+`PencilArray`s that may be transformed with the returned plan can be created
+using [`allocate_input`](@ref).
+
+## Optional arguments
+
+- The floating point precision can be selected by setting `real_type` parameter,
+  which is `Float64` by default.
+
+- `extra_dims` may be used to specify the sizes of one or more extra dimensions
+  that should not be transformed. These dimensions will be added to the rightmost
+  (i.e. slowest) indices of the arrays. See **Extra dimensions** below for usage
+  hints.
+
+- see the other constructor for more keyword arguments.
 
 ## Extra dimensions
 
