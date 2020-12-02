@@ -196,7 +196,6 @@ struct PencilFFTPlan{
             A, g;
             permute_dims = permute_dims,
             ibuf = ibuf,
-            obuf = obuf,
             timer = timer,
             fftw_kw = fftw_kw,
         )
@@ -316,22 +315,20 @@ input_decomposition(N, ::Val{M}) where {M} = ntuple(d -> N - M + d, Val(M))
 function _create_plans(A::PencilArray, g::GlobalFFTParams; kws...)
     Tin = input_data_type(g)
     transforms = g.transforms
-    opts = (; kws...)  # TODO pass as kwargs
-    _create_plans(Tin, g, A, opts, nothing, transforms...)
+    _create_plans(Tin, g, A, nothing, transforms...; kws...)
 end
 
 # Create 1D plans recursively.
 function _create_plans(
         ::Type{Ti}, g::GlobalFFTParams{T,N} where T,
-        Ai::PencilArray, plan1d_opt::NamedTuple,
-        plan_prev, transform_fw::AbstractTransform,
-        transforms_next::Vararg{AbstractTransform,Ntr}) where {Ti, N, Ntr}
+        Ai::PencilArray, plan_prev, transform_fw::AbstractTransform,
+        transforms_next::Vararg{AbstractTransform,Ntr};
+        timer, ibuf, fftw_kw, permute_dims,
+    ) where {Ti, N, Ntr}
     dim = Val(N - Ntr)  # current dimension index
     n = N - Ntr
     si = g.size_global_in
     so = g.size_global_out
-    timer = plan1d_opt.timer
-    ibuf = plan1d_opt.ibuf
 
     Pi = pencil(Ai)
 
@@ -348,21 +345,23 @@ function _create_plans(
 
     # Note that Ai and Ao may share memory, but that's ok here.
     Ao = _temporary_pencil_array(To, Po, ibuf, extra_dims(Ai))
-    plan_n = _make_1d_fft_plan(dim, Ti, Ai, Ao, transform_fw, plan1d_opt)
+    plan_n = _make_1d_fft_plan(dim, Ti, Ai, Ao, transform_fw; fftw_kw = fftw_kw)
 
     # These are both `nothing` when there's no transforms left
-    Pi_next = _make_pencil_in(g, topology(Pi), Val(n + 1), plan_n, timer,
-                              plan1d_opt.permute_dims)
+    Pi_next = _make_pencil_in(g, topology(Pi), Val(n + 1), plan_n, timer, permute_dims)
     Ai_next = _temporary_pencil_array(To, Pi_next, ibuf, extra_dims(Ai))
 
     (
         plan_n,
-        _create_plans(To, g, Ai_next, plan1d_opt, plan_n, transforms_next...)...,
+        _create_plans(
+            To, g, Ai_next, plan_n, transforms_next...;
+            timer = timer, ibuf = ibuf, fftw_kw = fftw_kw, permute_dims = permute_dims,
+        )...,
     )
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::Nothing, ::NamedTuple, plan_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::Nothing, plan_prev; kws...) = ()
 
 function _make_input_pencil(dims_global, topology, timer)
     # This is the case of the first pencil pair.
@@ -424,6 +423,7 @@ end
 _make_permutation_in(permute_dims::Val{false}, etc...) = NoPermutation()
 
 function _make_permutation_in(::Val{true}, dim::Val{n}, ::Val{N}) where {n, N}
+    @assert n ≥ 2
     # Here the data is permuted so that the n-th logical dimension is the first
     # (fastest) dimension in the arrays.
     # The chosen permutation is equivalent to (n, (1:n-1)..., (n+1:N)...).
@@ -445,7 +445,7 @@ end
 
 function _make_1d_fft_plan(
         dim::Val{n}, ::Type{Ti}, A_fw::PencilArray, A_bw::PencilArray,
-        transform_fw::AbstractTransform, plan1d_opt::NamedTuple) where {n, Ti}
+        transform_fw::AbstractTransform; fftw_kw) where {n, Ti}
     Pi = pencil(A_fw)
     Po = pencil(A_bw)
     perm = permutation(Pi)
@@ -467,7 +467,6 @@ function _make_1d_fft_plan(
     scale_bw = scale_factor(transform_bw, parent(A_fw), dims)
 
     # Generate forward and backward FFTW transforms.
-    fftw_kw = plan1d_opt.fftw_kw
     plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)
 
     plan_bw = if transform_bw === Transforms.BRFFT()

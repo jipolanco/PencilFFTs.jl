@@ -257,4 +257,4 @@ _make_pairs(::Tuple{}, ::Tuple{}) = ()
     PencilArray(p, x)
 end
 
-_temporary_pencil_array(::Type{T} where T, ::Nothing, etc...) = nothing
+_temporary_pencil_array(::Type, ::Nothing, etc...) = nothing
