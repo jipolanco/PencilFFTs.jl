@@ -234,7 +234,8 @@ function PencilFFTPlan(
     t = MPITopology(comm, proc_dims)
     pen = _make_input_pencil(dims_global, t, timer)
     Ti = eltype_input(first(transforms), T)
-    A = _temporary_pencil_array(Ti, pen, ibuf, extra_dims)
+    Tf = Ti === Nothing ? T : Ti
+    A = _temporary_pencil_array(Tf, pen, ibuf, extra_dims)
     PencilFFTPlan(A, transforms; timer = timer, ibuf = ibuf, kws...)
 end
 
@@ -264,7 +265,7 @@ Returns the element type of the input data.
 Transforms.eltype_input(p::PencilFFTPlan) = eltype_input(first(p.plans))
 
 """
-    Transforms.eltype_input(p::PencilFFTPlan)
+    Transforms.eltype_output(p::PencilFFTPlan)
 
 Returns the element type of the output data.
 """
@@ -301,7 +302,7 @@ function check_input_array(A::PencilArray, transforms)
     T = eltype(A)
     tr = first(transforms)
     T_expected = eltype_input(tr, real(T))
-    if T_expected ∉ (nothing, T)  # if nothing, both real and complex inputs are allowed
+    if T_expected ∉ (Nothing, T)  # if Nothing, both real and complex inputs are allowed
         throw(ArgumentError(
             "wrong input datatype ($T) for transform $tr (expected $T_expected)"
         ))
