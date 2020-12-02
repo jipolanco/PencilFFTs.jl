@@ -123,13 +123,13 @@ false
 julia> is_inplace(Transforms.NoTransform!())
 true
 
-julia> is_inplace(Transforms.FFT!(), Transforms.R2R!{FFTW.REDFT01}())
+julia> is_inplace(Transforms.FFT!(), Transforms.R2R!(FFTW.REDFT01))
 true
 
-julia> is_inplace(Transforms.FFT(), Transforms.R2R{FFTW.REDFT01}())
+julia> is_inplace(Transforms.FFT(), Transforms.R2R(FFTW.REDFT01))
 false
 
-julia> is_inplace(Transforms.FFT(), Transforms.R2R!{FFTW.REDFT01}()) === nothing
+julia> is_inplace(Transforms.FFT(), Transforms.R2R!(FFTW.REDFT01)) === nothing
 true
 
 ```
@@ -223,7 +223,7 @@ Complex{Float32}
 julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
 
-julia> eltype_input(Transforms.R2R{FFTW.REDFT01}(), Float64)
+julia> eltype_input(Transforms.R2R(FFTW.REDFT01), Float64)
 Nothing
 
 julia> eltype_input(Transforms.NoTransform(), Float64)

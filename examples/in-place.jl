@@ -16,9 +16,9 @@ dims = INPUT_DIMS
 
 # Combine r2r and c2c in-place transforms.
 transforms = (
-    Transforms.R2R!{FFTW.REDFT01}(),
+    Transforms.R2R!(FFTW.REDFT01),
     Transforms.FFT!(),
-    Transforms.R2R!{FFTW.DHT}(),
+    Transforms.R2R!(FFTW.DHT),
 )
 
 # MPI topology information
