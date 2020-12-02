@@ -22,7 +22,7 @@ export allocate_input, allocate_output, scale_factor
 @deprecate get_scale_factor scale_factor
 
 # Functions to be extended for PencilFFTs types.
-import PencilArrays: get_comm, timer
+import PencilArrays: get_comm, timer, topology, extra_dims
 
 const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 

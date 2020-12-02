@@ -25,9 +25,9 @@ transform = Transforms.FFT!()
 # One can also combine different types of in-place transforms.
 # For instance:
 # transform = (
-#     Transforms.R2R!{FFTW.REDFT01}(),
+#     Transforms.R2R!(FFTW.REDFT01),
 #     Transforms.FFT!(),
-#     Transforms.R2R!{FFTW.DHT}(),
+#     Transforms.R2R!(FFTW.DHT),
 # )
 
 comm = MPI.COMM_WORLD

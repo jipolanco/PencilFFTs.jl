@@ -14,9 +14,9 @@ version = "2.3.0"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "529653153dcc9afdb97c9a3a913d6d02d93829d1"
+git-tree-sha1 = "c121e78a689da38e4199cf964962385a4810d827"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.14.1"
+version = "2.14.2"
 
 [[Artifacts]]
 deps = ["Pkg"]
@@ -93,6 +93,7 @@ uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 version = "1.5.1"
 
 [[LibGit2]]
+deps = ["Printf"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
 [[Libdl]]
@@ -164,10 +165,10 @@ version = "0.5.0"
 deps = ["FFTW", "LinearAlgebra", "MPI", "PencilArrays", "Reexport", "TimerOutputs"]
 path = ".."
 uuid = "4a48f351-57a6-4416-9ec4-c37015456aae"
-version = "0.10.0"
+version = "0.10.1"
 
 [[Pkg]]
-deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]
+deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Printf]]

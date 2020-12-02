@@ -84,12 +84,15 @@ function test_transform_types(size_in)
     # is type unstable!). See comments of `plan` in src/Transforms/r2r.jl.
     @testset "r2r transforms" begin
         kind = FFTW.REDFT01
-        transform = Transforms.R2R{kind}()
-        transform! = Transforms.R2R!{kind}()
+        transform = Transforms.R2R(kind)
+        transform! = Transforms.R2R!(kind)
+
+        @inferred (() -> Transforms.R2R(FFTW.REDFT10))()
+        @inferred (() -> Transforms.R2R!(FFTW.REDFT10))()
 
         let kind_inv = FFTW.REDFT10
-            @test binv(transform) === Transforms.R2R{kind_inv}()
-            @test binv(transform!) === Transforms.R2R!{kind_inv}()
+            @test binv(transform) === Transforms.R2R(kind_inv)
+            @test binv(transform!) === Transforms.R2R!(kind_inv)
         end
 
         A = zeros(4, 6, 8)
@@ -104,7 +107,7 @@ function test_transform_types(size_in)
 
         for kind in (FFTW.R2HC, FFTW.HC2R), T in (Transforms.R2R, Transforms.R2R!)
             # Unsupported r2r kinds.
-            @test_throws ArgumentError T{kind}()
+            @test_throws ArgumentError T(kind)
         end
     end
 
@@ -291,7 +294,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
 
     pair_r2r(tr::Transforms.R2R) =
         tr => make_plan(FFTW.plan_r2r, Transforms.kind(tr))
-    pairs_r2r = (pair_r2r(Transforms.R2R{k}()) for k in TEST_KINDS_R2R)
+    pairs_r2r = (pair_r2r(Transforms.R2R(k)) for k in TEST_KINDS_R2R)
 
     pairs = if FAST_TESTS &&
             (T === Float32 || !isempty(extra_dims) || length(proc_dims) == 1)

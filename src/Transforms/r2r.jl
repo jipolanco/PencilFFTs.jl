@@ -15,7 +15,7 @@ const R2R_SUPPORTED_KINDS = (
 )
 
 """
-    R2R{kind}()
+    R2R(kind)
 
 Real-to-real transform of type `kind`.
 
@@ -48,7 +48,7 @@ struct R2R{kind} <: AbstractTransform
 end
 
 """
-    R2R!{kind}()
+    R2R!(kind)
 
 In-place version of [`R2R`](@ref).
 
@@ -60,6 +60,9 @@ struct R2R!{kind} <: AbstractTransform
         new()
     end
 end
+
+@inline R2R(kind) = R2R{kind}()
+@inline R2R!(kind) = R2R!{kind}()
 
 const AnyR2R{kind} = Union{R2R{kind}, R2R!{kind}} where {kind}
 
