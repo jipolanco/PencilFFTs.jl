@@ -141,7 +141,7 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 
 """
 struct PencilFFTPlan{
-        T,
+        T <: FFTReal,
         N,   # dimension of arrays (= Nt + Ne)
         I,   # in-place (Bool)
         Nt,  # number of transformed dimensions
@@ -174,38 +174,33 @@ struct PencilFFTPlan{
     # off if desired.
     timer :: TimerOutput
 
-    # TODO
-    # - add constructor with Cartesian MPI communicator, in case the user
-    #   already created one
-    # - allow more control on the decomposition directions
     function PencilFFTPlan(
-            size_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
-            proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{T} = Float64;
-            extra_dims::Dims{Ne} = (),
+            A::PencilArray, transforms::AbstractTransformList;
             fftw_flags = FFTW.ESTIMATE,
             fftw_timelimit = FFTW.NO_TIMELIMIT,
             permute_dims::ValBool = Val(true),
-            transpose_method::AbstractTransposeMethod = Transpositions.PointToPoint(),
+            transpose_method::AbstractTransposeMethod =
+                Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
             ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
-        ) where {Nt, Nd, Ne, T <: FFTReal}
-        g = GlobalFFTParams(size_global, transforms, T)
-        t = MPITopology(comm, proc_dims)
+        )
+        check_input_array(A, transforms)
+        T = real(eltype(A))
+        dims_global = size_global(pencil(A), LogicalOrder())
+        g = GlobalFFTParams(dims_global, transforms, T)
         inplace = is_inplace(g)
-
-        fftw_kw = (:flags => fftw_flags, :timelimit => fftw_timelimit)
+        fftw_kw = (; flags = fftw_flags, timelimit = fftw_timelimit)
 
         # Options for creation of 1D plans.
-        plan1d_opt = (
+        plans = _create_plans(
+            A, g;
             permute_dims = permute_dims,
             ibuf = ibuf,
             obuf = obuf,
             timer = timer,
             fftw_kw = fftw_kw,
-            extra_dims = extra_dims,
         )
 
-        plans = _create_plans(g, t, plan1d_opt)
         scale = prod(p -> float(p.scale_factor), plans)
 
         # If the plan is in-place, the buffers won't be needed anymore, so we
@@ -214,22 +209,45 @@ struct PencilFFTPlan{
             resize!.((ibuf, obuf), 0)
         end
 
+        edims = extra_dims(A)
+        Nt = length(transforms)
+        Ne = length(edims)
         N = Nt + Ne
         G = typeof(g)
         P = typeof(plans)
         TM = typeof(transpose_method)
+        t = topology(A)
+        Nd = ndims(t)
 
         new{T, N, inplace, Nt, Nd, Ne, G, P, TM}(
-            g, t, extra_dims, plans, scale, transpose_method, ibuf, obuf, timer)
-    end
-
-    function PencilFFTPlan(size_global::Dims{N},
-                           transform::AbstractTransform,
-                           args...; kwargs...) where N
-        PencilFFTPlan(size_global, expand_dims(transform, Val(N)),
-                      args...; kwargs...)
+            g, t, edims, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 end
+
+function PencilFFTPlan(
+        dims_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
+        proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{T} = Float64;
+        extra_dims::Dims{Ne} = (),
+        timer = TimerOutput(),
+        ibuf = UInt8[],
+        kws...,
+    ) where {Nt, Nd, Ne, T <: FFTReal}
+    t = MPITopology(comm, proc_dims)
+    pen = _make_input_pencil(dims_global, t, timer)
+    Ti = eltype_input(first(transforms), T)
+    A = _temporary_pencil_array(Ti, pen, ibuf, extra_dims)
+    PencilFFTPlan(A, transforms; timer = timer, ibuf = ibuf, kws...)
+end
+
+function PencilFFTPlan(A, transform::AbstractTransform,
+                       args...; kws...)
+    N = _ndims_transformable(A)
+    transforms = expand_dims(transform, Val(N))
+    PencilFFTPlan(A, transforms, args...; kws...)
+end
+
+@inline _ndims_transformable(dims::Dims) = length(dims)
+@inline _ndims_transformable(A::PencilArray) = ndims(pencil(A))
 
 """
     Transforms.is_inplace(p::PencilFFTPlan)
@@ -256,31 +274,66 @@ Transforms.eltype_output(p::PencilFFTPlan) = eltype_output(last(p.plans))
 pencil_input(p::PencilFFTPlan) = first(p.plans).pencil_in
 pencil_output(p::PencilFFTPlan) = last(p.plans).pencil_out
 
-function _create_plans(g::GlobalFFTParams{T, N} where T,
-                       topology::MPITopology{M},
-                       plan1d_opt::NamedTuple) where {N, M}
+function check_input_array(A::PencilArray, transforms)
+    # TODO relax condition to ndims(A) >= N and transform the first N
+    # dimensions (and forget about extra_dims)
+    N = length(transforms)
+    if ndims(pencil(A)) != N
+        throw(ArgumentError(
+            "number of transforms ($N) must be equal to number " *
+            "of transformable dimensions in array (`ndims(pencil(A))`)"
+        ))
+    end
+
+    if permutation(A) != NoPermutation()
+        throw(ArgumentError("dimensions of input array must be unpermuted"))
+    end
+
+    decomp = decomposition(pencil(A))  # decomposed dimensions, e.g. (2, 3)
+    M = length(decomp)
+    decomp_expected = input_decomposition(N, Val(M))
+    if decomp != decomp_expected
+        throw(ArgumentError(
+            "decomposed dimensions of input data must be $decomp_expected" *
+            " (got $decomp)"
+        ))
+    end
+
+    T = eltype(A)
+    tr = first(transforms)
+    T_expected = eltype_input(tr, real(T))
+    if T_expected ∉ (nothing, T)  # if nothing, both real and complex inputs are allowed
+        throw(ArgumentError(
+            "wrong input datatype ($T) for transform $tr (expected $T_expected)"
+        ))
+    end
+
+    nothing
+end
+
+input_decomposition(N, ::Val{M}) where {M} = ntuple(d -> N - M + d, Val(M))
+
+function _create_plans(A::PencilArray, g::GlobalFFTParams; kws...)
     Tin = input_data_type(g)
     transforms = g.transforms
-    _create_plans(Tin, g, topology, plan1d_opt, nothing, transforms...)
+    opts = (; kws...)  # TODO pass as kwargs
+    _create_plans(Tin, g, A, opts, nothing, transforms...)
 end
 
 # Create 1D plans recursively.
-function _create_plans(::Type{Ti},
-                       g::GlobalFFTParams{T, N} where T,
-                       topology::MPITopology{M},
-                       plan1d_opt::NamedTuple,
-                       plan_prev,
-                       transform_fw::AbstractTransform,
-                       transforms_next::Vararg{AbstractTransform, Ntr}
-                      ) where {Ti, N, M, Ntr}
+function _create_plans(
+        ::Type{Ti}, g::GlobalFFTParams{T,N} where T,
+        Ai::PencilArray, plan1d_opt::NamedTuple,
+        plan_prev, transform_fw::AbstractTransform,
+        transforms_next::Vararg{AbstractTransform,Ntr}) where {Ti, N, Ntr}
     dim = Val(N - Ntr)  # current dimension index
     n = N - Ntr
     si = g.size_global_in
     so = g.size_global_out
     timer = plan1d_opt.timer
+    ibuf = plan1d_opt.ibuf
 
-    Pi = _make_pencil_in(g, topology, Val(n), plan_prev, timer,
-                         plan1d_opt.permute_dims)
+    Pi = pencil(Ai)
 
     # Output transform along dimension `n`.
     Po = let dims = ntuple(j -> j ≤ n ? so[j] : si[j], Val(N))
@@ -291,31 +344,45 @@ function _create_plans(::Type{Ti},
         end
     end
 
-    plan_n = _make_1d_fft_plan(dim, Ti, Pi, Po, transform_fw, plan1d_opt)
-    To = eltype_output(plan_n)
+    To = eltype_output(transform_fw, Ti)
 
-    (plan_n, _create_plans(To, g, topology, plan1d_opt, plan_n,
-                           transforms_next...)...)
+    # Note that Ai and Ao may share memory, but that's ok here.
+    Ao = _temporary_pencil_array(To, Po, ibuf, extra_dims(Ai))
+    plan_n = _make_1d_fft_plan(dim, Ti, Ai, Ao, transform_fw, plan1d_opt)
+
+    # These are both `nothing` when there's no transforms left
+    Pi_next = _make_pencil_in(g, topology(Pi), Val(n + 1), plan_n, timer,
+                              plan1d_opt.permute_dims)
+    Ai_next = _temporary_pencil_array(To, Pi_next, ibuf, extra_dims(Ai))
+
+    (
+        plan_n,
+        _create_plans(To, g, Ai_next, plan1d_opt, plan_n, transforms_next...)...,
+    )
 end
 
 # No transforms left!
-_create_plans(::Type, ::GlobalFFTParams, ::MPITopology, ::NamedTuple,
-              plan_prev) = ()
+_create_plans(::Type, ::GlobalFFTParams, ::Nothing, ::NamedTuple, plan_prev) = ()
 
-function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
-                         topology::MPITopology{M}, dim::Val{1},
-                         plan_prev::Nothing, timer,
-                         permute_dims::ValBool) where {N, M}
+function _make_input_pencil(dims_global, topology, timer)
     # This is the case of the first pencil pair.
     # Generate initial pencils for the first dimension.
     # - Decompose along dimensions "far" from the first one.
     #   Example: if N = 5 and M = 2, then decomp_dims = (4, 5).
     # - No permutation is applied for input data: arrays are accessed in the
     #   natural order (i1, i2, ..., iN).
-    decomp_dims = ntuple(m -> N - M + m, Val(M))
-    perm = _make_permutation_in(permute_dims, Val(1), Val(N))
-    @assert perm === NoPermutation()
-    Pencil(topology, g.size_global_in, decomp_dims, permute=perm, timer=timer)
+    N = length(dims_global)
+    M = ndims(topology)
+    decomp_dims = input_decomposition(N, Val(M))
+    perm = NoPermutation()
+    Pencil(topology, dims_global, decomp_dims; permute=perm, timer=timer)
+end
+
+function _make_pencil_in(g::GlobalFFTParams,
+                         topology::MPITopology, dim::Val{1},
+                         plan_prev::Nothing, timer,
+                         permute_dims::ValBool)
+    _make_input_pencil(g.size_global_in, topology, timer)
 end
 
 function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
@@ -323,6 +390,7 @@ function _make_pencil_in(g::GlobalFFTParams{T,N} where T,
                          plan_prev::PencilPlan1D, timer,
                          permute_dims::ValBool,
                         ) where {N, M, n}
+    n > N && return nothing
     Po_prev = plan_prev.pencil_out
 
     # (i) Determine permutation of pencil data.
@@ -375,9 +443,11 @@ function _make_permutation_in(::Val{true}, dim::Val{N}, ::Val{N}) where {N}
     Permutation(ntuple(i -> N - i + 1, Val(N)))  # (N, N-1, ..., 2, 1)
 end
 
-function _make_1d_fft_plan(dim::Val{n}, ::Type{Ti}, Pi::Pencil, Po::Pencil,
-                           transform_fw::AbstractTransform,
-                           plan1d_opt::NamedTuple) where {n, Ti}
+function _make_1d_fft_plan(
+        dim::Val{n}, ::Type{Ti}, A_fw::PencilArray, A_bw::PencilArray,
+        transform_fw::AbstractTransform, plan1d_opt::NamedTuple) where {n, Ti}
+    Pi = pencil(A_fw)
+    Po = pencil(A_bw)
     perm = permutation(Pi)
 
     dims = if PencilArrays.isidentity(perm)
@@ -389,13 +459,7 @@ function _make_1d_fft_plan(dim::Val{n}, ::Type{Ti}, Pi::Pencil, Po::Pencil,
         findfirst(==(n), Tuple(perm)) :: Int
     end
 
-    # Create temporary arrays with the dimensions required for forward and
-    # backward transforms.
-    extra_dims = plan1d_opt.extra_dims
     transform_bw = binv(transform_fw)
-    To = eltype_output(transform_fw, Ti)
-    A_fw = _temporary_pencil_array(Ti, Pi, plan1d_opt.ibuf, extra_dims)
-    A_bw = _temporary_pencil_array(To, Po, plan1d_opt.obuf, extra_dims)
 
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output

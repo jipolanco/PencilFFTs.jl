@@ -256,3 +256,5 @@ _make_pairs(::Tuple{}, ::Tuple{}) = ()
     x = Transpositions.unsafe_as_array(T, buf, dims)
     PencilArray(p, x)
 end
+
+_temporary_pencil_array(::Type{T} where T, ::Nothing, etc...) = nothing
