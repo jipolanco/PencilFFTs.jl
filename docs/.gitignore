@@ -1,2 +1,2 @@
-build/
-site/
+/build
+/Manifest.toml
