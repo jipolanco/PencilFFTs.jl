@@ -17,7 +17,7 @@ function main()
             # load assets in <head>
             assets=[
                 "assets/custom.css",
-                "assets/matomo.js",
+                "assets/tomate.js",  # matomo code
             ],
         ),
         pages=[
