@@ -2,21 +2,21 @@
 
 [[AbstractFFTs]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "051c95d6836228d120f5f4b984dd5aba1624f716"
+git-tree-sha1 = "8ed9de2f1b1a9b1dee48582ad477c6e67b83eb2c"
 uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-version = "0.5.0"
+version = "1.0.0"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "42c42f2221906892ceb765dbcb1a51deeffd86d7"
+git-tree-sha1 = "345a14764e43fe927d6f5c250fe4c8e4664e6ee8"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "2.3.0"
+version = "2.4.0"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "c121e78a689da38e4199cf964962385a4810d827"
+git-tree-sha1 = "a0c202d58f0f99156bd77972fe75ae8498fd9f4b"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.14.2"
+version = "2.14.13"
 
 [[Artifacts]]
 deps = ["Pkg"]
@@ -55,15 +55,15 @@ version = "0.8.3"
 
 [[FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "IntelOpenMP_jll", "Libdl", "LinearAlgebra", "MKL_jll", "Reexport"]
-git-tree-sha1 = "8b7c16b56936047ca41bf25effa137ae0b381ae8"
+git-tree-sha1 = "c31e446bf3b12aad2ec8fc500fe19528c148d811"
 uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "1.2.4"
+version = "1.3.1"
 
 [[FFTW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "f10c3009373a2d5c4349b8a2932d8accb892892d"
+git-tree-sha1 = "5a0d4b6a22a34d17d53543bd124f4b08ed78e8b0"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.9+6"
+version = "3.3.9+7"
 
 [[IntelOpenMP_jll]]
 deps = ["Libdl", "Pkg"]
@@ -76,9 +76,9 @@ deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[JLLWrappers]]
-git-tree-sha1 = "c70593677bbf2c3ccab4f7500d0f4dacfff7b75c"
+git-tree-sha1 = "a431f5f2ca3f4feef3bd7a5e94b8b8d4f2f647a0"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
-version = "1.1.3"
+version = "1.2.0"
 
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
@@ -139,9 +139,9 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[OffsetArrays]]
 deps = ["Adapt"]
-git-tree-sha1 = "9db93b990af57b3a56dca38476832f60d58f777b"
+git-tree-sha1 = "5b644e46f71e744fac0775b885809fd82c4ca904"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.4.0"
+version = "1.5.0"
 
 [[OpenMPI_jll]]
 deps = ["Libdl", "Pkg"]
@@ -151,21 +151,21 @@ version = "4.0.2+2"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "b417be52e8be24e916e34b3d70ec2da7bdf56a68"
+git-tree-sha1 = "50c9a9ed8c714945e01cd53a21007ed3865ed714"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "1.0.12"
+version = "1.0.15"
 
 [[PencilArrays]]
 deps = ["ArrayInterface", "JSON3", "Libdl", "LinearAlgebra", "MPI", "OffsetArrays", "Reexport", "Requires", "StaticArrays", "StaticPermutations", "TimerOutputs"]
-git-tree-sha1 = "b3ee82031b05fb194f64197efb3c806d581c4c29"
+git-tree-sha1 = "6e911a615eda6ab45cefd0fdd6e960a19e71e896"
 uuid = "0e08944d-e94e-41b1-9406-dcf66b6a9d2e"
-version = "0.5.0"
+version = "0.6.1"
 
 [[PencilFFTs]]
 deps = ["FFTW", "LinearAlgebra", "MPI", "PencilArrays", "Reexport", "TimerOutputs"]
 path = ".."
 uuid = "4a48f351-57a6-4416-9ec4-c37015456aae"
-version = "0.10.1"
+version = "0.11.2"
 
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
@@ -184,16 +184,15 @@ deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[Reexport]]
-deps = ["Pkg"]
-git-tree-sha1 = "7b1d07f411bc8ddb7977ec7f377b97b158514fe0"
+git-tree-sha1 = "57d8440b0c7d98fc4f889e478e80f268d534c9d5"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
-version = "0.2.0"
+version = "1.0.0"
 
 [[Requires]]
 deps = ["UUIDs"]
-git-tree-sha1 = "e05c53ebc86933601d36212a93b39144a2733493"
+git-tree-sha1 = "cfbac6c1ed70c002ec6361e7fd334f02820d6419"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
-version = "1.1.1"
+version = "1.1.2"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -210,9 +209,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "794e88df12426adc7eb3370b4ec3aee12f8d6911"
+git-tree-sha1 = "9da72ed50e94dbff92036da395275ed114e04d49"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.0.0"
+version = "1.0.1"
 
 [[StaticPermutations]]
 git-tree-sha1 = "79fc915c7bf016189f845a7f4b0d718314740c1e"
@@ -225,9 +224,9 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[StructTypes]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "1ed04f622a39d2e5a6747c3a70be040c00333933"
+git-tree-sha1 = "d94235fcdc4a09649f263365c5f7e4ed4ba6ed34"
 uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.1.0"
+version = "1.2.1"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
