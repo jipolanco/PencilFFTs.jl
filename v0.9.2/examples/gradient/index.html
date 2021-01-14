@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Gradient of a scalar field · PencilFFTs.jl</title><link rel="canonical" href="https://jipolanco.github.io/PencilFFTs.jl/examples/gradient/"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/><script src="../../assets/matomo.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="PencilFFTs.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit">PencilFFTs.jl</span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../tutorial/">Tutorial</a></li><li><span class="tocitem">More examples</span><ul><li><a class="tocitem" href="../in-place/">In-place transforms</a></li><li class="is-active"><a class="tocitem" href>Gradient of a scalar field</a><ul class="internal"><li><a class="tocitem" href="#General-procedure"><span>General procedure</span></a></li><li><a class="tocitem" href="#Preparation"><span>Preparation</span></a></li><li><a class="tocitem" href="#Fourier-wave-numbers"><span>Fourier wave numbers</span></a></li><li><a class="tocitem" href="#gradient_method_global"><span>Method 1: global views</span></a></li><li><a class="tocitem" href="#gradient_method_global_explicit"><span>Method 2: explicit global indexing</span></a></li><li><a class="tocitem" href="#gradient_method_local"><span>Method 3: using local indices</span></a></li><li><a class="tocitem" href="#Summary"><span>Summary</span></a></li><li><a class="tocitem" href="#gradient_benchmarks"><span>Benchmark results</span></a></li></ul></li></ul></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../PencilFFTs/">Distributed FFT plans</a></li><li><a class="tocitem" href="../../Transforms/">Available transforms</a></li><li><a class="tocitem" href="../../PencilFFTs_timers/">Measuring performance</a></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../GlobalFFTParams/">Global FFT parameters</a></li></ul></li></ul></li><li><a class="tocitem" href="../../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">More examples</a></li><li class="is-active"><a href>Gradient of a scalar field</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Gradient of a scalar field</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/docs/src/examples/gradient.md#L" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Gradient-of-a-scalar-field"><a class="docs-heading-anchor" href="#Gradient-of-a-scalar-field">Gradient of a scalar field</a><a id="Gradient-of-a-scalar-field-1"></a><a class="docs-heading-anchor-permalink" href="#Gradient-of-a-scalar-field" title="Permalink"></a></h1><p>This example shows different methods to compute the gradient of a real-valued 3D scalar field <span>$θ(\bm{x})$</span> in Fourier space, where <span>$\bm{x} = (x, y, z)$</span>. It is assumed that the field is periodic with period <span>$L = 2π$</span> along all dimensions.</p><p>A working implementation of this example can be found in <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a>.</p><h2 id="General-procedure"><a class="docs-heading-anchor" href="#General-procedure">General procedure</a><a id="General-procedure-1"></a><a class="docs-heading-anchor-permalink" href="#General-procedure" title="Permalink"></a></h2><p>The discrete Fourier expansion of <span>$θ$</span> writes</p><div>\[θ(\bm{x}) = ∑_{\bm{k} ∈ \Z^3} \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},\]</div><p>where <span>$\bm{k} = (k_x, k_y, k_z)$</span> are the Fourier wave numbers and <span>$\hat{θ}$</span> is the discrete Fourier transform of <span>$θ$</span>. Then, the spatial derivatives of <span>$θ$</span> are given by</p><div>\[\frac{∂ θ(\bm{x})}{∂ x_i} =
+∑_{\bm{k} ∈ \Z^3} i k_i \hat{θ}(\bm{k}) \, e^{i \bm{k} ⋅ \bm{x}},\]</div><p>where the underscript <span>$i$</span> denotes one of the spatial components <span>$x$</span>, <span>$y$</span> or <span>$z$</span>.</p><p>In other words, to compute <span>$\bm{∇} θ = (∂_x θ, ∂_y θ, ∂_z θ)$</span>, one has to:</p><ol><li>transform <span>$θ$</span> to Fourier space to obtain <span>$\hat{θ}$</span>,</li><li>multiply <span>$\hat{θ}$</span> by <span>$i \bm{k}$</span>,</li><li>transform the result back to physical space to obtain <span>$\bm{∇} θ$</span>.</li></ol><h2 id="Preparation"><a class="docs-heading-anchor" href="#Preparation">Preparation</a><a id="Preparation-1"></a><a class="docs-heading-anchor-permalink" href="#Preparation" title="Permalink"></a></h2><p>In this section, we initialise a random real-valued scalar field <span>$θ$</span> and compute its FFT. For more details see the <a href="../../tutorial/#Tutorial">Tutorial</a>.</p><pre><code class="language-julia">using MPI
+using PencilFFTs
+using Random
+
+MPI.Init()
+
+# Input data dimensions (Nx × Ny × Nz)
+dims = (64, 32, 64)
+
+# Apply a 3D real-to-complex (r2c) FFT.
+transform = Transforms.RFFT()
+
+# MPI topology information
+comm = MPI.COMM_WORLD  # we assume MPI.Comm_size(comm) == 12
+proc_dims = (3, 4)     # 3 processes along `y`, 4 along `z`
+
+# Create plan
+plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+
+# Allocate data and initialise field
+θ = allocate_input(plan)
+randn!(θ)
+
+# Perform distributed FFT
+θ_hat = plan * θ
+
+# Finally, we initialise the output that will hold ∇θ in Fourier space.
+# Noting that ∇θ is a vector field, we choose to store it as a tuple of
+# 3 PencilArrays.
+# These two are exactly equivalent:
+# ∇θ_hat = ntuple(d -&gt; similar(θ_hat), Val(3))
+∇θ_hat = allocate_output(plan, Val(3))</code></pre><h2 id="Fourier-wave-numbers"><a class="docs-heading-anchor" href="#Fourier-wave-numbers">Fourier wave numbers</a><a id="Fourier-wave-numbers-1"></a><a class="docs-heading-anchor-permalink" href="#Fourier-wave-numbers" title="Permalink"></a></h2><p>In general, the Fourier wave numbers are of the form <span>$k_i = 0, ±\frac{2π}{L_i}, ±\frac{4π}{L_i}, ±\frac{6π}{L_i}, \ldots$</span>, where <span>$L_i$</span> is the period along dimension <span>$i$</span>. When a real-to-complex Fourier transform is applied, roughly half of these wave numbers are redundant due to the Hermitian symmetry of the complex Fourier coefficients. In practice, this means that for the fastest dimension <span>$x$</span> (along which a real-to-complex transform is performed), the negative wave numbers are dropped, i.e. <span>$k_x = 0, \frac{2π}{L_x}, \frac{4π}{L_x}, \ldots$</span>.</p><p>The <code>AbstractFFTs</code> package provides a convenient way to generate the Fourier wave numbers, using the functions <a href="https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.fftfreq"><code>fftfreq</code></a> and <a href="https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.rfftfreq"><code>rfftfreq</code></a>. We can use these functions to initialise a &quot;grid&quot; of wave numbers associated to our 3D real-to-complex transform:</p><pre><code class="language-julia">using AbstractFFTs: fftfreq, rfftfreq
+
+box_size = (2π, 2π, 2π)  # Lx, Ly, Lz
+sample_rate = 2π .* dims ./ box_size
+
+# In our case (Lx = 2π and Nx even), this gives kx = [0, 1, 2, ..., Nx/2].
+kx = rfftfreq(dims[1], sample_rate[1])
+
+# In our case (Ly = 2π and Ny even), this gives
+# ky = [0, 1, 2, ..., Ny/2-1, -Ny/2, -Ny/2+1, ..., -1] (and similarly for kz).
+ky = fftfreq(dims[2], sample_rate[2])
+kz = fftfreq(dims[3], sample_rate[3])
+
+kvec = (kx, ky, kz)</code></pre><p>Note that <code>kvec</code> now contains the wave numbers associated to the global domain. In the following, we will only need the wave numbers associated to the portion of the domain handled by the local MPI process.</p><h2 id="gradient_method_global"><a class="docs-heading-anchor" href="#gradient_method_global">Method 1: global views</a><a id="gradient_method_global-1"></a><a class="docs-heading-anchor-permalink" href="#gradient_method_global" title="Permalink"></a></h2><p><a href="https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.PencilArray"><code>PencilArray</code></a>s, returned for instance by <a href="../../PencilFFTs/#PencilFFTs.allocate_input"><code>allocate_input</code></a> and  <a href="../../PencilFFTs/#PencilFFTs.allocate_output"><code>allocate_output</code></a>, take indices that start at 1, regardless of the location of the subdomain associated to the local process on the global grid. (We say that <code>PencilArray</code>s take <em>local</em> indices.) On the other hand, we have defined the wave number vector <code>kvec</code> which, for each MPI process, is defined over the global domain, and as such it takes <em>global</em> indices.</p><p>One straightforward way of making data arrays compatible with wave numbers is to use global views, i.e. arrays that take global indices. These are generated from <code>PencilArray</code>s by calling the <a href="https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.global_view-Tuple{PencilArray}"><code>global_view</code></a> function. Note that, in general, global indices do <em>not</em> start at 1 for a given MPI process. A given process will own a range of data given by indices in <code>(i1:i2, j1:j2, k1:k2)</code>.</p><p>Once we have global views, we can combine data and wave numbers using the portion of global indices owned by the local MPI process, as shown below.</p><pre><code class="language-julia"># Generate global views of PencilArrays.
+θ_glob = global_view(θ_hat)
+∇θ_glob = global_view.(∇θ_hat)  # we broadcast over the 3 elements of ∇θ_hat
+
+# We can use CartesianIndices to iterate over the global indices associated to
+# the local process.
+for I in CartesianIndices(θ_glob)
+    i, j, k = Tuple(I)  # unpack indices
+
+    # Wave number vector associated to current Cartesian index.
+    kx = kvec[1][i]
+    ky = kvec[2][j]
+    kz = kvec[3][k]
+
+    # Compute gradient in Fourier space.
+    # Note that modifying ∇θ_glob also modifies the original PencilArray ∇θ_hat.
+    ∇θ_glob[1][I] = im * kx * θ_glob[I]
+    ∇θ_glob[2][I] = im * ky * θ_glob[I]
+    ∇θ_glob[3][I] = im * kz * θ_glob[I]
+end</code></pre><p>The above loop can be written in a more efficient manner by precomputing <code>im * θ_glob[I]</code> and by avoiding indexation with the <code>CartesianIndex</code> <code>I</code>, using linear indexing instead:<sup class="footnote-reference"><a id="citeref-1" href="#footnote-1">[1]</a></sup></p><pre><code class="language-julia">@inbounds for (n, I) in enumerate(CartesianIndices(θ_glob))
+    i, j, k = Tuple(I)
+
+    kx = kvec[1][i]
+    ky = kvec[2][j]
+    kz = kvec[3][k]
+
+    u = im * θ_glob[n]
+
+    ∇θ_glob[1][n] = kx * u
+    ∇θ_glob[2][n] = ky * u
+    ∇θ_glob[3][n] = kz * u
+end</code></pre><p>This is basically the implementation of <code>gradient_global_view!</code> in <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a>. Also note that the above can be easily written in a more generic way, e.g. for arbitrary dimensions, thanks in part to the use of <code>CartesianIndices</code>. Moreover, in the above there is no notion of the dimension permutations discussed in <a href="../../tutorial/#tutorial:output_data_layout">the tutorial</a>, as it is all hidden behind the implementation of <code>PencilArray</code>s.</p><p>Finally, we can perform a backwards transform to obtain <span>$\bm{∇} θ$</span> in physical space:</p><pre><code class="language-julia">∇θ = plan \ ∇θ_hat</code></pre><p>Note that the transform is automatically broadcast over the three fields of the <code>∇θ_hat</code> vector, and the result <code>∇θ</code> is also a tuple of three <code>PencilArray</code>s.</p><h2 id="gradient_method_global_explicit"><a class="docs-heading-anchor" href="#gradient_method_global_explicit">Method 2: explicit global indexing</a><a id="gradient_method_global_explicit-1"></a><a class="docs-heading-anchor-permalink" href="#gradient_method_global_explicit" title="Permalink"></a></h2><p>Sometimes, one does not need to write generic code. In our case, one often knows the dimensionality of the problem and the memory layout of the data (i.e. the underlying index permutation).</p><p>Below is a reimplementation of the above loop, using explicit indices instead of <code>CartesianIndices</code>, and assuming that the underlying index permutation is <code>(3, 2, 1)</code>, that is, data is stored in <span>$(z, y, x)$</span> order. As discussed in <a href="../../tutorial/#tutorial:output_data_layout">the tutorial</a>, this is the default for transformed arrays. This example also serves as a clearer explanation for what is going on in the <a href="#gradient_method_global">first method</a>.</p><pre><code class="language-julia"># Get local data range in the global grid.
+rng = axes(θ_glob)  # = (i1:i2, j1:j2, k1:k2)
+
+# For the loop below, we&#39;re assuming that the permutation is (3, 2, 1).
+# In other words, the fastest index is the *last* one, and not the first one as
+# it is usually in Julia.
+# If the permutation is not (3, 2, 1), things will still work (well, except for
+# the assertion below!), but the loop order will not be optimal.
+@assert get_permutation(θ_hat) === Permutation(3, 2, 1)
+
+@inbounds for i in rng[1], j in rng[2], k in rng[3]
+    kx = kvec[1][i]
+    ky = kvec[2][j]
+    kz = kvec[3][k]
+
+    # Note that we still access the arrays in (i, j, k) order.
+    # (The permutation happens behind the scenes!)
+    u = im * θ_glob[i, j, k]
+
+    ∇θ_glob[1][i, j, k] = kx * u
+    ∇θ_glob[2][i, j, k] = ky * u
+    ∇θ_glob[3][i, j, k] = kz * u
+end</code></pre><p>This implementation corresponds to <code>gradient_global_view_explicit!</code> in <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a>. Perhaps surprisingly, this implementation of the gradient is the fastest of all tested. (See the <a href="#gradient_benchmarks">benchmark results</a>: the <a href="#gradient_method_local">&quot;local index&quot; implementation below</a> is about 20% slower, while <a href="#gradient_method_global">Method 1</a> is 40% slower.) Note that we don&#39;t even need to switch to linear indexing to obtain optimal performance! Apparently there&#39;s a lot of compiler optimisations going on specifically for this function. This is evident when running <code>julia</code> with the <code>-O1</code> optimisation level (the default is <code>-O2</code>), in which case this implementation becomes much slower than the others (tested with Julia 1.4.1).</p><h2 id="gradient_method_local"><a class="docs-heading-anchor" href="#gradient_method_local">Method 3: using local indices</a><a id="gradient_method_local-1"></a><a class="docs-heading-anchor-permalink" href="#gradient_method_local" title="Permalink"></a></h2><p>Alternatively, we can avoid global views and work directly on <code>PencilArray</code>s using local indices that start at 1. In this case, part of the strategy is to construct a &quot;local&quot; grid of wave numbers that can also be accessed with local indices. Moreover, to obtain the local data range associated to a <code>PencilArray</code>, we call the <a href="https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.Pencils.range_local-Tuple{Union{PencilArray,%20Union{Tuple{Vararg{A,N}%20where%20N},%20AbstractArray{A,N}%20where%20N}%20where%20A%3C:PencilArray}}"><code>range_local</code></a> function. Apart from these details, this method is very similar to the <a href="#gradient_method_global">first one</a>.</p><pre><code class="language-julia"># Get local data range in the global grid.
+rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
+
+# Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
+kvec_local = getindex.(kvec, rng)
+
+@inbounds for (n, I) in enumerate(CartesianIndices(θ_hat))
+    i, j, k = Tuple(I)  # local indices
+
+    # Wave number vector associated to current Cartesian index.
+    local kx, ky, kz
+    kx = kvec_local[1][i]
+    ky = kvec_local[2][j]
+    kz = kvec_local[3][k]
+
+    u = im * θ_hat[n]
+
+    ∇θ_hat[1][n] = kx * u
+    ∇θ_hat[2][n] = ky * u
+    ∇θ_hat[3][n] = kz * u
+end</code></pre><p>This implementation corresponds to <code>gradient_local!</code> in <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a>. Like <a href="#gradient_method_global">Method 1</a>, this implementation uses <code>CartesianIndices</code> and can be made more generic with little effort. In particular, there is no explicit use of index permutations, and no assumptions need to be made in that regard. In our tests, this implementation is about 15% faster than <a href="#gradient_method_global">Method 1</a>, while still being generic and almost equally simple.</p><p>In <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a>, additional implementations using local indices can be found which rely on a more advanced understanding of permutations and on the internals of the <a href="https://jipolanco.github.io/PencilArrays.jl/dev/"><code>PencilArrays</code></a> package. See for instance <code>gradient_local_parent!</code>, which directly works with the raw data stored in Julia <code>Array</code>s; or <code>gradient_local_linear!</code>, which completely avoids <code>CartesianIndices</code> while staying generic and efficient. We have found that these display roughly the same performance as the example above.</p><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>The <code>PencilArrays</code> module provides different alternatives to deal with MPI-distributed data that may be subject to dimension permutations. In particular, one can choose to work with <em>global</em> indices (first two examples) or with <em>local</em> indices (third example).</p><p>If one wants to stay generic, making sure that the same code will work for arbitrary dimensions and will be efficient regardless of the underlying dimension permutation, methods <a href="#gradient_method_global">1</a> and <a href="#gradient_method_local">3</a> should be preferred. These use <code>CartesianIndices</code> and make no assumptions on the permutations (actually, permutations are completely invisible in the implementations). <a href="#gradient_method_local">Method 3</a> is faster and should be preferred for performance.</p><p>The <a href="#gradient_method_global_explicit">second method</a> uses explicit <code>(i, j, k)</code> indices. It assumes that the underlying permutation is <code>(3, 2, 1)</code> to loop with <code>i</code> as the <em>slowest</em> index and <code>k</code> as the <em>fastest</em>, which is the optimal order in this case given the permutation. As such, the implementation is less generic than the others, but is slightly easier to read.</p><p>The second method achieves better performance than the other implementations (about 20% faster than <a href="#gradient_method_local">Method 3</a>). The difference between methods 2 and 3 is explained by a more efficient access to the wave numbers <code>(kx, ky, kz)</code> in the former, since wave numbers are contained in lazy <code>Frequencies</code> objects (returned by <code>rfftfreq</code> and <code>fftfreq</code>), while in the local method, the wave numbers are collected into <code>Vector</code>s. See the next section for more details. Note that for larger problem sizes, the performance differences between methods become negligible.</p><h2 id="gradient_benchmarks"><a class="docs-heading-anchor" href="#gradient_benchmarks">Benchmark results</a><a id="gradient_benchmarks-1"></a><a class="docs-heading-anchor-permalink" href="#gradient_benchmarks" title="Permalink"></a></h2><p>The following are the benchmark results obtained from running <a href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/examples/gradient.jl"><code>examples/gradient.jl</code></a> on a laptop, using 2 MPI processes and Julia 1.4.1, with an input array of global dimensions <span>$64 × 32 × 64$</span>. The three methods detailed above are marked on the right. The &quot;lazy&quot; marks indicate runs where the wave numbers were represented by lazy <code>Frequencies</code> objects. Otherwise, they were collected into <code>Vector</code>s.</p><pre><code class="language-none">    gradient_global_view!...                  184.696 μs
+    gradient_global_view! (lazy)...           169.519 μs  [Method 1]
+    gradient_global_view_explicit!...         147.647 μs
+    gradient_global_view_explicit! (lazy)...  122.157 μs  [Method 2]
+    gradient_local!...                        146.937 μs  [Method 3]
+    gradient_local_parent!...                 146.696 μs
+    gradient_local_linear!...                 146.565 μs
+    gradient_local_linear_explicit!...        147.078 μs</code></pre><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>This assumes that <code>CartesianIndices(θ_glob)</code> iterates in the order of the array elements in memory. This is not trivial when the array dimensions are permuted (which is the default for transformed arrays in PencilFFTs), and it actually wasn&#39;t the case until PencilFFTs <code>v0.2.0</code>.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../in-place/">« In-place transforms</a><a class="docs-footer-nextpage" href="../../PencilFFTs/">Distributed FFT plans »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 11 November 2020 10:50">Wednesday 11 November 2020</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
