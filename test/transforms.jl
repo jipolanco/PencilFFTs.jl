@@ -329,10 +329,8 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
             continue
         end
 
-        @inferred PencilFFTPlan(size_in, transform, proc_dims, comm, T;
-                                plan_kw...)
-        plan = PencilFFTPlan(size_in, transform, proc_dims, comm, T;
-                             plan_kw...)
+        plan = @inferred PencilFFTPlan(size_in, transform, proc_dims, comm, T;
+                                       plan_kw...)
         test_transform(plan, fftw_planner)
     end
 
