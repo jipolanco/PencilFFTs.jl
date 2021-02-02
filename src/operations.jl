@@ -20,8 +20,8 @@ Broadcast.broadcastable(p::PencilFFTPlan) = Ref(p)
 
 # Forward transforms
 function LinearAlgebra.mul!(
-        dst::FFTArray{To,N}, p::PencilFFTPlan{T,N}, src::FFTArray{Ti,N}
-       ) where {T, N, Ti <: RealOrComplex{T}, To <: RealOrComplex{T}}
+        dst::FFTArray{To,N}, p::PencilFFTPlan{T,N}, src::FFTArray{T,N},
+    ) where {T, N, To <: RealOrComplex}
     @timeit_debug p.timer "PencilFFTs mul!" begin
         _check_arrays(p, src, dst)
         _apply_plans!(Val(FFTW.FORWARD), p, dst, src)
@@ -30,8 +30,8 @@ end
 
 # Backward transforms
 function LinearAlgebra.ldiv!(
-        dst::FFTArray{To,N}, p::PencilFFTPlan{T,N}, src::FFTArray{Ti,N},
-       ) where {T, N, Ti <: RealOrComplex{T}, To <: RealOrComplex{T}}
+        dst::FFTArray{T,N}, p::PencilFFTPlan{T,N}, src::FFTArray{Ti,N},
+    ) where {T, N, Ti <: RealOrComplex}
     @timeit_debug p.timer "PencilFFTs ldiv!" begin
         _check_arrays(p, dst, src)
         _apply_plans!(Val(FFTW.BACKWARD), p, dst, src)
@@ -63,8 +63,10 @@ function _maybe_allocate(::Function, p::PencilFFTPlan, src::A) where {A}
         "input array type $A incompatible with $s plans"))
 end
 
-function _check_arrays(p::PencilFFTPlan{T,N,false} where {T,N},
-                       Ain::PencilArray, Aout::PencilArray)
+function _check_arrays(
+        p::PencilFFTPlan{T,N,false} where {T,N},
+        Ain::PencilArray, Aout::PencilArray,
+    )
     if Base.mightalias(Ain, Aout)
         throw(ArgumentError("out-of-place plan applied to aliased data"))
     end
@@ -72,8 +74,10 @@ function _check_arrays(p::PencilFFTPlan{T,N,false} where {T,N},
     nothing
 end
 
-function _check_arrays(p::PencilFFTPlan{T,N,true} where {T,N},
-                       Ain::ManyPencilArray, Aout::ManyPencilArray)
+function _check_arrays(
+        p::PencilFFTPlan{T,N,true} where {T,N},
+        Ain::ManyPencilArray, Aout::ManyPencilArray,
+    )
     if Ain !== Aout
         throw(ArgumentError(
             "input and output arrays for in-place plan must be the same"))

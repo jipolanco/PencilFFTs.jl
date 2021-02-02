@@ -36,9 +36,10 @@ Transforms.eltype_output(::PencilPlan1D{Ti,To}) where {Ti,To} = To
 Transforms.is_inplace(p::PencilPlan1D) = is_inplace(p.transform)
 
 """
-    PencilFFTPlan{T,N}
+    PencilFFTPlan{T,N} <: AbstractFFTs.Plan{T}
 
-Plan for N-dimensional FFT-based transform on MPI-distributed data.
+Plan for N-dimensional FFT-based transform on MPI-distributed data, where input
+data has type `T`.
 
 ---
 
@@ -193,7 +194,7 @@ plan = PencilFFTPlan(size_global, transforms, proc_dims, comm)
 
 """
 struct PencilFFTPlan{
-        T <: FFTReal,
+        T,   # element type of input data
         N,   # dimension of arrays (= Nt + Ne)
         I,   # in-place (Bool)
         Nt,  # number of transformed dimensions
@@ -202,7 +203,8 @@ struct PencilFFTPlan{
         G <: GlobalFFTParams,
         P <: NTuple{Nt, PencilPlan1D},
         TransposeMethod <: AbstractTransposeMethod,
-    }
+    } <: AbstractFFTs.Plan{T}
+
     global_params :: G
     topology      :: MPITopology{Nd}
 
@@ -236,9 +238,9 @@ struct PencilFFTPlan{
             timer::TimerOutput = TimerOutput(),
             ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
         )
-        Tr = real(eltype(A))
+        T = eltype(A)
         dims_global = size_global(pencil(A), LogicalOrder())
-        g = GlobalFFTParams(dims_global, transforms, Tr)
+        g = GlobalFFTParams(dims_global, transforms, real(T))
         check_input_array(A, g)
         inplace = is_inplace(g)
         fftw_kw = (; flags = fftw_flags, timelimit = fftw_timelimit)
@@ -270,7 +272,7 @@ struct PencilFFTPlan{
         t = topology(A)
         Nd = ndims(t)
 
-        new{Tr, N, inplace, Nt, Nd, Ne, G, P, TM}(
+        new{T, N, inplace, Nt, Nd, Ne, G, P, TM}(
             g, t, edims, plans, scale, transpose_method, ibuf, obuf, timer)
     end
 end
