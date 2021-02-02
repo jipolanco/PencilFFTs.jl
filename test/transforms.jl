@@ -445,9 +445,10 @@ function test_incompatibility(comm)
         plan = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm)
         plan! = PencilFFTPlan(dims, Transforms.FFT!(), pdims, comm)
 
-        # "input array type PencilArray{...} incompatible with in-place plans"
         u = allocate_input(plan)  :: PencilArray
         v = allocate_output(plan) :: PencilArray
+
+        # "input array type PencilArray{...} incompatible with in-place plans"
         @test_throws ArgumentError plan! * u
 
         # "input array type ManyPencilArray{...} incompatible with out-of-place plans"
@@ -468,8 +469,7 @@ function test_incompatibility(comm)
         v2 = allocate_output(plan, Val(2))
         @test_throws ArgumentError mul!(v2, plan, u3)
 
-        let plan_other =
-                PencilFFTPlan(dims_other, Transforms.RFFT(), pdims, comm)
+        let plan_other = PencilFFTPlan(dims_other, Transforms.FFT(), pdims, comm)
             # "unexpected dimensions of input data"
             @test_throws ArgumentError plan_other * u
 
@@ -490,8 +490,6 @@ function make_pdims(::Val{M}, Nproc) where {M}
 end
 
 function main()
-    MPI.Init()
-
     size_in = DATA_DIMS
     comm = MPI.COMM_WORLD
     Nproc = MPI.Comm_size(comm)
@@ -508,7 +506,8 @@ function main()
         test_pencil_plans(size_in, p, comm)
     end
 
-    MPI.Finalize()
+    nothing
 end
 
+MPI.Initialized() || MPI.Init()
 main()

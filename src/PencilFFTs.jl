@@ -1,5 +1,6 @@
 module PencilFFTs
 
+import AbstractFFTs
 import FFTW
 import MPI
 
