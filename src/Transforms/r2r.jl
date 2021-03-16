@@ -121,25 +121,25 @@ for T in (:R2R, :R2R!)
         #   Each unnormalized inverse results in the original array multiplied by N,
         #   where N is the logical DFT size. For REDFT00, N=2(n-1) (note that n=1 is not
         #   defined); otherwise, N=2n.
-        binv(::$T{FFTW.REDFT00}) = $T{FFTW.REDFT00}()
-        binv(::$T{FFTW.REDFT01}) = $T{FFTW.REDFT10}()
-        binv(::$T{FFTW.REDFT10}) = $T{FFTW.REDFT01}()
-        binv(::$T{FFTW.REDFT11}) = $T{FFTW.REDFT11}()
+        binv(::$T{FFTW.REDFT00}, d) = $T{FFTW.REDFT00}()
+        binv(::$T{FFTW.REDFT01}, d) = $T{FFTW.REDFT10}()
+        binv(::$T{FFTW.REDFT10}, d) = $T{FFTW.REDFT01}()
+        binv(::$T{FFTW.REDFT11}, d) = $T{FFTW.REDFT11}()
 
         # From FFTW docs (4.8.4 1d Real-odd DFTs (DSTs)):
         #    The unnormalized inverse of RODFT00 is RODFT00, of RODFT10 is RODFT01 and
         #    vice versa, and of RODFT11 is RODFT11.
         #    Each unnormalized inverse results in the original array multiplied by N,
         #    where N is the logical DFT size. For RODFT00, N=2(n+1); otherwise, N=2n.
-        binv(::$T{FFTW.RODFT00}) = $T{FFTW.RODFT00}()
-        binv(::$T{FFTW.RODFT01}) = $T{FFTW.RODFT10}()
-        binv(::$T{FFTW.RODFT10}) = $T{FFTW.RODFT01}()
-        binv(::$T{FFTW.RODFT11}) = $T{FFTW.RODFT11}()
+        binv(::$T{FFTW.RODFT00}, d) = $T{FFTW.RODFT00}()
+        binv(::$T{FFTW.RODFT01}, d) = $T{FFTW.RODFT10}()
+        binv(::$T{FFTW.RODFT10}, d) = $T{FFTW.RODFT01}()
+        binv(::$T{FFTW.RODFT11}, d) = $T{FFTW.RODFT11}()
 
         # From FFTW docs (4.8.5 1d Discrete Hartley Transforms (DHTs)):
         #    [...] applying the transform twice (the DHT is its own inverse) will
         #    multiply the input by n.
-        binv(::$T{FFTW.DHT}) = $T{FFTW.DHT}()
+        binv(::$T{FFTW.DHT}, d) = $T{FFTW.DHT}()
     end
 end
 

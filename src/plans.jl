@@ -503,7 +503,8 @@ function _make_1d_fft_plan(
         findfirst(==(n), Tuple(perm)) :: Int
     end
 
-    transform_bw = binv(transform_fw)
+    d = size(parent(A_fw), 1)  # input length along transformed dimension
+    transform_bw = binv(transform_fw, d)
 
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output
@@ -512,13 +513,7 @@ function _make_1d_fft_plan(
 
     # Generate forward and backward FFTW transforms.
     plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)
-
-    plan_bw = if transform_bw === Transforms.BRFFT()
-        d = size(parent(A_fw), 1)
-        plan(transform_bw, parent(A_bw), d, dims; fftw_kw...)
-    else
-        plan(transform_bw, parent(A_bw), dims; fftw_kw...)
-    end
+    plan_bw = plan(transform_bw, parent(A_bw), dims; fftw_kw...)
 
     PencilPlan1D{Ti}(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end

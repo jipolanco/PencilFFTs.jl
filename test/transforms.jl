@@ -30,13 +30,14 @@ function test_transform_types(size_in)
 
         @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3, false,
                                                         typeof(transforms)}
-        @test binv(Transforms.RFFT()) === Transforms.BRFFT()
+        @test binv(Transforms.RFFT(), 10) === Transforms.BRFFT(true)  # even = true
+        @test binv(Transforms.RFFT(), 11) === Transforms.BRFFT(false)
 
-        transforms_binv = binv.(transforms)
+        transforms_binv = binv.(transforms, size_in)
         size_out = Transforms.length_output.(transforms, size_in)
 
         @test transforms_binv ===
-            (Transforms.BRFFT(), Transforms.BFFT(), Transforms.BFFT())
+            (Transforms.BRFFT(iseven(size_in[1])), Transforms.BFFT(), Transforms.BFFT())
         @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
         @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
@@ -47,8 +48,8 @@ function test_transform_types(size_in)
         transform = Transforms.NoTransform()
         transform! = Transforms.NoTransform!()
 
-        @test binv(transform) === transform
-        @test binv(transform!) === transform!
+        @test binv(transform, 42) === transform
+        @test binv(transform!, 42) === transform!
 
         @test !is_inplace(transform)
         @test is_inplace(transform!)
@@ -91,8 +92,8 @@ function test_transform_types(size_in)
         @inferred (() -> Transforms.R2R!(FFTW.REDFT10))()
 
         let kind_inv = FFTW.REDFT10
-            @test binv(transform) === Transforms.R2R(kind_inv)
-            @test binv(transform!) === Transforms.R2R!(kind_inv)
+            @test binv(transform, 42) === Transforms.R2R(kind_inv)
+            @test binv(transform!, 42) === Transforms.R2R!(kind_inv)
         end
 
         A = zeros(4, 6, 8)

@@ -85,9 +85,16 @@ function plan(t::AbstractTransform, A; kwargs...)
 end
 
 """
-    binv(transform::AbstractTransform)
+    binv(transform::AbstractTransform, d::Integer)
 
 Returns the backwards transform associated to the given transform.
+
+The second argument must be the length of the first transformed dimension in
+the forward transform.
+It is used in particular when `transform = RFFT()`, to determine the length of
+the inverse (complex-to-real) transform.
+See the [`AbstractFFTs.irfft` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft)
+for details.
 
 The backwards transform returned by this function is not normalised. The
 normalisation factor for a given array can be obtained by calling
@@ -96,10 +103,10 @@ normalisation factor for a given array can be obtained by calling
 # Example
 
 ```jldoctest
-julia> binv(Transforms.FFT())
+julia> binv(Transforms.FFT(), 42)
 BFFT
 
-julia> binv(Transforms.BRFFT())
+julia> binv(Transforms.BRFFT(), 42)
 RFFT
 ```
 """
@@ -286,7 +293,7 @@ function expand_dims end
 expand_dims(::F, ::Val) where {F <: AbstractTransform} =
     throw(ArgumentError("I don't know how to expand transform $F"))
 
-Base.show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
+Base.show(io::IO, ::F) where {F <: AbstractTransform} = print(io, nameof(F))
 
 include("c2c.jl")
 include("r2c.jl")

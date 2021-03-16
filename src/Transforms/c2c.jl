@@ -56,10 +56,10 @@ plan(::FFT!, args...; kwargs...) = FFTW.plan_fft!(args...; kwargs...)
 plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
 plan(::BFFT!, args...; kwargs...) = FFTW.plan_bfft!(args...; kwargs...)
 
-binv(::FFT) = BFFT()
-binv(::FFT!) = BFFT!()
-binv(::BFFT) = FFT()
-binv(::BFFT!) = FFT!()
+binv(::FFT, d) = BFFT()
+binv(::FFT!, d) = BFFT!()
+binv(::BFFT, d) = FFT()
+binv(::BFFT!, d) = FFT!()
 
 is_inplace(::Union{FFT, BFFT}) = false
 is_inplace(::Union{FFT!, BFFT!}) = true

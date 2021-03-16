@@ -11,40 +11,50 @@ See also
 struct RFFT <: AbstractTransform end
 
 """
-    BRFFT()
+    BRFFT([even_output = true])
 
 Unnormalised inverse of [`RFFT`](@ref).
 
 To obtain the inverse transform, divide the output by the length of the
 transformed dimension (of the real output array).
 
+As described in the [AbstractFFTs docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft),
+the length of the output cannot be fully inferred from the input length.
+For this reason, the `BRFFT` constructor accepts an optional `Bool` argument
+indicating whether the output has even (default) or odd length.
+
 See also
 [`AbstractFFTs.brfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.brfft).
 """
-struct BRFFT <: AbstractTransform end
+struct BRFFT <: AbstractTransform
+    even_output :: Bool
+end
 
-const TransformR2C = RFFT
-const TransformC2R = BRFFT
+BRFFT() = BRFFT(true)
 
-is_inplace(::Union{TransformR2C, TransformC2R}) = false
+is_inplace(::Union{RFFT, BRFFT}) = false
 
-length_output(::TransformR2C, length_in::Integer) = div(length_in, 2) + 1
-length_output(::TransformC2R, length_in::Integer) = 2 * length_in - 2
+length_output(::RFFT, length_in::Integer) = div(length_in, 2) + 1
+length_output(tr::BRFFT, length_in::Integer) = 2 * length_in - 1 - tr.even_output
 
-eltype_output(::TransformR2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
-eltype_output(::TransformC2R, ::Type{Complex{T}}) where {T <: FFTReal} = T
+eltype_output(::RFFT, ::Type{T}) where {T <: FFTReal} = Complex{T}
+eltype_output(::BRFFT, ::Type{Complex{T}}) where {T <: FFTReal} = T
 
-eltype_input(::TransformR2C, ::Type{T}) where {T <: FFTReal} = T
-eltype_input(::TransformC2R, ::Type{T}) where {T <: FFTReal} = Complex{T}
+eltype_input(::RFFT, ::Type{T}) where {T <: FFTReal} = T
+eltype_input(::BRFFT, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 plan(::RFFT, args...; kwargs...) = FFTW.plan_rfft(args...; kwargs...)
 
 # NOTE: unlike most FFTW plans, this function also requires the length `d` of
 # the transform output along the first transformed dimension.
-plan(::BRFFT, args...; kwargs...) = FFTW.plan_brfft(args...; kwargs...)
+function plan(tr::BRFFT, A, dims; kwargs...)
+    Nin = size(A, first(dims))  # input length along first dimension
+    d = length_output(tr, Nin)
+    FFTW.plan_brfft(A, d, dims; kwargs...)
+end
 
-binv(::RFFT) = BRFFT()
-binv(::BRFFT) = RFFT()
+binv(::RFFT, d) = BRFFT(iseven(d))
+binv(::BRFFT, d) = RFFT()
 
 # Note: the output of RFFT (BRFFT) is complex (real).
 scale_factor(::BRFFT, A::RealArray, dims) = _prod_dims(A, dims)
