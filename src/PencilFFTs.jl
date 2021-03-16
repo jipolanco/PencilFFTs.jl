@@ -11,7 +11,8 @@ using TimerOutputs
 @reexport using PencilArrays
 
 include("Transforms/Transforms.jl")
-@reexport using .Transforms
+using .Transforms
+export Transforms
 
 import PencilArrays.Transpositions: AbstractTransposeMethod
 import .Transforms: AbstractTransform, FFTReal, scale_factor

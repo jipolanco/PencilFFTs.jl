@@ -1,6 +1,7 @@
 #!/usr/bin/env julia
 
 using PencilFFTs
+using .Transforms: binv, is_inplace
 
 import FFTW
 using MPI
