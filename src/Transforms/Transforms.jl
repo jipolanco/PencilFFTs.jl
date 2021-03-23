@@ -208,7 +208,7 @@ Determine input data type for a given transform given the floating point
 precision of the input data.
 
 Some transforms, such as [`R2R`](@ref) and [`NoTransform`](@ref), can take both
-real and complex data. For those kinds of transforms, `Nothing` is returned.
+real and complex data. For those kinds of transforms, `nothing` is returned.
 
 # Example
 
@@ -220,10 +220,10 @@ julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
 
 julia> eltype_input(Transforms.R2R(FFTW.REDFT01), Float64)
-Nothing
+nothing
 
 julia> eltype_input(Transforms.NoTransform(), Float64)
-Nothing
+nothing
 
 ```
 """

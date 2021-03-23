@@ -81,9 +81,8 @@ input_data_type(g::GlobalFFTParams{T}) where T =
 function _input_data_type(::Type{T}, transform::AbstractTransform,
                           next_transforms::Vararg{AbstractTransform}) where {T}
     Tin = eltype_input(transform, T) :: DataType
-    if Tin === Nothing
-        # This is the case if `transform` can take both real and complex data
-        # (for instance for `NoTransform` or `R2R`).
+    if isnothing(Tin)
+        # This is the case if `transform` can take both real and complex data.
         # We check the next transform type.
         return _input_data_type(T, next_transforms...)
     end

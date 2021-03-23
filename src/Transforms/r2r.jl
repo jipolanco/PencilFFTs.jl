@@ -80,7 +80,7 @@ Get `kind` of real-to-real transform.
 kind(::AnyR2R{K}) where {K} = K
 
 length_output(::AnyR2R, length_in::Integer) = length_in
-eltype_input(::AnyR2R, ::Type) = Nothing  # both real and complex inputs are accepted
+eltype_input(::AnyR2R, ::Type) = nothing  # both real and complex inputs are accepted
 eltype_output(::AnyR2R, ::Type{T}) where {T} = T
 
 # NOTE: plan_r2r is type-unstable!!
