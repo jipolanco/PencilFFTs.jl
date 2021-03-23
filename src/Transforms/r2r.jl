@@ -20,7 +20,7 @@ const R2R_SUPPORTED_KINDS = (
 Real-to-real transform of type `kind`.
 
 The possible values of `kind` are those described in the
-[`FFTW.r2r`](https://juliamath.github.io/FFTW.jl/stable/fft.html#FFTW.r2r)
+[`FFTW.r2r`](https://juliamath.github.io/FFTW.jl/stable/fft/#FFTW.r2r)
 docs and the [`FFTW`](http://www.fftw.org/doc/) manual:
 
 - [discrete cosine transforms](http://www.fftw.org/doc/1d-Real_002deven-DFTs-_0028DCTs_0029.html#g_t1d-Real_002deven-DFTs-_0028DCTs_0029):
@@ -52,7 +52,7 @@ end
 
 In-place version of [`R2R`](@ref).
 
-See also [`FFTW.r2r!`](https://juliamath.github.io/FFTW.jl/stable/fft.html#FFTW.r2r!).
+See also [`FFTW.r2r!`](https://juliamath.github.io/FFTW.jl/stable/fft/#FFTW.r2r!).
 """
 struct R2R!{kind} <: AbstractTransform
     function R2R!{kind}() where kind
