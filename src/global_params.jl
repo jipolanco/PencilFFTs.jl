@@ -76,12 +76,12 @@ end
 
 # Determine input data type for multidimensional transform.
 input_data_type(g::GlobalFFTParams{T}) where {T} =
-    _input_data_type(T, g.transforms...) :: DataType
+    _input_data_type(T, g.transforms...)
 
 function _input_data_type(
         ::Type{T}, transform::AbstractTransform, etc...,
     ) where {T}
-    Tin = eltype_input(transform, T) :: DataType
+    Tin = eltype_input(transform, T)
     if isnothing(Tin)
         # This is the case if `transform` can take both real and complex data.
         # We check the next transform type.
