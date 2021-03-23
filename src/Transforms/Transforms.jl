@@ -65,12 +65,6 @@ For FFT plans, this function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan
 creation functions.
 For more details on the function arguments, see
 [`AbstractFFTs.plan_fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft).
-
-In particular, note that for [`BRFFT`](@ref) plans, this function also requires
-the length `d` of the transform output along the first transformed dimension.
-This is described in the
-[`AbstractFFTs.irfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft)
-docs.
 """
 function plan end
 
@@ -204,11 +198,6 @@ The input and output lengths are specified in terms of the respective input
 and output datatypes.
 For instance, for real-to-complex transforms, these are respectively the
 length of input *real* data and of output *complex* data.
-
-Also note that for backward real-to-complex transforms ([`BRFFT`](@ref)), it is
-assumed that the real data length is even. See also
-the [`AbstractFFTs.irfft`
-docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
 """
 function length_output end
 
@@ -282,7 +271,7 @@ julia> expand_dims(Transforms.RFFT(), Val(3))
 (RFFT, FFT, FFT)
 
 julia> expand_dims(Transforms.BRFFT(), Val(3))
-(BRFFT, BFFT, BFFT)
+(BRFFT{even}, BFFT, BFFT)
 
 julia> expand_dims(Transforms.NoTransform(), Val(2))
 (NoTransform, NoTransform)
@@ -293,7 +282,12 @@ function expand_dims end
 expand_dims(::F, ::Val) where {F <: AbstractTransform} =
     throw(ArgumentError("I don't know how to expand transform $F"))
 
-Base.show(io::IO, ::F) where {F <: AbstractTransform} = print(io, nameof(F))
+function Base.show(io::IO, tr::F) where {F <: AbstractTransform}
+    print(io, nameof(F))
+    _show_extra_info(io, tr)
+end
+
+_show_extra_info(::IO, ::AbstractTransform) = nothing
 
 include("c2c.jl")
 include("r2c.jl")

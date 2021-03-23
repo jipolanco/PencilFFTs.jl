@@ -11,7 +11,8 @@ See also
 struct RFFT <: AbstractTransform end
 
 """
-    BRFFT([even_output = true])
+    BRFFT([even_output::Bool = true])
+    BRFFT(d::Integer)
 
 Unnormalised inverse of [`RFFT`](@ref).
 
@@ -20,8 +21,11 @@ transformed dimension (of the real output array).
 
 As described in the [AbstractFFTs docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft),
 the length of the output cannot be fully inferred from the input length.
-For this reason, the `BRFFT` constructor accepts an optional `Bool` argument
-indicating whether the output has even (default) or odd length.
+For this reason, the `BRFFT` constructor accepts an optional `d` argument
+indicating the output length.
+Alternatively, a `Bool` argument may be passed indicating whether the output has
+even or odd length.
+By default, if nothing is passed, the output is assumed to have even length.
 
 See also
 [`AbstractFFTs.brfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.brfft).
@@ -30,6 +34,9 @@ struct BRFFT <: AbstractTransform
     even_output :: Bool
 end
 
+_show_extra_info(io::IO, tr::BRFFT) = print(io, tr.even_output ? "{even}" : "{odd}")
+
+BRFFT(d::Integer) = BRFFT(iseven(d))
 BRFFT() = BRFFT(true)
 
 is_inplace(::Union{RFFT, BRFFT}) = false
@@ -53,7 +60,7 @@ function plan(tr::BRFFT, A, dims; kwargs...)
     FFTW.plan_brfft(A, d, dims; kwargs...)
 end
 
-binv(::RFFT, d) = BRFFT(iseven(d))
+binv(::RFFT, d) = BRFFT(d)
 binv(::BRFFT, d) = RFFT()
 
 # Note: the output of RFFT (BRFFT) is complex (real).

@@ -38,7 +38,7 @@ function test_transform_types(size_in)
         size_out = Transforms.length_output.(transforms, size_in)
 
         @test transforms_binv ===
-            (Transforms.BRFFT(iseven(size_in[1])), Transforms.BFFT(), Transforms.BFFT())
+            (Transforms.BRFFT(size_in[1]), Transforms.BFFT(), Transforms.BFFT())
         @test size_out === (size_in[1] ÷ 2 + 1, size_in[2:end]...)
         @test Transforms.length_output.(transforms_binv, size_out) === size_in
 
