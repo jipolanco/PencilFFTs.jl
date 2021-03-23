@@ -76,7 +76,9 @@ function _scale_factor_r2c(A::ComplexArray, dim1, dims...)
 end
 
 # r2c along the first dimension, then c2c for the other dimensions.
-expand_dims(::RFFT, ::Val{N}) where N =
-    N === 0 ? () : (RFFT(), expand_dims(FFT(), Val(N - 1))...)
-expand_dims(::BRFFT, ::Val{N}) where N =
-    N === 0 ? () : (BRFFT(), expand_dims(BFFT(), Val(N - 1))...)
+expand_dims(tr::RFFT, ::Val{N}) where {N} =
+    N === 0 ? () : (tr, expand_dims(FFT(), Val(N - 1))...)
+
+# c2r along the last dimension, and c2c for the other dimensions.
+expand_dims(tr::BRFFT, ::Val{N}) where {N} =
+    N === 0 ? () : (expand_dims(BFFT(), Val(N - 1))..., tr)
