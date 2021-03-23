@@ -258,14 +258,24 @@ function test_transform(inplace::Val{true}, plan::PencilFFTPlan,
     nothing
 end
 
-function test_transform(inplace::Val{false}, plan::PencilFFTPlan,
-                        serial_planner::Function; root=0)
+function test_transform(
+        inplace::Val{false}, plan::PencilFFTPlan, serial_planner;
+        root = 0, is_c2r = false,
+    )
     u = allocate_input(plan)
     v = allocate_output(plan)
 
     @test u isa PencilArray
 
-    randn!(u)
+    if is_c2r
+        # Generate input via inverse r2c transform, to avoid issues with input
+        # not respecting required symmetry.
+        randn!(v)
+        ldiv!(u, plan, v)
+        fill!(v, 0)
+    else
+        randn!(u)
+    end
 
     mul!(v, plan, u)
     uprime = similar(u)
@@ -277,10 +287,14 @@ function test_transform(inplace::Val{false}, plan::PencilFFTPlan,
     ug = gather(u, root)
     vg = gather(v, root)
 
-    if ug !== nothing && vg !== nothing
+    if ug !== nothing && vg !== nothing && serial_planner !== nothing
         let p = serial_planner(ug)
             vg_serial = p * ug
-            @test vg ≈ vg_serial
+            if is_c2r
+                @test size(vg) != size(vg_serial)
+            else
+                @test vg ≈ vg_serial
+            end
         end
     end
 
@@ -315,25 +329,22 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
              => make_plan(FFTW.plan_fft, dims=(1, 3)),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
              => make_plan(FFTW.plan_fft, dims=1),
-         Transforms.BRFFT() => make_plan(FFTW.plan_brfft),  # not yet supported
+         
+         # TODO compare BRFFT with serial equivalent?
+         # The special case of BRFFT is a bit complicated, because
+         # multidimensional FFTW plans returned by `plan_brfft` perform the
+         # actual c2r transform along the first dimension. In PencilFFTs we do
+         # the opposite: the c2r transform is applied along the last dimension.
+         Transforms.BRFFT() => nothing,
         )
     end
 
     @testset "$(p.first) -- $T" for p in pairs
         transform, fftw_planner = p
-
-        if transform === Transforms.BRFFT()
-            # FIXME...
-            # In this case, I need to change the order of the transforms
-            # (from right to left)
-            @test_broken PencilFFTPlan(size_in, transform, proc_dims, comm, T;
-                                       plan_kw...)
-            continue
-        end
-
-        plan = @inferred PencilFFTPlan(size_in, transform, proc_dims, comm, T;
-                                       plan_kw...)
-        test_transform(plan, fftw_planner)
+        is_c2r = transform isa Transforms.BRFFT
+        plan = @inferred PencilFFTPlan(
+            size_in, transform, proc_dims, comm, T; plan_kw...)
+        test_transform(plan, fftw_planner; is_c2r)
     end
 
     nothing
