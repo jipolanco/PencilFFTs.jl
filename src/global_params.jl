@@ -33,7 +33,10 @@ julia> size_global = (64, 32, 128);  # size of real input data
 
 julia> transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT());
 
-julia> fft_params = PencilFFTs.GlobalFFTParams(size_global, transforms);
+julia> fft_params = PencilFFTs.GlobalFFTParams(size_global, transforms)
+Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (64, 32, 128) -> (33, 32, 128)
 ```
 
 """
@@ -64,10 +67,10 @@ Base.ndims(g::GlobalFFTParams) = ndims(typeof(g))
 Transforms.is_inplace(g::GlobalFFTParams{T,N,I}) where {T,N,I} = I
 
 function Base.show(io::IO, g::GlobalFFTParams)
-    println(io, "Transforms: ", g.transforms)
-    println(io, "Input type: ", input_data_type(g))
-    println(io, "Global dimensions: ",
-            g.size_global_in, "  ->  ", g.size_global_out)
+    print(io, "Transforms: ", g.transforms)
+    print(io, "\nInput type: ", input_data_type(g))
+    print(io, "\nGlobal dimensions: ",
+          g.size_global_in, " -> ", g.size_global_out)
     nothing
 end
 
