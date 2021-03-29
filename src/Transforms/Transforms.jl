@@ -181,7 +181,7 @@ julia> scale_factor(Transforms.BRFFT(), R, 2:3)
 This will fail because the output of `RFFT` is complex, and `R` is a real array:
 ```jldoctest scale_factor
 julia> scale_factor(Transforms.RFFT(), R, 2:3)
-ERROR: MethodError: no method matching scale_factor(::PencilFFTs.Transforms.RFFT, ::Array{Float64,3}, ::UnitRange{Int64})
+ERROR: MethodError: no method matching scale_factor(::PencilFFTs.Transforms.RFFT, ::Array{Float64, 3}, ::UnitRange{Int64})
 ```
 """
 function scale_factor end
@@ -218,7 +218,7 @@ real and complex data. For those kinds of transforms, `Nothing` is returned.
 
 ```jldoctest; setup = :(import FFTW)
 julia> eltype_input(Transforms.FFT(), Float32)
-Complex{Float32}
+ComplexF32 (alias for Complex{Float32})
 
 julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
@@ -248,7 +248,7 @@ julia> eltype_output(Transforms.NoTransform(), Float32)
 Float32
 
 julia> eltype_output(Transforms.RFFT(), Float64)
-Complex{Float64}
+ComplexF64 (alias for Complex{Float64})
 
 julia> eltype_output(Transforms.BRFFT(), ComplexF32)
 Float32
