@@ -47,8 +47,7 @@ struct BFFT! <: AbstractTransform end
 const TransformC2C = Union{FFT, FFT!, BFFT, BFFT!}
 
 length_output(::TransformC2C, length_in::Integer) = length_in
-eltype_output(::TransformC2C,
-              ::Type{Complex{T}}) where {T <: FFTReal} = Complex{T}
+eltype_output(::TransformC2C, ::Type{Complex{T}}) where {T <: FFTReal} = Complex{T}
 eltype_input(::TransformC2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 plan(::FFT, args...; kwargs...) = FFTW.plan_fft(args...; kwargs...)
@@ -56,10 +55,10 @@ plan(::FFT!, args...; kwargs...) = FFTW.plan_fft!(args...; kwargs...)
 plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
 plan(::BFFT!, args...; kwargs...) = FFTW.plan_bfft!(args...; kwargs...)
 
-binv(::FFT) = BFFT()
-binv(::FFT!) = BFFT!()
-binv(::BFFT) = FFT()
-binv(::BFFT!) = FFT!()
+binv(::FFT, d) = BFFT()
+binv(::FFT!, d) = BFFT!()
+binv(::BFFT, d) = FFT()
+binv(::BFFT!, d) = FFT!()
 
 is_inplace(::Union{FFT, BFFT}) = false
 is_inplace(::Union{FFT!, BFFT!}) = true

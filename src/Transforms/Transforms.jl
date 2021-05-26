@@ -65,12 +65,6 @@ For FFT plans, this function wraps the `AbstractFFTs.jl` and `FFTW.jl` plan
 creation functions.
 For more details on the function arguments, see
 [`AbstractFFTs.plan_fft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.plan_fft).
-
-In particular, note that for [`BRFFT`](@ref) plans, this function also requires
-the length `d` of the transform output along the first transformed dimension.
-This is described in the
-[`AbstractFFTs.irfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft)
-docs.
 """
 function plan end
 
@@ -85,9 +79,16 @@ function plan(t::AbstractTransform, A; kwargs...)
 end
 
 """
-    binv(transform::AbstractTransform)
+    binv(transform::AbstractTransform, d::Integer)
 
 Returns the backwards transform associated to the given transform.
+
+The second argument must be the length of the first transformed dimension in
+the forward transform.
+It is used in particular when `transform = RFFT()`, to determine the length of
+the inverse (complex-to-real) transform.
+See the [`AbstractFFTs.irfft` docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft)
+for details.
 
 The backwards transform returned by this function is not normalised. The
 normalisation factor for a given array can be obtained by calling
@@ -96,10 +97,10 @@ normalisation factor for a given array can be obtained by calling
 # Example
 
 ```jldoctest
-julia> binv(Transforms.FFT())
+julia> binv(Transforms.FFT(), 42)
 BFFT
 
-julia> binv(Transforms.BRFFT())
+julia> binv(Transforms.BRFFT(), 42)
 RFFT
 ```
 """
@@ -197,11 +198,6 @@ The input and output lengths are specified in terms of the respective input
 and output datatypes.
 For instance, for real-to-complex transforms, these are respectively the
 length of input *real* data and of output *complex* data.
-
-Also note that for backward real-to-complex transforms ([`BRFFT`](@ref)), it is
-assumed that the real data length is even. See also
-the [`AbstractFFTs.irfft`
-docs](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.irfft).
 """
 function length_output end
 
@@ -212,7 +208,7 @@ Determine input data type for a given transform given the floating point
 precision of the input data.
 
 Some transforms, such as [`R2R`](@ref) and [`NoTransform`](@ref), can take both
-real and complex data. For those kinds of transforms, `Nothing` is returned.
+real and complex data. For those kinds of transforms, `nothing` is returned.
 
 # Example
 
@@ -224,10 +220,10 @@ julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
 
 julia> eltype_input(Transforms.R2R(FFTW.REDFT01), Float64)
-Nothing
+nothing
 
 julia> eltype_input(Transforms.NoTransform(), Float64)
-Nothing
+nothing
 
 ```
 """
@@ -275,7 +271,7 @@ julia> expand_dims(Transforms.RFFT(), Val(3))
 (RFFT, FFT, FFT)
 
 julia> expand_dims(Transforms.BRFFT(), Val(3))
-(BRFFT, BFFT, BFFT)
+(BRFFT{even}, BFFT, BFFT)
 
 julia> expand_dims(Transforms.NoTransform(), Val(2))
 (NoTransform, NoTransform)
@@ -286,7 +282,12 @@ function expand_dims end
 expand_dims(::F, ::Val) where {F <: AbstractTransform} =
     throw(ArgumentError("I don't know how to expand transform $F"))
 
-Base.show(io::IO, ::F) where F <: AbstractTransform = print(io, nameof(F))
+function Base.show(io::IO, tr::F) where {F <: AbstractTransform}
+    print(io, nameof(F))
+    _show_extra_info(io, tr)
+end
+
+_show_extra_info(::IO, ::AbstractTransform) = nothing
 
 include("c2c.jl")
 include("r2c.jl")
