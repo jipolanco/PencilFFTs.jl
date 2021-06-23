@@ -527,6 +527,7 @@ function Base.show(io::IO, p::PencilFFTPlan)
     show(io, p.global_params)
     edims = extra_dims(p)
     isempty(edims) || println(io, "Extra dimensions: $edims")
+    println(io)
     show(io, p.topology)
     nothing
 end
