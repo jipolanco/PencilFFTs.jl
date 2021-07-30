@@ -7,8 +7,8 @@ authors:
     orcid: https://orcid.org/0000-0001-7705-753X
     website: https://jipolanco.gitlab.io
 title: "PencilFFTs.jl: FFTs of MPI-distributed Julia arrays"
-version: 0.12.3
+version: 0.12.4
 doi: 10.5281/zenodo.4783708
-date-released: 2021-05-24
+date-released: 2021-07-30
 repository-code: https://github.com/jipolanco/PencilFFTs.jl
 license: MIT
