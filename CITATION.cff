@@ -8,7 +8,7 @@ authors:
     website: https://jipolanco.gitlab.io
 title: "PencilFFTs.jl: FFTs of MPI-distributed Julia arrays"
 version: 0.12.4
-doi: 10.5281/zenodo.4783708
+doi: 10.5281/zenodo.3618781
 date-released: 2021-07-30
 repository-code: https://github.com/jipolanco/PencilFFTs.jl
 license: MIT
