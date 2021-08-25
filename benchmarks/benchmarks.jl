@@ -5,6 +5,7 @@ using PencilFFTs.PencilArrays
 
 import FFTW
 using MPI
+import Pkg
 
 using OrderedCollections: OrderedDict
 using TimerOutputs
@@ -461,5 +462,8 @@ function write_results(outfile, columns, t)
 end
 
 MPI.Init()
+if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+    Pkg.status(mode = Pkg.PKGMODE_MANIFEST)
+end
 params = parse_params()
 run_benchmarks(params)
