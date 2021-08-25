@@ -1,0 +1,97 @@
+# Changes:
+# - Fix compilation
+# - Fix timers
+diff --git a/build/bcomm1_trans.F90 b/build/bcomm1_trans.F90
+index 5a1f1ac..b4ca2c8 100644
+--- a/build/bcomm1_trans.F90
++++ b/build/bcomm1_trans.F90
+@@ -348,7 +348,7 @@
+ 				  buf3, 2,2*nz_fft,nz_fft,jjsize)
+ 	       else
+ 		   print *,taskid,'Unknown transform type: ',op(1:1)
+-		   call MPI_abort(MPI_COMM_WORLD,ierr)
++		   call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	       endif
+ 
+ 	    else
+@@ -364,7 +364,7 @@
+ 				  buf3, 2,2*nz_fft,nz_fft,jjsize)
+ 	       else
+ 		   print *,taskid,'Unknown transform type: ',op(1:1)
+-		   call MPI_abort(MPI_COMM_WORLD,ierr)
++		   call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	       endif
+ 
+ 	    endif
+@@ -442,9 +442,6 @@
+ #else
+ ! Use MPI_Alltoallv
+ 
+-      t = t + MPI_Wtime()
+-      tc = tc - MPI_Wtime()
+-
+       call mpi_alltoallv(buf1,JrSndCnts, JrSndStrt,mpi_byte, buf2,JrRcvCnts, JrRcvStrt,mpi_byte,mpi_comm_col,ierr)
+ #endif
+ 
+diff --git a/build/fcomm2_trans.F90 b/build/fcomm2_trans.F90
+index 7bb5a9d..de2948b 100644
+--- a/build/fcomm2_trans.F90
++++ b/build/fcomm2_trans.F90
+@@ -352,7 +352,7 @@
+ 		          buf3, 2,2*nz_fft,nz_fft,jjsize)
+  	else
+ 	   print *,taskid,'Unknown transform type: ',op(3:3)
+-	   call MPI_abort(MPI_COMM_WORLD,ierr)
++	   call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	endif
+ 
+ 	do y=1,jjsize
+@@ -455,7 +455,7 @@
+ 		          dest(1,1,x), 2,2*nz_fft,nz_fft,jjsize)
+  	else
+ 	   print *,taskid,'Unknown transform type: ',op(3:3)
+-	   call MPI_abort(MPI_COMM_WORLD,ierr)
++	   call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	endif
+ 
+       enddo
+@@ -537,7 +537,7 @@
+ 
+          call unpack_fcomm2_trans(dest,buf2,buf3,1,1,op)
+ 
+-      t = MPI_Wtime() + t
++      tc = MPI_Wtime() + tc
+       endif
+ 
+       return
+diff --git a/build/reorder.F90 b/build/reorder.F90
+index 5a5ccde..b71a744 100644
+--- a/build/reorder.F90
++++ b/build/reorder.F90
+@@ -205,7 +205,7 @@
+ 				  C, 2,2*nz_fft,nz_fft,nyc)
+               else
+ 	         print *,taskid,'Unknown transform type: ',op(1:1)
+-	         call MPI_abort(MPI_COMM_WORLD,ierr)
++	         call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	      endif
+ 
+               do y=1,nycph,NBy2
+@@ -455,7 +455,7 @@
+ 				  C, 2,2*nz_fft,nz_fft,nyc)
+                  else
+ 	           print *,taskid,'Unknown transform type: ',op(3:3)
+-	           call MPI_abort(MPI_COMM_WORLD,ierr)
++	           call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	         endif
+ 	 	   do y=1,nyc
+ 		      do z=1,nzcph
+@@ -477,7 +477,7 @@
+ 				  B(1,1,x), 2,2*nz_fft,nz_fft,nyc)
+                  else
+ 	           print *,taskid,'Unknown transform type: ',op(3:3)
+-	           call MPI_abort(MPI_COMM_WORLD,ierr)
++	           call MPI_abort(MPI_COMM_WORLD,0,ierr)
+ 	         endif
+ 	      endif
+          enddo

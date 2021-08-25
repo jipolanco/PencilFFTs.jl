@@ -43,7 +43,7 @@ message(STATUS "Using FFTW3 library dir: ${fftw3_libdir}")
 
 # Install P3DFFT as external project.
 set(p3dfft_git_repo https://github.com/sdsc/p3dfft.git)
-set(p3dfft_git_commit_hash 673cf5ef6fc63cc83a5c9235627fd7e7b4d435a2)
+set(p3dfft_git_commit_hash b9d9528bf72eb84cdb0544f1a74e1769ae2efa0b)
 set(p3dfft_install_prefix ${CMAKE_CURRENT_BINARY_DIR}/p3dfft)
 
 set(P3DFFT_CONFIG_FLAGS "--enable-estimate;--enable-stride1"
@@ -95,12 +95,8 @@ ExternalProject_Add(p3dfft_build
     GIT_PROGRESS TRUE
     UPDATE_COMMAND ""
 
-    # By default, P3DFFT looks for the static library lib/libfftw3.a.
-    # This "patch" makes P3DFFT look for "libfftw3.so" instead.
-    # PATCH_COMMAND sed -i -e s/libfftw3\.a/libfftw3\.so/ configure
-
     PATCH_COMMAND
-        git apply ${CMAKE_CURRENT_SOURCE_DIR}/p3dfft_fix_timers.patch
+        git apply ${CMAKE_CURRENT_SOURCE_DIR}/fixes.patch
 
     BUILD_IN_SOURCE TRUE
 
