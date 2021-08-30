@@ -21,7 +21,7 @@ struct TimerData
     max :: Vector{Float64}
 end
 
-const MPI_TAG = Ref("IntelMPI.2019.8")
+const MPI_TAG = Ref("IntelMPI.2019.9")
 
 const STYLE_IDEAL = (color=:black, ls=:dotted, label="ideal")
 

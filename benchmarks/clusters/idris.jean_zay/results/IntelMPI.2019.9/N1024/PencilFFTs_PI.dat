@@ -1,0 +1,22 @@
+# The last 4 columns show timing statistics (mean/std/min/max) in milliseconds.
+#
+# The last two letters in the name of this file determine the PencilFFTs
+# parameters used in the benchmarks.
+#
+# The first letter indicates whether dimension permutations are performed:
+#
+#     P = permutations (default in PencilFFTs)
+#     N = no permutations
+#
+# The second letter indicates the MPI transposition method:
+#
+#     I = Isend/Irecv (default in PencilFFTs)
+#     A = Alltoallv
+#
+#  (1) Nx  (2) Ny  (3) Nz  (4) num_procs  (5) P1  (6) P2  (7) repetitions  (8) mean  (9) std  (10) min  (11) max
+  1024  1024  1024  256  16  16  100  517.5646728590073  24.190271715677515  469.3260983476648  612.3813667654758
+  1024  1024  1024  512  32  16  100  290.7465978260734  21.90259913478715  229.9394481960917  347.79569938837085
+  1024  1024  1024  1024  32  32  100  177.04553945164662  16.503177359350616  121.08061571780127  215.7631107547786
+  1024  1024  1024  2048  64  32  100  122.05105441636988  13.099267930470711  88.05945290077943  158.12210660078563
+  1024  1024  1024  4096  64  64  100  90.29619094304508  5.955375009392757  77.58091045252513  126.32726736774202
+  1024  1024  1024  8192  128  64  100  40.55983084777836  13.478265751542741  21.060956467408687  124.86037466442212

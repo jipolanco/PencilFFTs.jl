@@ -1,13 +1,13 @@
 #!/bin/bash
 
-resolution=512
+# resolution=512
 # resolution=1024
-# resolution=2048
+resolution=2048
 
 repetitions=100
 
 with_openmpi=0
-intelmpi_version=2019.8
+intelmpi_version=2019.9
 openmpi_version=4.0.5
 
 mkdir -p results
@@ -31,10 +31,10 @@ if (( with_openmpi )); then
 else
     mpi_label="IntelMPI.${intelmpi_version}"
     module load intel-mpi/$intelmpi_version
-    module load intel-compilers/19.1.2
+    module load intel-compilers/19.1.3
 fi
 
-module load julia/1.5.2  # use cluster installation
+# module load julia/1.5.2  # use cluster installation
 module load fftw/3.3.8
 module load git
 module load cmake
@@ -66,7 +66,7 @@ if [[ ! -f $builddir/bench_p3dfft ]]; then
     mkdir -p $builddir
     pushd $builddir || exit 1
     cmake "$srcdir" -DCMAKE_BUILD_TYPE=Release || exit 2
-    make -j4
+    make -j4 || exit 3
     popd || exit 1
 fi
 
@@ -88,7 +88,7 @@ for n in $procs; do
 #!/bin/bash
 
 #SBATCH --exclusive
-# #SBATCH --contiguous
+#SBATCH --contiguous
 #SBATCH --ntasks=$n
 #SBATCH --ntasks-per-node=40
 #SBATCH --time=1:00:00
