@@ -52,8 +52,8 @@ As seen above, collective communications generally perform worse than point-to-p
 
 ### Benchmark details
 
-The benchmarks were performed using Julia 1.5.2 and Intel MPI 2019.
-We used PencilFFTs v0.10.0 with FFTW.jl v1.2.4 and MPI.jl v0.16.1.
+The benchmarks were performed using Julia 1.7-beta3 and Intel MPI 2019.
+We used PencilFFTs v0.12.5 with FFTW.jl v1.4.3 and MPI.jl v0.19.0.
 We used the Fortran implementation of P3DFFT, version 2.7.6,
 which was built with Intel 2019 compilers and linked to FFTW 3.3.8.
 The cluster where the benchmarks were run has Intel Cascade Lake 6248
