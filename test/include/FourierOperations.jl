@@ -138,6 +138,7 @@ end
 
 # Add a variant for real arrays, for completeness.
 sqnorm(u::AbstractArray{T} where {T <: Real}) = sum(abs2, u)
+sqnorm(u::PencilArray{T} where {T <: Real}) = sqnorm(parent(u))
 
 sqnorm(u::Tuple, args...) = mapreduce(v -> sqnorm(v, args...), +, u)
 
