@@ -47,7 +47,7 @@ end
 
 # Initialise TG flow (local grid version).
 function taylor_green!(u::VectorField, g::PhysicalGridIterator, u0=TG_U0, k0=TG_K0)
-    @assert size(u[1]) === size(g)
+    @assert size_local(u[1]) === size(g)
 
     @inbounds for (i, (x, y, z)) in enumerate(g)
         u[1][i] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)

@@ -184,6 +184,7 @@ function test_rfft(size_in; benchmark=true)
         @test typeof(v) === typeof(u1)
         @test pencil(v) === pencil(u1)
         @test size(v) == size(u1)
+        @test size_local(v) == size_local(u1)
     end
     ldiv!(u, plan, uF)
 
