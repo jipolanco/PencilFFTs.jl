@@ -56,14 +56,35 @@ eltype_output(::BRFFT, ::Type{Complex{T}}) where {T <: FFTReal} = T
 eltype_input(::RFFT, ::Type{T}) where {T <: FFTReal} = T
 eltype_input(::BRFFT, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
-plan(::RFFT, args...; kwargs...) = FFTW.plan_rfft(args...; kwargs...)
-
-# NOTE: unlike most FFTW plans, this function also requires the length `d` of
+# NOTE: unlike most FFTW plans, brfft function also requires the length `d` of
 # the transform output along the first transformed dimension.
-function plan(tr::BRFFT, A, dims; kwargs...)
+function plan(tr::BRFFT, A::AbstractArray, dims; kwargs...)
+    Nin = size(A, first(dims))  # input length along first dimension
+    d = length_output(tr, Nin)
+    plan_brfft(A, d, dims)
+end
+function plan(tr::BRFFT, A::Array, dims; kwargs...)
     Nin = size(A, first(dims))  # input length along first dimension
     d = length_output(tr, Nin)
     FFTW.plan_brfft(A, d, dims; kwargs...)
+end
+plan(::RFFT,  args...; kwargs...) = plan_rfft(args...)
+plan(::RFFT,  X::Array, args...; kwargs...) = FFTW.plan_rfft(X,  args...; kwargs...)
+
+binv(::RFFT)  = BRFFT()
+binv(::BRFFT) = RFFT()
+
+# Note: the output of RFFT (BRFFT) is complex (real).
+scale_factor(::BRFFT, A::RealArray, dims) = _prod_dims(A, dims)
+scale_factor(::RFFT, A::ComplexArray, dims) = _scale_factor_r2c(A, dims...)
+
+function _scale_factor_r2c(A::ComplexArray, dim1, dims...)
+    # I need to normalise by the *logical* size of the real output.
+    # We assume that the dimension `dim1` is the dimension with Hermitian
+    # symmetry.
+    s = size(A)
+    2 * (s[dim1] - 1) * _intprod((s[i] for i in dims)...)
+>>>>>>> 09cfbd0 (Changes in order to take into account AbstractVectors instead of just (CPU) Vectors)
 end
 
 binv(::RFFT, d) = BRFFT(d)

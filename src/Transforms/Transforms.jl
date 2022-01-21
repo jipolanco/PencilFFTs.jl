@@ -30,28 +30,13 @@ Specifies a one-dimensional FFT-based transform.
 abstract type AbstractTransform end
 
 """
-    AbstractCustomPlan
+    Plan = AbstractFFTs.Plan
 
-Abstract type defining a custom plan, to be used as an alternative to FFTW
-plans (`FFTW.FFTWPlan`).
-
-The only custom plan defined in this module is [`IdentityPlan`](@ref).
-The user can define other custom plans that are also subtypes of
-`AbstractCustomPlan`.
-
-Note that [`plan`](@ref) returns a subtype of either `FFTW.FFTWPlan` or
-`AbstractCustomPlan`.
-"""
-abstract type AbstractCustomPlan end
-
-"""
-    Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
-
-Union type representing any plan returned by [`plan`](@ref).
+Plan is an alias to AbstractFFTs.Plan [`plan`](@ref).
 
 See also [`AbstractCustomPlan`](@ref).
 """
-const Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
+const Plan = AbstractFFTs.Plan
 
 """
     plan(transform::AbstractTransform, A, [dims];
