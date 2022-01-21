@@ -84,7 +84,6 @@ function _scale_factor_r2c(A::ComplexArray, dim1, dims...)
     # symmetry.
     s = size(A)
     2 * (s[dim1] - 1) * _intprod((s[i] for i in dims)...)
->>>>>>> 09cfbd0 (Changes in order to take into account AbstractVectors instead of just (CPU) Vectors)
 end
 
 binv(::RFFT, d) = BRFFT(d)
