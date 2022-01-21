@@ -142,6 +142,3 @@ for T in (:R2R, :R2R!)
         binv(::$T{FFTW.DHT}, d) = $T{FFTW.DHT}()
     end
 end
-
-expand_dims(::F, ::Val{N}) where {F <: AnyR2R, N} =
-    N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)

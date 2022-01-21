@@ -21,9 +21,6 @@ const FAST_TESTS = !("--all" in ARGS)
 # Test all possible r2r transforms.
 const TEST_KINDS_R2R = Transforms.R2R_SUPPORTED_KINDS
 
-# Incomplete custom transform, for tests only.
-struct FakeTransform <: Transforms.AbstractTransform end
-
 function test_transform_types(size_in)
     @testset "r2c transforms" begin
         transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
@@ -139,9 +136,6 @@ function test_transform_types(size_in)
         FFT = Transforms.FFT()
         x = zeros(ComplexF32, 3, 4)
         @test Transforms.scale_factor(FFT, x) == length(x)
-
-        # "I don't know how to expand transform..."
-        @test_throws ArgumentError Transforms.expand_dims(FakeTransform(), Val(3))
     end
 
     nothing

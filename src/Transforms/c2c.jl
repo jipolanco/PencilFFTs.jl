@@ -69,6 +69,3 @@ _prod_dims(s::Dims, dims) = _intprod((s[i] for i in dims)...)
 _prod_dims(A::AbstractArray, dims) = _prod_dims(size(A), dims)
 
 scale_factor(::TransformC2C, A, dims) = _prod_dims(A, dims)
-
-expand_dims(::F, ::Val{N}) where {F <: TransformC2C, N} =
-    N === 0 ? () : (F(), expand_dims(F(), Val(N - 1))...)

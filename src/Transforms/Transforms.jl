@@ -277,10 +277,13 @@ julia> expand_dims(Transforms.NoTransform(), Val(2))
 (NoTransform, NoTransform)
 ```
 """
-function expand_dims end
-
-expand_dims(::F, ::Val) where {F <: AbstractTransform} =
-    throw(ArgumentError("I don't know how to expand transform $F"))
+function expand_dims(tr::AbstractTransform, ::Val{N}) where {N}
+    N === 0 && return ()
+    # By default, the transform to be applied along the next dimension is the same
+    # as the current dimension (e.g. FFT() -> (FFT(), FFT(), FFT(), ...).
+    # The exception is r2c and c2r transforms.
+    (tr, expand_dims(tr, Val(N - 1))...)
+end
 
 function Base.show(io::IO, tr::F) where {F <: AbstractTransform}
     print(io, nameof(F))

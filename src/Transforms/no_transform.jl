@@ -23,8 +23,6 @@ binv(::T, d) where {T <: AnyNoTransform} = T()
 length_output(::AnyNoTransform, length_in::Integer) = length_in
 eltype_output(::AnyNoTransform, ::Type{T}) where T = T
 eltype_input(::AnyNoTransform, ::Type) = nothing
-expand_dims(::T, ::Val{N}) where {T <: AnyNoTransform, N} =
-    N == 0 ? () : (T(), expand_dims(T(), Val(N - 1))...)
 scale_factor(::AnyNoTransform, A, dims) = 1
 
 plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
