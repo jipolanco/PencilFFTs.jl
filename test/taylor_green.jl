@@ -35,11 +35,11 @@ const TG_K0 = 2.0
 function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
     u = map(global_view, u_local)
 
-    @inbounds for (n, I) in enumerate(CartesianIndices(u[1]))
+    @inbounds for (n, I) in CartesianIndices(u[1])
         x, y, z = g[I]
-        u[1][n] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
-        u[2][n] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
-        u[3][n] = 0
+        u[1][I] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
+        u[2][I] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
+        u[3][I] = 0
     end
 
     u_local
@@ -49,7 +49,7 @@ end
 function taylor_green!(u::VectorField, g::PhysicalGridIterator, u0=TG_U0, k0=TG_K0)
     @assert size_local(u[1]) === size(g)
 
-    @inbounds for (i, (x, y, z)) in enumerate(g)
+    @inbounds for (i, (x, y, z)) in pairs(IndexLinear(), g)
         u[1][i] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
         u[2][i] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
         u[3][i] = 0
@@ -63,7 +63,7 @@ function check_vorticity_TG(ω::VectorField{T}, g::PhysicalGridIterator, comm,
                             u0=TG_U0, k0=TG_K0) where {T}
     diff2 = zero(T)
 
-    @inbounds for (i, (x, y, z)) in enumerate(g)
+    @inbounds for (i, (x, y, z)) in pairs(IndexLinear(), g)
         ω_TG = (
             -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
             -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),
@@ -77,7 +77,7 @@ function check_vorticity_TG(ω::VectorField{T}, g::PhysicalGridIterator, comm,
     MPI.Allreduce(diff2, +, comm)
 end
 
-function fields_to_vtk(g::PhysicalGridIterator, basename, fields::Vararg{Pair})
+function fields_to_vtk(g::PhysicalGridIterator, basename; fields...)
     isempty(fields) && return
 
     # This works but it's heavier, since g.data is a dense array:
@@ -88,87 +88,86 @@ function fields_to_vtk(g::PhysicalGridIterator, basename, fields::Vararg{Pair})
     xyz = ntuple(n -> g.grid[n][g.range[n]], Val(3))
 
     vtk_grid(basename, xyz) do vtk
-        for p in fields
-            name = p.first
-            u = p.second
-            vtk_point_data(vtk, u, name)
+        for (name, u) in pairs(fields)
+            vtk[string(name)] = u
         end
     end
-end
-
-function main()
-    size_in = DATA_DIMS
-    comm = MPI.COMM_WORLD
-    Nproc = MPI.Comm_size(comm)
-    rank = MPI.Comm_rank(comm)
-
-    silence_stdout(comm)
-
-    pdims_2d = let pdims = zeros(Int, 2)
-        MPI.Dims_create!(Nproc, pdims)
-        pdims[1], pdims[2]
-    end
-
-    plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims_2d, comm,
-                         permute_dims=Val(true))
-    u = allocate_input(plan, Val(3))  # allocate vector field
-
-    g_global = PhysicalGrid(GEOMETRY, size_in, permutation(u))
-    g_local = LocalGridIterator(g_global, u)
-    taylor_green!(u, g_local)   # initialise TG velocity field
-
-    uF = plan * u  # apply 3D FFT
-
-    gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
-    gF_local = LocalGridIterator(gF_global, uF)
-    ωF = similar.(uF)
-
-    @testset "Taylor-Green" begin
-        let u_glob = similar.(u)
-            # Compare with initialisation using global indices
-            taylor_green!(u_glob, g_global)
-            @test all(u .≈ u_glob)
-        end
-
-        div2 = divergence(uF, gF_local)
-
-        # Compare local and global versions of divergence
-        @test div2 == divergence(uF, gF_global)
-
-        print("divergence local...  ")
-        @btime divergence($uF, $gF_local)
-
-        print("divergence global... ")
-        @btime divergence($uF, $gF_global)
-
-        div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
-        @test div2_mean ≈ 0 atol=1e-16
-
-        curl!(ωF, uF, gF_local)
-        ω = plan \ ωF
-
-        # Test global version of curl
-        ωF_glob = similar.(ωF)
-        curl!(ωF_glob, uF, gF_global)
-        @test all(ωF_glob .== ωF)
-
-        print("curl! local...       ")
-        @btime curl!($ωF, $uF, $gF_local)
-
-        print("curl! global...      ")
-        @btime curl!($ωF_glob, $uF, $gF_global)
-
-        ω_err = check_vorticity_TG(ω, g_local, comm)
-        @test ω_err ≈ 0 atol=1e-16
-    end
-
-    if SAVE_VTK
-        fields_to_vtk(g_local, "TG_proc_$(rank + 1)of$(Nproc)",
-                      "u" => u, "ω" => ω)
-    end
-
-    nothing
 end
 
 MPI.Init()
-main()
+
+size_in = DATA_DIMS
+comm = MPI.COMM_WORLD
+Nproc = MPI.Comm_size(comm)
+rank = MPI.Comm_rank(comm)
+
+silence_stdout(comm)
+
+pdims_2d = let pdims = zeros(Int, 2)
+    MPI.Dims_create!(Nproc, pdims)
+    pdims[1], pdims[2]
+end
+
+plan = PencilFFTPlan(
+    size_in, Transforms.RFFT(), pdims_2d, comm;
+    permute_dims=Val(true),
+)
+u = allocate_input(plan, Val(3))  # allocate vector field
+
+g_global = PhysicalGrid(GEOMETRY, size_in, permutation(u))
+g_local = LocalGridIterator(g_global, u)
+taylor_green!(u, g_local)   # initialise TG velocity field
+
+uF = plan * u  # apply 3D FFT
+
+gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
+gF_local = LocalGridIterator(gF_global, uF)
+ωF = similar.(uF)
+
+@testset "Taylor-Green" begin
+    let u_glob = similar.(u)
+        # Compare with initialisation using global indices
+        taylor_green!(u_glob, g_global)
+        @test all(u .≈ u_glob)
+    end
+
+    div2 = divergence(uF, gF_local)
+
+    # Compare local and global versions of divergence
+    @test div2 == divergence(uF, gF_global)
+
+    div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
+    @test div2_mean ≈ 0 atol=1e-16
+
+    curl!(ωF, uF, gF_local)
+    ω = plan \ ωF
+
+    # Test global version of curl
+    ωF_glob = similar.(ωF)
+    curl!(ωF_glob, uF, gF_global)
+    @test all(ωF_glob .== ωF)
+
+    ω_err = check_vorticity_TG(ω, g_local, comm)
+    @test ω_err ≈ 0 atol=1e-16
+end
+
+# Micro-benchmarks
+print("divergence local...  ")
+@btime divergence($uF, $gF_local)
+
+print("divergence global... ")
+@btime divergence($uF, $gF_global)
+
+print("curl! local...       ")
+@btime curl!($ωF, $uF, $gF_local)
+
+print("curl! global...      ")
+ωF_glob = similar.(ωF)
+@btime curl!($ωF_glob, $uF, $gF_global)
+
+if SAVE_VTK
+    fields_to_vtk(
+        g_local, "TG_proc_$(rank + 1)of$(Nproc)";
+        u = u, ω = ω,
+    )
+end

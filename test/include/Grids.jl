@@ -71,7 +71,6 @@ function Base.iterate(g::AbstractGrid, state::Int=1)
 end
 Base.iterate(::AbstractGrid, ::Nothing) = nothing
 
-# TODO check @inbounds
 @propagate_inbounds Base.getindex(g::AbstractGrid, i::Integer) = g.r[i]
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,
