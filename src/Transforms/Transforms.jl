@@ -225,11 +225,9 @@ ComplexF32 (alias for Complex{Float32})
 julia> eltype_input(Transforms.RFFT(), Float64)
 Float64
 
-julia> eltype_input(Transforms.R2R(FFTW.REDFT01), Float64)
-nothing
+julia> eltype_input(Transforms.R2R(FFTW.REDFT01), Float64)  # nothing
 
-julia> eltype_input(Transforms.NoTransform(), Float64)
-nothing
+julia> eltype_input(Transforms.NoTransform(), Float64)  # nothing
 
 ```
 """
@@ -277,7 +275,7 @@ julia> expand_dims(Transforms.RFFT(), Val(3))
 (RFFT, FFT, FFT)
 
 julia> expand_dims(Transforms.BRFFT(4), Val(3))
-(BRFFT{even}, BFFT, BFFT)
+(BFFT, BFFT, BRFFT{even})
 
 julia> expand_dims(Transforms.NoTransform(), Val(2))
 (NoTransform, NoTransform)

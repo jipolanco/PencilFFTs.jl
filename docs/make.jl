@@ -3,7 +3,14 @@ using PencilFFTs
 
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(
-    PencilFFTs, :DocTestSetup, :(using PencilFFTs); recursive=true)
+    PencilFFTs, :DocTestSetup, :(using PencilFFTs);
+    recursive = false,
+)
+
+DocMeta.setdocmeta!(
+    PencilFFTs.Transforms, :DocTestSetup, :(using PencilFFTs.Transforms);
+    recursive = false,
+)
 
 function main()
     @time makedocs(
