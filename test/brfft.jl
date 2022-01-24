@@ -3,6 +3,7 @@
 using PencilFFTs
 using MPI
 using LinearAlgebra
+using FFTW
 
 using Test
 

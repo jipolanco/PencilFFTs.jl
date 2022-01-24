@@ -33,7 +33,7 @@ const TG_K0 = 2.0
 function taylor_green!(u_local::VectorField, g::PhysicalGrid, u0=TG_U0, k0=TG_K0)
     u = map(global_view, u_local)
 
-    @inbounds for (n, I) in CartesianIndices(u[1])
+    @inbounds for I in CartesianIndices(u[1])
         x, y, z = g[I]
         u[1][I] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
         u[2][I] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
@@ -47,7 +47,7 @@ end
 function taylor_green!(u::VectorField, g::PhysicalGridIterator, u0=TG_U0, k0=TG_K0)
     @assert size_local(u[1]) === size(g)
 
-    @inbounds for (i, (x, y, z)) in pairs(IndexLinear(), g)
+    @inbounds for (i, (x, y, z)) in enumerate(g)
         u[1][i] =  u0 * sin(k0 * x) * cos(k0 * y) * cos(k0 * z)
         u[2][i] = -u0 * cos(k0 * x) * sin(k0 * y) * cos(k0 * z)
         u[3][i] = 0
@@ -61,7 +61,7 @@ function check_vorticity_TG(ω::VectorField{T}, g::PhysicalGridIterator, comm,
                             u0=TG_U0, k0=TG_K0) where {T}
     diff2 = zero(T)
 
-    @inbounds for (i, (x, y, z)) in pairs(IndexLinear(), g)
+    @inbounds for (i, (x, y, z)) in enumerate(g)
         ω_TG = (
             -u0 * k0 * cos(k0 * x) * sin(k0 * y) * sin(k0 * z),
             -u0 * k0 * sin(k0 * x) * cos(k0 * y) * sin(k0 * z),

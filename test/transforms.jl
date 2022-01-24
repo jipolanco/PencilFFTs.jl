@@ -1,5 +1,3 @@
-#!/usr/bin/env julia
-
 using PencilFFTs
 using .Transforms: binv, is_inplace
 
@@ -28,8 +26,8 @@ function test_transform_types(size_in)
 
         @test fft_params isa PencilFFTs.GlobalFFTParams{Float64, 3, false,
                                                         typeof(transforms)}
-        @test binv(Transforms.RFFT(), 10) === Transforms.BRFFT(true)  # even = true
-        @test binv(Transforms.RFFT(), 11) === Transforms.BRFFT(false)
+        @test binv(Transforms.RFFT(), 10) === Transforms.BRFFT(10)
+        @test binv(Transforms.RFFT(), 11) === Transforms.BRFFT(11)
 
         transforms_binv = binv.(transforms, size_in)
         size_out = Transforms.length_output.(transforms, size_in)
@@ -323,7 +321,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
              => make_plan(FFTW.plan_fft, dims=(1, 3)),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
              => make_plan(FFTW.plan_fft, dims=1),
-         
+
          # TODO compare BRFFT with serial equivalent?
          # The special case of BRFFT is a bit complicated, because
          # multidimensional FFTW plans returned by `plan_brfft` perform the
