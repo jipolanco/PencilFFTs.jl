@@ -11,8 +11,8 @@ See also
 struct RFFT <: AbstractTransform end
 
 """
-    BRFFT([even_output::Bool = true])
     BRFFT(d::Integer)
+    BRFFT((d1, d2, ..., dN))
 
 Unnormalised inverse of [`RFFT`](@ref).
 
@@ -23,9 +23,15 @@ As described in the [AbstractFFTs docs](https://juliamath.github.io/AbstractFFTs
 the length of the output cannot be fully inferred from the input length.
 For this reason, the `BRFFT` constructor accepts an optional `d` argument
 indicating the output length.
-Alternatively, a `Bool` argument may be passed indicating whether the output has
-even or odd length.
-By default, if nothing is passed, the output is assumed to have even length.
+
+For multidimensional datasets, a tuple of dimensions
+`(d1, d2, ..., dN)` may also be passed.
+This is equivalent to passing just `dN`.
+In this case, the **last** dimension (`dN`) is the one that changes size between
+the input and output.
+Note that this is the opposite of `FFTW.brfft`.
+The reason is that, in PencilFFTs, the **last** dimension is the one along which
+a complex-to-real transform is performed.
 
 See also
 [`AbstractFFTs.brfft`](https://juliamath.github.io/AbstractFFTs.jl/stable/api/#AbstractFFTs.brfft).
@@ -37,7 +43,7 @@ end
 _show_extra_info(io::IO, tr::BRFFT) = print(io, tr.even_output ? "{even}" : "{odd}")
 
 BRFFT(d::Integer) = BRFFT(iseven(d))
-BRFFT() = BRFFT(true)
+BRFFT(ts::Tuple) = BRFFT(last(ts))  # c2r transform is applied along the **last** dimension (opposite of FFTW)
 
 is_inplace(::Union{RFFT, BRFFT}) = false
 
@@ -80,5 +86,5 @@ expand_dims(tr::RFFT, ::Val{N}) where {N} =
     N === 0 ? () : (tr, expand_dims(FFT(), Val(N - 1))...)
 
 expand_dims(tr::BRFFT, ::Val{N}) where {N} = (BFFT(), expand_dims(tr, Val(N - 1))...)
-expand_dims(tr::BRFFT, ::Val{1}) = (BRFFT(), )
+expand_dims(tr::BRFFT, ::Val{1}) = (tr, )
 expand_dims(tr::BRFFT, ::Val{0}) = ()

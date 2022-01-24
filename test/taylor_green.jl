@@ -10,8 +10,6 @@ import MPI
 using BenchmarkTools
 using Test
 
-BenchmarkTools.DEFAULT_PARAMETERS.seconds = 0.1
-
 include("include/FourierOperations.jl")
 using .FourierOperations
 import .FourierOperations: VectorField

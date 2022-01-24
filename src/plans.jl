@@ -550,5 +550,8 @@ See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
 timer(p::PencilFFTPlan) = p.timer
 
+# For consistency with AbstractFFTs, this gives the global dimensions of the input.
+Base.size(p::PencilFFTPlan) = size_global(pencil_input(p), LogicalOrder())
+
 topology(p::PencilFFTPlan) = p.topology
 extra_dims(p::PencilFFTPlan) = p.extra_dims

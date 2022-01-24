@@ -10,6 +10,7 @@ using PencilFFTs
 
 test_files = [
     "taylor_green.jl",
+    "brfft.jl",
     "rfft.jl",
     "transforms.jl",
 ]
