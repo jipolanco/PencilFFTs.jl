@@ -20,9 +20,6 @@ import .Transforms: AbstractTransform, FFTReal, scale_factor
 export PencilFFTPlan
 export allocate_input, allocate_output, scale_factor
 
-# Deprecated in v0.10
-@deprecate get_scale_factor scale_factor
-
 # Functions to be extended for PencilFFTs types.
 import PencilArrays: get_comm, timer, topology, extra_dims
 
