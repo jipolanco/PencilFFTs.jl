@@ -20,7 +20,7 @@ end
     pen = Pencil(dims_coef, comm)
     uc = PencilArray{ComplexF64}(undef, pen)
     uc .= 0
-    uc[2, 4, 3] = 1
+    uc[2, 4, 3] = 1 + 2im
 
     plan_c2r = PencilFFTPlan(uc, Transforms.BRFFT(dims_real))
     @test size(plan_c2r) == dims_coef  # = size of input
@@ -38,4 +38,8 @@ end
         ur_fftw = brfft(uc_fftw, dims_real[end], 3)
         @test ur_full ≈ ur_fftw
     end
+
+    # Check normalisation
+    uc_back = plan_c2r \ ur
+    @test isapprox(uc_back, uc; atol = 1e-8)
 end

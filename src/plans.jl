@@ -509,7 +509,7 @@ function _make_1d_fft_plan(
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output
     # (i.e. the forward transform input)
-    scale_bw = scale_factor(transform_bw, parent(A_fw), dims)
+    scale_bw = scale_factor(transform_bw, parent(A_bw), dims)
 
     # Generate forward and backward FFTW transforms.
     plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)

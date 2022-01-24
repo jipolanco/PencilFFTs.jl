@@ -100,7 +100,7 @@ normalisation factor for a given array can be obtained by calling
 julia> binv(Transforms.FFT(), 42)
 BFFT
 
-julia> binv(Transforms.BRFFT(), 42)
+julia> binv(Transforms.BRFFT(9), 42)
 RFFT
 ```
 """
@@ -146,12 +146,12 @@ function is_inplace end
 end
 
 """
-    scale_factor(transform::AbstractTransform, A, [dims])
+    scale_factor(transform::AbstractTransform, A, [dims = 1:ndims(A)])
 
 Get factor required to normalise the given array after a transformation along
 dimensions `dims` (all dimensions by default).
 
-The array `A` must have the dimensions of the `transform` output.
+The array `A` must have the dimensions of the transform input.
 
 **Important**: the dimensions `dims` must be the same that were passed to
 [`plan`](@ref).
@@ -172,17 +172,23 @@ julia> scale_factor(Transforms.BFFT(), C, 2:3)
 
 julia> R = zeros(Float64, 3, 4, 5);
 
-julia> scale_factor(Transforms.BRFFT(), R, 2)
+julia> scale_factor(Transforms.RFFT(), R, 2)
 4
 
-julia> scale_factor(Transforms.BRFFT(), R, 2:3)
+julia> scale_factor(Transforms.RFFT(), R, 2:3)
 20
+
+julia> scale_factor(Transforms.BRFFT(8), C)
+96
+
+julia> scale_factor(Transforms.BRFFT(9), C)
+108
 ```
 
-This will fail because the output of `RFFT` is complex, and `R` is a real array:
+This will fail because the input of `RFFT` is real, and `R` is a complex array:
 ```jldoctest scale_factor
-julia> scale_factor(Transforms.RFFT(), R, 2:3)
-ERROR: MethodError: no method matching scale_factor(::PencilFFTs.Transforms.RFFT, ::Array{Float64, 3}, ::UnitRange{Int64})
+julia> scale_factor(Transforms.RFFT(), C, 2:3)
+ERROR: MethodError: no method matching scale_factor(::PencilFFTs.Transforms.RFFT, ::Array{ComplexF32, 3}, ::UnitRange{Int64})
 ```
 """
 function scale_factor end
@@ -246,7 +252,7 @@ Float32
 julia> eltype_output(Transforms.RFFT(), Float64)
 ComplexF64 (alias for Complex{Float64})
 
-julia> eltype_output(Transforms.BRFFT(), ComplexF32)
+julia> eltype_output(Transforms.BRFFT(4), ComplexF32)
 Float32
 
 julia> eltype_output(Transforms.FFT(), Float64)
@@ -270,7 +276,7 @@ Expand a single multidimensional transform into one transform per dimension.
 julia> expand_dims(Transforms.RFFT(), Val(3))
 (RFFT, FFT, FFT)
 
-julia> expand_dims(Transforms.BRFFT(), Val(3))
+julia> expand_dims(Transforms.BRFFT(4), Val(3))
 (BRFFT{even}, BFFT, BFFT)
 
 julia> expand_dims(Transforms.NoTransform(), Val(2))

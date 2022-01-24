@@ -69,11 +69,16 @@ end
 binv(::RFFT, d) = BRFFT(d)
 binv(::BRFFT, d) = RFFT()
 
-# Note: the output of RFFT (BRFFT) is complex (real).
-scale_factor(::BRFFT, A::RealArray, dims) = _prod_dims(A, dims)
-scale_factor(::RFFT, A::ComplexArray, dims) = _scale_factor_r2c(A, dims...)
+function scale_factor(tr::BRFFT, A::ComplexArray, dims)
+    prod(dims; init = one(Int)) do i
+        n = size(A, i)
+        i == last(dims) ? length_output(tr, n) : n
+    end
+end
 
-function _scale_factor_r2c(A::ComplexArray, dim1, dims...)
+scale_factor(::RFFT, A::RealArray, dims) = _prod_dims(A, dims)
+
+function _scale_factor_c2r(A::ComplexArray, dim1, dims...)
     # I need to normalise by the *logical* size of the real output.
     # We assume that the dimension `dim1` is the dimension with Hermitian
     # symmetry.
