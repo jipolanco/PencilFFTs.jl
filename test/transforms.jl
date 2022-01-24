@@ -327,7 +327,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
          # multidimensional FFTW plans returned by `plan_brfft` perform the
          # actual c2r transform along the first dimension. In PencilFFTs we do
          # the opposite: the c2r transform is applied along the last dimension.
-         Transforms.BRFFT() => nothing,
+         Transforms.BRFFT(size_in) => nothing,
         )
     end
 
