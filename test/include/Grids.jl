@@ -15,7 +15,7 @@ abstract type AbstractGrid{T, N, Perm} end
 # Note: the PhysicalGrid is accessed with non-permuted indices.
 struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
     dims  :: Dims{N}                 # permuted dimensions (N1, N2, N3)
-    r     :: NTuple{N, LinRange{T}}  # non-permuted coordinates (x, y, z)
+    r     :: NTuple{N, LinRange{T, Int}}  # non-permuted coordinates (x, y, z)
     iperm :: Perm  # inverse permutation (i_2, i_3, i_1) -> (i_1, i_2, i_3)
 
     # limits: non-permuted geometry limits ((xbegin_1, xend_1), (xbegin_2, xend_2), ...)
@@ -71,13 +71,13 @@ function Base.iterate(g::AbstractGrid, state::Int=1)
 end
 Base.iterate(::AbstractGrid, ::Nothing) = nothing
 
+# TODO check @inbounds
 @propagate_inbounds Base.getindex(g::AbstractGrid, i::Integer) = g.r[i]
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,
                                            I::CartesianIndex{N}) where N
     # Assume input indices are not permuted.
-    t = Tuple(I)
-    ntuple(n -> g[n][t[n]], Val(N))
+    ntuple(n -> g[n][I[n]], Val(N))
 end
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,
