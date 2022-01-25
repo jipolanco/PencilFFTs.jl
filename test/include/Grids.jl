@@ -13,9 +13,9 @@ using AbstractFFTs: Frequencies, fftfreq, rfftfreq
 abstract type AbstractGrid{T, N, Perm} end
 
 # Note: the PhysicalGrid is accessed with non-permuted indices.
-struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
-    dims  :: Dims{N}                 # permuted dimensions (N1, N2, N3)
-    r     :: NTuple{N, LinRange{T, Int}}  # non-permuted coordinates (x, y, z)
+struct PhysicalGrid{T, N, LocalRange <: AbstractRange{T}, Perm} <: AbstractGrid{T, N, Perm}
+    dims  :: Dims{N}                # permuted dimensions (N1, N2, N3)
+    r     :: NTuple{N, LocalRange}  # non-permuted coordinates (x, y, z)
     iperm :: Perm  # inverse permutation (i_2, i_3, i_1) -> (i_1, i_2, i_3)
 
     # limits: non-permuted geometry limits ((xbegin_1, xend_1), (xbegin_2, xend_2), ...)
@@ -31,7 +31,7 @@ struct PhysicalGrid{T, N, Perm} <: AbstractGrid{T, N, Perm}
         dims = dims_in
         iperm = inv(perm)
         Perm = typeof(iperm)
-        new{T,N,Perm}(dims, r, iperm)
+        new{T, N, typeof(first(r)), Perm}(dims, r, iperm)
     end
 end
 
@@ -71,7 +71,6 @@ function Base.iterate(g::AbstractGrid, state::Int=1)
 end
 Base.iterate(::AbstractGrid, ::Nothing) = nothing
 
-# TODO check @inbounds
 @propagate_inbounds Base.getindex(g::AbstractGrid, i::Integer) = g.r[i]
 
 @propagate_inbounds function Base.getindex(g::AbstractGrid{T, N} where T,

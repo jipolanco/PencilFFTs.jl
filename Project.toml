@@ -1,7 +1,7 @@
 name = "PencilFFTs"
 uuid = "4a48f351-57a6-4416-9ec4-c37015456aae"
 authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
-version = "0.12.8"
+version = "0.13.0"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"

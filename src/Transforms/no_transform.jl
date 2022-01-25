@@ -19,12 +19,10 @@ const AnyNoTransform = Union{NoTransform, NoTransform!}
 is_inplace(::NoTransform) = false
 is_inplace(::NoTransform!) = true
 
-binv(::T) where {T <: AnyNoTransform} = T()
+binv(::T, d) where {T <: AnyNoTransform} = T()
 length_output(::AnyNoTransform, length_in::Integer) = length_in
 eltype_output(::AnyNoTransform, ::Type{T}) where T = T
-eltype_input(::AnyNoTransform, ::Type) = Nothing
-expand_dims(::T, ::Val{N}) where {T <: AnyNoTransform, N} =
-    N == 0 ? () : (T(), expand_dims(T(), Val(N - 1))...)
+eltype_input(::AnyNoTransform, ::Type) = nothing
 scale_factor(::AnyNoTransform, A, dims) = 1
 
 plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()

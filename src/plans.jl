@@ -503,22 +503,17 @@ function _make_1d_fft_plan(
         findfirst(==(n), Tuple(perm)) :: Int
     end
 
-    transform_bw = binv(transform_fw)
+    d = size(parent(A_fw), 1)  # input length along transformed dimension
+    transform_bw = binv(transform_fw, d)
 
     # Scale factor to be applied after backward transform.
     # The passed array must have the dimensions of the backward transform output
     # (i.e. the forward transform input)
-    scale_bw = scale_factor(transform_bw, parent(A_fw), dims)
+    scale_bw = scale_factor(transform_bw, parent(A_bw), dims)
 
     # Generate forward and backward FFTW transforms.
     plan_fw = plan(transform_fw, parent(A_fw), dims; fftw_kw...)
-
-    plan_bw = if transform_bw === Transforms.BRFFT()
-        d = size(parent(A_fw), 1)
-        plan(transform_bw, parent(A_bw), d, dims; fftw_kw...)
-    else
-        plan(transform_bw, parent(A_bw), dims; fftw_kw...)
-    end
+    plan_bw = plan(transform_bw, parent(A_bw), dims; fftw_kw...)
 
     PencilPlan1D{Ti}(Pi, Po, transform_fw, plan_fw, plan_bw, scale_bw)
 end
@@ -554,6 +549,9 @@ Get `TimerOutput` attached to a `PencilFFTPlan`.
 See [Measuring performance](@ref PencilFFTs.measuring_performance) for details.
 """
 timer(p::PencilFFTPlan) = p.timer
+
+# For consistency with AbstractFFTs, this gives the global dimensions of the input.
+Base.size(p::PencilFFTPlan) = size_global(pencil_input(p), LogicalOrder())
 
 topology(p::PencilFFTPlan) = p.topology
 extra_dims(p::PencilFFTPlan) = p.extra_dims
