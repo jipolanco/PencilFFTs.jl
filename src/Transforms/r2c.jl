@@ -78,14 +78,6 @@ end
 
 scale_factor(::RFFT, A::RealArray, dims) = _prod_dims(A, dims)
 
-function _scale_factor_c2r(A::ComplexArray, dim1, dims...)
-    # I need to normalise by the *logical* size of the real output.
-    # We assume that the dimension `dim1` is the dimension with Hermitian
-    # symmetry.
-    s = size(A)
-    2 * (s[dim1] - 1) * _intprod((s[i] for i in dims)...)
-end
-
 # r2c along the first dimension, then c2c for the other dimensions.
 expand_dims(tr::RFFT, ::Val{N}) where {N} =
     N === 0 ? () : (tr, expand_dims(FFT(), Val(N - 1))...)

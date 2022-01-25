@@ -40,6 +40,14 @@ function test_transform_types(size_in)
         @test PencilFFTs.input_data_type(fft_params) === Float64
     end
 
+    @testset "c2c transforms" begin
+        n = 4
+        @test binv(Transforms.FFT(), n) === Transforms.BFFT()
+        @test binv(Transforms.BFFT(), n) === Transforms.FFT()
+        @test binv(Transforms.FFT!(), n) === Transforms.BFFT!()
+        @test binv(Transforms.BFFT!(), n) === Transforms.FFT!()
+    end
+
     @testset "NoTransform" begin
         transform = Transforms.NoTransform()
         transform! = Transforms.NoTransform!()
