@@ -45,7 +45,7 @@ function allocate_input end
 function allocate_input(p::PencilFFTPlan{T,N,false} where {T,N})
     T = eltype_input(p)
     pen = pencil_input(p)
-    array_type = PencilFFTs.eltype_array(p.ibuf)
+    array_type = PencilArrays.typeof_array(p.ibuf)
     PencilArray(pen, array_type{T}(undef, (size_local(pen, MemoryOrder())..., p.extra_dims...)))
 end
 
@@ -83,7 +83,7 @@ function allocate_output end
 function allocate_output(p::PencilFFTPlan{T,N,false} where {T,N})
     T = eltype_output(p)
     pen = pencil_output(p)
-    array_type = PencilFFTs.eltype_array(p.ibuf)
+    array_type = PencilArrays.typeof_array(p.ibuf)
     PencilArray(pen, array_type{T}(undef, (size_local(pen, MemoryOrder())..., p.extra_dims...)))
 end
 

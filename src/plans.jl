@@ -236,8 +236,8 @@ struct PencilFFTPlan{
             transpose_method::AbstractTransposeMethod =
                 Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
-            ibuf::AbstractVector{UInt8} = eltype_array(A)(UInt8[]), # in temporary data buffers
-            obuf::AbstractVector{UInt8} = eltype_array(A)(UInt8[]), # out temporary data buffers
+            ibuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[]), # in temporary data buffers
+            obuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[]), # out temporary data buffers
         )
         T = eltype(A)
         dims_global = size_global(pencil(A), LogicalOrder())
@@ -398,8 +398,8 @@ function _create_plans(
     To = eltype_output(transform_fw, Ti)
 
     # Generating buffer compatible with Ai
-    _ibuf = eltype_array(Ai)(ibuf)
-    _obuf = eltype_array(Ai)(ibuf)
+    _ibuf = PencilArrays.typeof_array(Ai)(ibuf)
+    _obuf = PencilArrays.typeof_array(Ai)(ibuf)
 
     # Note that Ai and Ao may share memory, but that's ok here.
     Ao = _temporary_pencil_array(To, Po, _ibuf, extra_dims(Ai))
