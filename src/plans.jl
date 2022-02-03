@@ -236,8 +236,8 @@ struct PencilFFTPlan{
             transpose_method::AbstractTransposeMethod =
                 Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
-            ibuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[]), # in temporary data buffers
-            obuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[]), # out temporary data buffers
+            ibuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[0]), # in temporary data buffers
+            obuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[0]), # out temporary data buffers
         )
         T = eltype(A)
         dims_global = size_global(pencil(A), LogicalOrder())
@@ -397,24 +397,20 @@ function _create_plans(
 
     To = eltype_output(transform_fw, Ti)
 
-    # Generating buffer compatible with Ai
-    _ibuf = PencilArrays.typeof_array(Ai)(ibuf)
-    _obuf = PencilArrays.typeof_array(Ai)(ibuf)
-
     # Note that Ai and Ao may share memory, but that's ok here.
-    Ao = _temporary_pencil_array(To, Po, _ibuf, extra_dims(Ai))
+    Ao = _temporary_pencil_array(To, Po, ibuf, extra_dims(Ai))
     plan_n = _make_1d_fft_plan(dim, Ti, Ai, Ao, transform_fw; fftw_kw = fftw_kw)
 
     # These are both `nothing` when there's no transforms left
     Pi_next = _make_intermediate_pencil(
         g, topology(Pi), Val(n + 1), plan_n, timer, permute_dims)
-    Ai_next = _temporary_pencil_array(To, Pi_next, _ibuf, extra_dims(Ai))
+    Ai_next = _temporary_pencil_array(To, Pi_next, ibuf, extra_dims(Ai))
 
     (
         plan_n,
         _create_plans(
             To, g, Ai_next, plan_n, transforms_next...;
-            timer = timer, ibuf = _ibuf, fftw_kw = fftw_kw, permute_dims = permute_dims,
+            timer = timer, ibuf = ibuf, fftw_kw = fftw_kw, permute_dims = permute_dims,
         )...,
     )
 end
