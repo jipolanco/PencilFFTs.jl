@@ -25,7 +25,7 @@ eltype_output(::AnyNoTransform, ::Type{T}) where T = T
 eltype_input(::AnyNoTransform, ::Type) = nothing
 scale_factor(::AnyNoTransform, A, dims) = 1
 
-plan(::NoTransform, A, dims; kwargs...) = IdentityPlan()
+plan(::NoTransform, A :: AbstractArray{T}, dims; kwargs...) where T = IdentityPlan{T}()
 plan(::NoTransform!, A, dims; kwargs...) = IdentityPlan!()
 
 """
@@ -33,7 +33,7 @@ plan(::NoTransform!, A, dims; kwargs...) = IdentityPlan!()
 
 Type of plan associated to [`NoTransform`](@ref).
 """
-struct IdentityPlan <: AbstractCustomPlan end
+struct IdentityPlan{T} <: AbstractFFTs.Plan{T} end
 
 LinearAlgebra.mul!(y, ::IdentityPlan, x) = (y === x) ? y : copy!(y, x)
 LinearAlgebra.ldiv!(y, ::IdentityPlan, x) = mul!(y, IdentityPlan(), x)

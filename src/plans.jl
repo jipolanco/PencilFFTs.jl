@@ -220,8 +220,8 @@ struct PencilFFTPlan{
     transpose_method :: TransposeMethod
 
     # Temporary data buffers.
-    ibuf :: Vector{UInt8}
-    obuf :: Vector{UInt8}
+    ibuf :: AbstractVector{UInt8}
+    obuf :: AbstractVector{UInt8}
 
     # Runtime timing.
     # Should be used along with the @timeit_debug macro, to be able to turn it
@@ -236,7 +236,8 @@ struct PencilFFTPlan{
             transpose_method::AbstractTransposeMethod =
                 Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
-            ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
+            ibuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[0]), # in temporary data buffers
+            obuf::AbstractVector{UInt8} = PencilArrays.typeof_array(A)(UInt8[0]), # out temporary data buffers
         )
         T = eltype(A)
         dims_global = size_global(pencil(A), LogicalOrder())
@@ -282,14 +283,16 @@ function PencilFFTPlan(
         proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{Tr} = Float64;
         extra_dims::Dims{Ne} = (),
         timer = TimerOutput(),
-        ibuf = UInt8[],
+        ibuf::AbstractVector{UInt8} = UInt8[],
+        array_type::Type = Array,
         kws...,
     ) where {Nt, Nd, Ne, Tr <: FFTReal}
     t = MPITopology(comm, proc_dims)
     pen = _make_input_pencil(dims_global, t, timer)
     T = _input_data_type(Tr, transforms...)
-    A = _temporary_pencil_array(T, pen, ibuf, extra_dims)
-    PencilFFTPlan(A, transforms; timer = timer, ibuf = ibuf, kws...)
+    _ibuf = array_type(ibuf)
+    A = _temporary_pencil_array(T, pen, _ibuf, extra_dims)
+    PencilFFTPlan(A, transforms; timer = timer, ibuf = _ibuf, kws...)
 end
 
 function PencilFFTPlan(A, transform::AbstractTransform,
