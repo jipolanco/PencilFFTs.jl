@@ -15,17 +15,17 @@ test_files = [
     "transforms.jl",
 ]
 
-# Make sure that example files run.
-example_dir = joinpath("..", "examples")
+# Also run some (but not all!) examples.
+example_dir = joinpath(@__DIR__, "..", "examples")
 example_files = joinpath.(
     example_dir,
-    filter(fname -> splitext(fname)[2] == ".jl", readdir(example_dir))
+    ["gradient.jl", "in-place.jl"]
 )
 
 Nproc = let N = get(ENV, "JULIA_MPI_TEST_NPROCS", nothing)
     N === nothing ? clamp(Sys.CPU_THREADS, 4, 6) : parse(Int, N)
 end
-files = [test_files..., example_files...]
+files = vcat(example_files, test_files)
 
 println()
 versioninfo()
