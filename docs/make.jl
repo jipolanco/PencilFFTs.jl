@@ -1,6 +1,9 @@
 using Documenter
 using PencilFFTs
 using Literate
+using MPI
+
+MPI.Init()  # works around weird issue when generating docs locally
 
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(
@@ -21,7 +24,7 @@ const gendir = joinpath(@__DIR__, "src", "generated")
 mkpath(gendir)
 
 generated = map(literate_examples) do inputfile
-    outfile = Literate.markdown(inputfile, gendir; mdstrings = true)
+    outfile = Literate.markdown(inputfile, gendir)
     relpath(outfile, joinpath(@__DIR__, "src"))
 end
 examples = vcat(
@@ -55,7 +58,7 @@ examples = vcat(
         ],
         "benchmarks.md",
     ],
-    # doctest = true,
+    doctest = true,
     # linkcheck = true,
     linkcheck_ignore = [
         # This URL is correct, but gets incorrectly flagged by linkcheck.
@@ -64,9 +67,6 @@ examples = vcat(
     # checkdocs = :all,
 )
 
-# Documenter can also automatically deploy documentation to gh-pages.
-# See "Hosting Documentation" and deploydocs() in the Documenter manual
-# for more information.
 deploydocs(
     repo = "github.com/jipolanco/PencilFFTs.jl",
     forcepush = true,
