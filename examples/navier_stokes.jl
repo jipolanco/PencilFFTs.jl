@@ -79,27 +79,21 @@ summary(v⃗₀[1])
 #
 # To set the initial condition, each MPI process needs to know which portion of
 # the physical grid it has been attributed.
-# The indices of the grid portion attributed to the local process are obtained
-# using [`range_local`](https://jipolanco.github.io/PencilArrays.jl/stable/PencilArrays/#PencilArrays.Pencils.range_local-Tuple{Union{PencilArray,%20Union{Tuple{Vararg{A}},%20AbstractArray{A}}%20where%20A%3C:PencilArray}}):
+# For this, PencilArrays.jl includes a
+# [`localgrid`](https://jipolanco.github.io/PencilArrays.jl/dev/LocalGrids/#PencilArrays.LocalGrids.localgrid)
+# helper function:
 
-inds_local_phys = range_local(v⃗₀[1])
+grid = localgrid(pen, xs_global)
 
-# Then, the local grid can be obtained as:
-
-xs_local = getindex.(xs_global, inds_local_phys)
-
-# Finally, we can initialise the velocity field:
+# We can use this to initialise the velocity field:
 
 u₀ = 1.0
 k₀ = 2π / Ls[1]  # should be integer if L = 2π (to preserve periodicity)
 
-for I ∈ CartesianIndices(v⃗₀[1])
-    x, y, z = getindex.(xs_local, Tuple(I))
-    vx, vy, vz = v⃗₀
-    vx[I] =  u₀ * sin(k₀ * x) * cos(k₀ * y) * cos(k₀ * z)
-    vy[I] = -u₀ * cos(k₀ * x) * sin(k₀ * y) * cos(k₀ * z)
-    vz[I] =  0
-end
+@. v⃗₀[1] =  u₀ * sin(k₀ * grid.x) * cos(k₀ * grid.y) * cos(k₀ * grid.z)
+@. v⃗₀[2] = -u₀ * cos(k₀ * grid.x) * sin(k₀ * grid.y) * cos(k₀ * grid.z)
+@. v⃗₀[3] =  0
+nothing # hide
 
 # Let's plot a 2D slice of the velocity field managed by the local MPI process:
 
@@ -122,6 +116,7 @@ end
 let fig = Figure(resolution = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
     vnorm = vecnorm(v⃗₀)
+    xs_local = LocalGrids.components(grid)
     ## ct = contour!(
     ##     ax, xs_local..., vnorm;
     ##     alpha = 0.04, levels = 0:0.25:1,
@@ -201,14 +196,10 @@ pencil(v̂s[1])
 #
 # To solve the Navier--Stokes equations in Fourier space, we will also need the
 # respective wave numbers ``\bm{k}`` associated to the local MPI process.
-# Similarly to the local grid points, these are obtained using the `range_local`
+# Similarly to the local grid points, these are obtained using the `localgrid`
 # function:
 
-inds_local_fourier = range_local(v̂s[1])
-
-#
-
-ks_local = getindex.(ks_global, inds_local_fourier)
+grid_fourier = localgrid(v̂s[1], ks_global)
 
 # ## Computing the non-linear term
 #
@@ -248,20 +239,23 @@ using LinearAlgebra: mul!, ldiv!  # for applying FFT plans in-place
 
 ## Compute non-linear term in Fourier space from velocity field in physical
 ## space. Optional keyword arguments may be passed to avoid allocations.
-function ns_nonlinear!(F̂s, vs, plan, ks; vbuf = similar(vs[1]), v̂buf = similar(F̂s[1]))
+function ns_nonlinear!(
+        F̂s, vs, plan, grid_fourier;
+        vbuf = similar(vs[1]), v̂buf = similar(F̂s[1]),
+    )
     ## Compute F_i = ∂_j (v_i v_j) for each i.
     ## In Fourier space: F̂_i = im * k_j * FFT(v_i * v_j)
     w, ŵ = vbuf, v̂buf
-    for (i, F̂i) ∈ enumerate(F̂s)
+    @inbounds for (i, F̂i) ∈ enumerate(F̂s)
         F̂i .= 0
         vi = vs[i]
         for (j, vj) ∈ enumerate(vs)
-            w .= vi .* vj  # w = v_i * v_j in physical space
-            mul!(ŵ, plan, w)  # ŵ = same in Fourier space
+            w .= vi .* vj     # w = v_i * v_j in physical space
+            mul!(ŵ, plan, w)  # same in Fourier space
             ## Add derivative in Fourier space
-            kjs = ks[j]
-            for I ∈ CartesianIndices(ŵ)
-                kj = kjs[I[j]]
+            for I ∈ eachindex(grid_fourier)
+                k⃗ = grid_fourier[I]  # = (kx, ky, kz)
+                kj = k⃗[j]
                 F̂i[I] += im * kj * ŵ[I]
             end
         end
@@ -272,21 +266,23 @@ end
 # As an example, we may use this function on our initial velocity field:
 
 F̂s = similar.(v̂s)
-ns_nonlinear!(F̂s, v⃗₀, plan, ks_local);
+ns_nonlinear!(F̂s, v⃗₀, plan, grid_fourier);
 
 # Strictly speaking, computing the non-linear term by collocation can lead to
 # [aliasing
-# errors](https://en.wikipedia.org/wiki/Aliasing#Sampling_sinusoidal_functions).
+# errors](https://en.wikipedia.org/wiki/Aliasing#Sampling_sinusoidal_functions),
+# as the quadratic term generates Fourier modes that fall beyond the range of
+# resolved wave numbers.
 # The typical solution is to apply Orzsag's 2/3 rule to zero-out the Fourier
 # coefficients associated to the highest wave numbers.
 # We define a function that applies this procedure below.
 
-function dealias_twothirds!(ŵs::Tuple, ks, ks_global)
+function dealias_twothirds!(ŵs::Tuple, grid_fourier, ks_global)
     ks_max = maximum.(abs, ks_global)  # maximum stored wave numbers (kx_max, ky_max, kz_max)
     ks_lim = (2 / 3) .* ks_max
-    for I ∈ CartesianIndices(ŵs[1])
-        kI = getindex.(ks, Tuple(I))
-        if any(abs.(kI) .> ks_lim)
+    @inbounds for I ∈ eachindex(grid_fourier)
+        k⃗ = grid_fourier[I]
+        if any(abs.(k⃗) .> ks_lim)
             for ŵ ∈ ŵs
                 ŵ[I] = 0
             end
@@ -296,16 +292,16 @@ function dealias_twothirds!(ŵs::Tuple, ks, ks_global)
 end
 
 ## We can apply this on the previously computed non-linear term:
-dealias_twothirds!(F̂s, ks_local, ks_global);
+dealias_twothirds!(F̂s, grid_fourier, ks_global);
 
 # Finally, we implement the projection associated to the incompressibility
 # condition:
 
-function project_divergence_free!(ŵs, ûs, ks)
-    for (i, ŵ) ∈ enumerate(ŵs)
+function project_divergence_free!(ŵs, ûs, grid_fourier)
+    @inbounds for (i, ŵ) ∈ enumerate(ŵs)
         ûi = ûs[i]
-        for I ∈ CartesianIndices(ŵ)
-            k⃗ = getindex.(ks, Tuple(I))  # = (kx, ky, kz)
+        for I ∈ eachindex(grid_fourier)
+            k⃗ = grid_fourier[I]  # = (kx, ky, kz)
             k² = sum(abs2, k⃗)
             iszero(k²) && continue  # avoid division by zero
             wtmp = ûi[I]
@@ -319,13 +315,13 @@ function project_divergence_free!(ŵs, ûs, ks)
 end
 
 F̂s_divfree = similar.(F̂s)
-project_divergence_free!(F̂s_divfree, F̂s, ks_local);
+project_divergence_free!(F̂s_divfree, F̂s, grid_fourier);
 
 # We can verify the correctness of the projection operator by checking that the
 # initial velocity field is not modified by it, since it is already
 # incompressible:
 
-v̂s_proj = project_divergence_free!(similar.(v̂s), v̂s, ks_local)
+v̂s_proj = project_divergence_free!(similar.(v̂s), v̂s, grid_fourier)
 v̂s_proj .≈ v̂s
 
 # ## Putting it all together
@@ -346,20 +342,20 @@ function ns_rhs!(
     map((v, v̂) -> ldiv!(v, plan, v̂), vs, v̂s)
 
     ## 2. Compute non-linear term and dealias it
-    ks = p.ks_local
+    grid_fourier = p.grid_fourier
     ks_global = p.ks_global
     F̂s = cache.F̂s
-    ns_nonlinear!(F̂s, vs, plan, ks; vbuf = cache.vtmp, v̂buf = cache.v̂tmp)
-    dealias_twothirds!(F̂s, ks, ks_global)
+    ns_nonlinear!(F̂s, vs, plan, grid_fourier; vbuf = cache.vtmp, v̂buf = cache.v̂tmp)
+    dealias_twothirds!(F̂s, grid_fourier, ks_global)
 
     ## 3. Project into divergence-free space
-    project_divergence_free!(dv̂s, F̂s, ks)
+    project_divergence_free!(dv̂s, F̂s, grid_fourier)
 
     ## 4. Add viscous term (and multiply projected NL term by -1)
     ν = p.ν
     map(dv̂s, v̂s) do dv̂, v̂
-        for I ∈ CartesianIndices(dv̂)
-            k⃗ = getindex.(ks, Tuple(I))  # = (kx, ky, kz)
+        @inbounds for I ∈ eachindex(grid_fourier)
+            k⃗ = grid_fourier[I]  # = (kx, ky, kz)
             k² = sum(abs2, k⃗)
             dv̂[I] = -dv̂[I] - im * ν * k² * v̂[I]
         end
@@ -378,7 +374,7 @@ using StaticArrays: SVector
 ## Solver parameters and temporary variables
 params = (;
     ν = 1.0,  # kinematic viscosity
-    plan, ks_local, ks_global,
+    plan, grid_fourier, ks_global,
     cache = (
         vs = similar.(v⃗₀),
         F̂s = similar.(v̂s),
@@ -393,21 +389,22 @@ v̂s_init = plan .* v⃗₀
 # Since DifferentialEquations.jl can't directly deal with tuples of arrays, we
 # convert the input data to `StructArray{SVector{3, ComplexF64}}`.
 
+to_structarray(vs::NTuple{N, A}) where {N, A <: AbstractArray} =
+    StructArray{SVector{N, eltype(A)}}(vs)
+
+v̂s_init_ode = to_structarray(v̂s_init)
+summary(v̂s_init_ode)
+
+# We also need to define a couple of interface functions to make things work
+# with DifferentialEquations.
+
+ns_rhs!(dv::StructArray, v::StructArray, args...) =
+    ns_rhs!(components(dv), components(v), args...)
+
 ## This is also needed for the DifferentialEquations interface.
 ## TODO should this be defined in PencilArrays.jl?
 Base.similar(us::StructArray{T, <:Any, <:Tuple{Vararg{PencilArray}}}) where {T} =
     StructArray{T}(map(similar, components(us))) :: typeof(us)
-
-to_structarray(vs::NTuple{N, A}) where {N, A <: AbstractArray} =
-    StructArray{SVector{N, eltype(A)}}(vs)
-v̂s_init_ode = to_structarray(v̂s_init)
-summary(v̂s_init_ode)
-
-# We also need to define a glue function taking `StructArray`s and initialise
-# the ODE problem.
-
-ns_rhs!(dv::StructArray, v::StructArray, args...) =
-    ns_rhs!(components(dv), components(v), args...)
 
 prob = ODEProblem(ns_rhs!, v̂s_init_ode, tspan, params)
 integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);
@@ -423,7 +420,7 @@ fig = let
         fig[1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
         aspect = DataAspect(), xlabel = "x", ylabel = "y",
     )
-    xs, ys = xs_local[1], xs_local[2]
+    xs, ys = grid[1], grid[2]
     slice = (:, :, 1)
     v_slices = @lift view.($v⃗_plot, slice...)
     v_norm = @lift vec(@. sqrt($v_slices[1]^2 + $v_slices[2]^2 + $v_slices[3]^2))
@@ -461,12 +458,10 @@ record(fig, "velocity_proc$procid.mp4"; framerate = 10) do io
     end
 end;
 
-md"""
-```@raw html
-<figure class="video_container">
-  <video controls="true" allowfullscreen="true">
-    <source src="velocity_proc1.mp4" type="video/mp4">
-  </video>
-</figure>
-```
-"""
+# #md ```@raw html
+# #md <figure class="video_container">
+# #md   <video controls="true" allowfullscreen="true">
+# #md     <source src="velocity_proc1.mp4" type="video/mp4">
+# #md   </video>
+# #md </figure>
+# #md ```
