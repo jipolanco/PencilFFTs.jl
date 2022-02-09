@@ -52,6 +52,8 @@ data has type `T`.
         timer = TimerOutput(),
     )
 
+    PencilFFTPlan(p::Pencil, transforms; kwargs...)
+
 Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
 
 # Extended help
@@ -59,6 +61,9 @@ Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
 This creates a `PencilFFTPlan` for arrays sharing the same properties as `A`
 (dimensions, MPI decomposition, memory layout, ...), which describe data on an
 `N`-dimensional domain.
+
+Alternatively, the second form creates a `PencilFFTPlan` for distributed arrays
+following a given [`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.Pencil) configuration.
 
 ## Transforms
 
@@ -96,8 +101,6 @@ The input `PencilArray` must satisfy the following constraints:
 
   In the PencilArrays package, the decomposed dimensions are specified
   at the moment of constructing a [`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.Pencil).
-  Starting from PencilArrays v0.6, the last `M` dimensions are decomposed by
-  default.
 
 - the element type must be compatible with the specified transform. For
   instance, real-to-complex transforms (`Transforms.RFFT`) require the input to
@@ -137,8 +140,8 @@ Create plan for N-dimensional transform.
 
 # Extended help
 
-Instead of taking a `PencilArray`, this constructor requires the global
-dimensions of the input data, passed via the `size_global` argument.
+Instead of taking a `PencilArray` or a `Pencil`, this constructor requires the
+global dimensions of the input data, passed via the `size_global` argument.
 
 The data is distributed over the MPI processes in the `comm` communicator.
 The distribution is performed over `M` dimensions (with `M < N`) according to
@@ -278,29 +281,33 @@ struct PencilFFTPlan{
 end
 
 function PencilFFTPlan(
-        dims_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
-        proc_dims::Dims{Nd}, comm::MPI.Comm, ::Type{Tr} = Float64;
-        extra_dims::Dims{Ne} = (),
-        timer = TimerOutput(),
-        ibuf = UInt8[],
-        kws...,
-    ) where {Nt, Nd, Ne, Tr <: FFTReal}
-    t = MPITopology(comm, proc_dims)
-    pen = _make_input_pencil(dims_global, t, timer)
+        pen::Pencil{Nt}, transforms::AbstractTransformList{Nt}, ::Type{Tr} = Float64;
+        extra_dims::Dims = (), timer = TimerOutput(), ibuf = UInt8[], kws...,
+    ) where {Nt, Tr <: FFTReal}
     T = _input_data_type(Tr, transforms...)
     A = _temporary_pencil_array(T, pen, ibuf, extra_dims)
     PencilFFTPlan(A, transforms; timer = timer, ibuf = ibuf, kws...)
 end
 
-function PencilFFTPlan(A, transform::AbstractTransform,
-                       args...; kws...)
+function PencilFFTPlan(
+        dims_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
+        proc_dims::Dims, comm::MPI.Comm, ::Type{Tr} = Float64;
+        timer = TimerOutput(), kws...,
+    ) where {Nt, Tr}
+    t = MPITopology(comm, proc_dims)
+    pen = _make_input_pencil(dims_global, t, timer)
+    PencilFFTPlan(pen, transforms, Tr; timer = timer, kws...)
+end
+
+function PencilFFTPlan(A, transform::AbstractTransform, args...; kws...)
     N = _ndims_transformable(A)
     transforms = expand_dims(transform, Val(N))
     PencilFFTPlan(A, transforms, args...; kws...)
 end
 
 @inline _ndims_transformable(dims::Dims) = length(dims)
-@inline _ndims_transformable(A::PencilArray) = ndims(pencil(A))
+@inline _ndims_transformable(p::Pencil) = ndims(p)
+@inline _ndims_transformable(A::PencilArray) = _ndims_transformable(pencil(A))
 
 """
     Transforms.is_inplace(p::PencilFFTPlan)
