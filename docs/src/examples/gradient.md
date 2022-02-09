@@ -40,7 +40,6 @@ using MPI
 using PencilFFTs
 using Random
 
-MPI.Initialized() ||  # hide
 MPI.Init()
 
 # Input data dimensions (Nx × Ny × Nz)
@@ -49,14 +48,15 @@ dims = (64, 32, 64)
 # Apply a 3D real-to-complex (r2c) FFT.
 transform = Transforms.RFFT()
 
-# MPI topology information
-comm = MPI.COMM_WORLD  # we assume MPI.Comm_size(comm) == 12
-proc_dims = (3, 4)     # 3 processes along `y`, 4 along `z`
-proc_dims = (1, 1) # (the example actually runs on 1 process...) # hide
+# Automatically create decomposition configuration
+comm = MPI.COMM_WORLD
+pen = Pencil(dims, comm)
 
 # Create plan
-plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+plan = PencilFFTPlan(pen, transform)
+```
 
+```@example gradient
 # Allocate data and initialise field
 θ = allocate_input(plan)
 randn!(θ)
