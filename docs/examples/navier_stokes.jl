@@ -27,7 +27,7 @@ MPI.Init()
 comm = MPI.COMM_WORLD
 
 ## Simulation parameters
-Ns = (32, 32, 32)  # = (Nx, Ny, Nz)
+Ns = (64, 64, 64)  # = (Nx, Ny, Nz)
 Ls = (2π, 2π, 2π)  # = (Lx, Ly, Lz)
 
 ## Collocation points ("global" = over all processes).
@@ -98,7 +98,6 @@ nothing # hide
 # Let's plot a 2D slice of the velocity field managed by the local MPI process:
 
 using GLMakie
-using GLMakie.Makie.GeometryBasics
 
 ## Compute the norm of a vector field represented by a tuple of arrays.
 function vecnorm(v⃗::NTuple)
@@ -116,19 +115,12 @@ end
 let fig = Figure(resolution = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
     vnorm = vecnorm(v⃗₀)
-    xs_local = LocalGrids.components(grid)
-    ## ct = contour!(
-    ##     ax, xs_local..., vnorm;
-    ##     alpha = 0.04, levels = 0:0.25:1,
-    ##     colormap = :viridis, colorrange = extrema(vnorm),
-    ## )
-    ct = volume!(
-        ax, xs_local..., vnorm;
-        transparency = true,
+    ct = contour!(
+        ax, grid.x, grid.y, grid.z, vnorm;
+        alpha = 0.2, levels = 4,
+        colormap = :viridis, colorrange = (0.0, 1.0),
     )
-    ## Colorbar(fig[1, 2], ct; label = "Velocity magnitude")
-    ## Plot global domain limits
-    ## mesh!(ax, HyperRectangle(0, 0, 0, Ls[1], Ls[2], Ls[3]); strokewidth = 1, color = RGBAf(0, 0, 0, 0))
+    cb = Colorbar(fig[1, 2], ct; label = "Velocity magnitude")
     fig
 end
 
@@ -200,6 +192,49 @@ pencil(v̂s[1])
 # function:
 
 grid_fourier = localgrid(v̂s[1], ks_global)
+
+# As an example, let's first use this to compute and plot the vorticity
+# associated to the initial condition.
+# The vorticity is defined as the curl of the velocity,
+# ``\bm{ω} = \bm{∇} × \bm{v}``.
+# In Fourier space, this becomes ``\hat{\bm{ω}} = i \bm{k} × \hat{\bm{v}}``.
+
+using StaticArrays: SVector
+using LinearAlgebra: ×
+
+function curl_fourier!(
+        ω̂s::NTuple{N, <:PencilArray}, v̂s::NTuple{N, <:PencilArray}, grid_fourier,
+    ) where {N}
+    @inbounds for I ∈ eachindex(grid_fourier)
+        ## We use StaticArrays for the cross product between small vectors.
+        ik⃗ = im * SVector(grid_fourier[I])
+        v⃗ = SVector(getindex.(v̂s, Ref(I)))  # = (v̂s[1][I], v̂s[2][I], ...)
+        ω⃗ = ik⃗ × v⃗
+        for n ∈ eachindex(ω⃗)
+            ω̂s[n][I] = ω⃗[n]
+        end
+    end
+    ω̂s
+end
+
+ω̂s = similar.(v̂s)
+curl_fourier!(ω̂s, v̂s, grid_fourier);
+
+# We finally transform back to physical space and plot the result:
+
+ωs = plan .\ ω̂s
+
+let fig = Figure(resolution = (700, 600))
+    ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
+    ω_norm = vecnorm(ωs)
+    ct = contour!(
+        ax, grid.x, grid.y, grid.z, ω_norm;
+        alpha = 0.1, levels = 0.8:0.2:2.0,
+        colormap = :viridis, colorrange = (0.0, 2.5),
+    )
+    cb = Colorbar(fig[1, 2], ct; label = "Vorticity magnitude")
+    fig
+end
 
 # ## Computing the non-linear term
 #
@@ -322,13 +357,13 @@ project_divergence_free!(F̂s_divfree, F̂s, grid_fourier);
 # incompressible:
 
 v̂s_proj = project_divergence_free!(similar.(v̂s), v̂s, grid_fourier)
-v̂s_proj .≈ v̂s
+v̂s_proj .≈ v̂s  # the last one may be false because v_z = 0 initially
 
 # ## Putting it all together
 #
 # To perform the time integration of the Navier--Stokes equations, we will use
 # the timestepping routines implemented in the DifferentialEquations.jl suite.
-# For simpicity, we will use an explicit Runge--Kutta scheme.
+# For simplicity, we use here an explicit Runge--Kutta scheme.
 # In this case, we just need to write a function that computes the right-hand
 # side of the Navier--Stokes equations in Fourier space:
 
@@ -342,8 +377,8 @@ function ns_rhs!(
     map((v, v̂) -> ldiv!(v, plan, v̂), vs, v̂s)
 
     ## 2. Compute non-linear term and dealias it
-    grid_fourier = p.grid_fourier
     ks_global = p.ks_global
+    grid_fourier = p.grid_fourier
     F̂s = cache.F̂s
     ns_nonlinear!(F̂s, vs, plan, grid_fourier; vbuf = cache.vtmp, v̂buf = cache.v̂tmp)
     dealias_twothirds!(F̂s, grid_fourier, ks_global)
@@ -351,13 +386,15 @@ function ns_rhs!(
     ## 3. Project into divergence-free space
     project_divergence_free!(dv̂s, F̂s, grid_fourier)
 
-    ## 4. Add viscous term (and multiply projected NL term by -1)
+    ## 4. Add viscous term (and multiply projected non-linear term by -1)
     ν = p.ν
-    map(dv̂s, v̂s) do dv̂, v̂
+    for n ∈ eachindex(v̂s)
+        v̂ = v̂s[n]
+        dv̂  = dv̂s[n]
         @inbounds for I ∈ eachindex(grid_fourier)
             k⃗ = grid_fourier[I]  # = (kx, ky, kz)
             k² = sum(abs2, k⃗)
-            dv̂[I] = -dv̂[I] - im * ν * k² * v̂[I]
+            dv̂[I] = -dv̂[I] - ν * k² * v̂[I]
         end
     end
 
@@ -369,11 +406,10 @@ end
 
 using OrdinaryDiffEq
 using StructArrays: StructArray, components
-using StaticArrays: SVector
 
 ## Solver parameters and temporary variables
 params = (;
-    ν = 1.0,  # kinematic viscosity
+    ν = 0.1,  # kinematic viscosity
     plan, grid_fourier, ks_global,
     cache = (
         vs = similar.(v⃗₀),
@@ -384,10 +420,11 @@ params = (;
 )
 
 tspan = (0.0, 1.0)
-v̂s_init = plan .* v⃗₀
+v̂s_init = plan .* v⃗₀;
 
 # Since DifferentialEquations.jl can't directly deal with tuples of arrays, we
-# convert the input data to `StructArray{SVector{3, ComplexF64}}`.
+# convert the input data to `StructArray{SVector{3, ComplexF64}}`, which is
+# understood by DifferentialEquations.
 
 to_structarray(vs::NTuple{N, A}) where {N, A <: AbstractArray} =
     StructArray{SVector{N, eltype(A)}}(vs)
@@ -395,8 +432,7 @@ to_structarray(vs::NTuple{N, A}) where {N, A <: AbstractArray} =
 v̂s_init_ode = to_structarray(v̂s_init)
 summary(v̂s_init_ode)
 
-# We also need to define a couple of interface functions to make things work
-# with DifferentialEquations.
+# We also need to define a couple of interface functions to make things work:
 
 ns_rhs!(dv::StructArray, v::StructArray, args...) =
     ns_rhs!(components(dv), components(v), args...)
@@ -406,62 +442,97 @@ ns_rhs!(dv::StructArray, v::StructArray, args...) =
 Base.similar(us::StructArray{T, <:Any, <:Tuple{Vararg{PencilArray}}}) where {T} =
     StructArray{T}(map(similar, components(us))) :: typeof(us)
 
+## Initialise problem
 prob = ODEProblem(ns_rhs!, v̂s_init_ode, tspan, params)
 integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);
 
-# We finally solve the problem over time and plot the solution.
+# We finally solve the problem over time and plot the vorticity associated to
+# the solution.
+# It is also useful to look at the energy spectrum ``E(k)``, to see if the small
+# scales are correctly resolved.
+# In practice, the viscosity ``ν`` must be high enough to avoid blow-up, but
+# while enough to allow the transient appearance of an energy cascade towards
+# the small scales.
 
-v⃗_plot = Observable(plan .\ components(integrator.u))
+function energy_spectrum!(Ek, ks, v̂s, grid_fourier)
+    Nk = length(Ek)
+    @assert Nk == length(ks)
+    Ek .= 0
+    for I ∈ eachindex(grid_fourier)
+        k⃗ = grid_fourier[I]  # = (kx, ky, kz)
+        knorm = sqrt(sum(abs2, k⃗))
+        i = searchsortedfirst(ks, knorm)
+        i > Nk && continue
+        v⃗ = getindex.(v̂s, Ref(I))  # = (v̂s[1][I], v̂s[2][I], ...)
+        factor = k⃗[1] == 0 ? 2 : 1  # account for Hermitian symmetry and r2c transform
+        Ek[i] += factor * sum(abs2, v⃗)
+    end
+    MPI.Allreduce!(Ek, +, get_comm(v̂s[1]))  # sum across all processes
+    Ek
+end
+
+ks = rfftfreq(Ns[1], 2π * Ns[1] / Ls[1])
+Ek = similar(ks)
+energy_spectrum!(Ek, ks, components(integrator.u), grid_fourier)
+Ek ./= scale_factor(plan)^2  # rescale energy
+
+curl_fourier!(ω̂s, components(integrator.u), grid_fourier)
+ldiv!.(ωs, plan, ω̂s)
+ω⃗_plot = Observable(ωs)
+k_plot = @view ks[2:end]
+E_plot = Observable(@view Ek[2:end])
 t_plot = Observable(integrator.t)
 
 fig = let
-    fig = Figure(resolution = (700, 600))
-    ax = Axis(
-        fig[1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
-        aspect = DataAspect(), xlabel = "x", ylabel = "y",
+    fig = Figure(resolution = (1200, 600))
+    ax = Axis3(
+        fig[1, 1][1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
+        aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z",
     )
-    xs, ys = grid[1], grid[2]
-    slice = (:, :, 1)
-    v_slices = @lift view.($v⃗_plot, slice...)
-    v_norm = @lift vec(@. sqrt($v_slices[1]^2 + $v_slices[2]^2 + $v_slices[3]^2))
-    vx = @lift $v_slices[1]
-    vy = @lift $v_slices[2]
-    vz = @lift $v_slices[3]
-    ar = arrows!(
-        ax, xs, ys, vx, vy;
-        arrowcolor = v_norm, linecolor = v_norm,
-        arrowsize = 5, lengthscale = 0.3,
-        colormap = :viridis, colorrange = (0.0, 1.0),
+    ω_norm = @lift vecnorm($ω⃗_plot)
+    ω_max = @lift maximum($ω_norm)
+    ct = contour!(
+        ax, grid.x, grid.y, grid.z, ω_norm;
+        alpha = 0.2, levels = 5,
+        colormap = :viridis, colorrange = (0.1, 2.0),
     )
-    ## cb = contour!(
-    ##     ax, xs, ys, vz;
-    ##     colormap = :RdBu, levels = -0.025:0.01:0.025,
-    ##     linewidth = 4,
-    ##     extendlow = :auto, extendhigh = :auto,
-    ## )
-    Colorbar(fig[1, 2], ar; label = "Velocity magnitude")
-    ## Plot global domain limits
-    poly!(ax, Rect(0, 0, Ls[1], Ls[2]); strokewidth = 1, color = RGBAf(0, 0, 0, 0))
+    cb = Colorbar(fig[1, 1][1, 2], ct; label = "Vorticity magnitude")
+    ax_sp = Axis(
+        fig[1, 2];
+        xlabel = "k", ylabel = "E(k)", xscale = log2, yscale = log10,
+        title = "Kinetic energy spectrum",
+    )
+    ylims!(ax_sp, 1e-10, 1e0)
+    scatterlines!(ax_sp, k_plot, E_plot)
+    ks_slope = exp.(range(log(2.5), log(k_plot[end]), length = 3))
+    E_fivethirds = @. 0.3 * ks_slope^(-5/3)
+    @views lines!(ax_sp, ks_slope, E_fivethirds; color = :black, linestyle = :dot)
+    text!(ax_sp, L"k^{-5/3}"; position = (ks_slope[2], E_fivethirds[2]), align = (:left, :bottom))
     fig
 end
 
 procid = MPI.Comm_rank(comm) + 1
 
-record(fig, "velocity_proc$procid.mp4"; framerate = 10) do io
-    while integrator.t ≤ 2.0
-        dt = 0.01
+record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
+    while true
+        dt = 0.001
         step!(integrator, dt)
         t_plot[] = integrator.t
-        ldiv!.(v⃗_plot[], plan, components(integrator.u))
-        v⃗_plot[] = v⃗_plot[]  # to force updating the plot
+        curl_fourier!(ω̂s, components(integrator.u), grid_fourier)
+        ldiv!.(ω⃗_plot[], plan, ω̂s)
+        ω⃗_plot[] = ω⃗_plot[]  # to force updating the plot
+        energy_spectrum!(Ek, ks, components(integrator.u), grid_fourier)
+        Ek ./= scale_factor(plan)^2  # rescale energy
+        E_plot[] = E_plot[]
         recordframe!(io)
+        integrator.t ≥ 2 && break
     end
 end;
 
-# #md ```@raw html
-# #md <figure class="video_container">
-# #md   <video controls="true" allowfullscreen="true">
-# #md     <source src="velocity_proc1.mp4" type="video/mp4">
-# #md   </video>
-# #md </figure>
-# #md ```
+# ```@raw html
+# <figure class="video_container">
+#   <video controls="true" allowfullscreen="true">
+#     <source src="vorticity_proc1.mp4" type="video/mp4">
+#   </video>
+# </figure>
+# ```

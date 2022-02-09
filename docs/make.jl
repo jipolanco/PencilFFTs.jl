@@ -17,7 +17,7 @@ DocMeta.setdocmeta!(
 )
 
 literate_examples = [
-    joinpath(@__DIR__, "..", "examples", "navier_stokes.jl"),
+    joinpath(@__DIR__, "examples", "navier_stokes.jl"),
 ]
 
 const gendir = joinpath(@__DIR__, "src", "generated")
