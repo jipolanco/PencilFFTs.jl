@@ -332,31 +332,28 @@ dealias_twothirds!(F̂s, grid_fourier, ks_global);
 # Finally, we implement the projection associated to the incompressibility
 # condition:
 
-function project_divergence_free!(ŵs, ûs, grid_fourier)
-    @inbounds for (i, ŵ) ∈ enumerate(ŵs)
-        ûi = ûs[i]
-        for I ∈ eachindex(grid_fourier)
-            k⃗ = grid_fourier[I]  # = (kx, ky, kz)
-            k² = sum(abs2, k⃗)
-            iszero(k²) && continue  # avoid division by zero
-            wtmp = ûi[I]
-            for (j, ûj) ∈ enumerate(ûs)
-                wtmp += k⃗[i] * k⃗[j] * ûj[I] / k²
+function project_divergence_free!(ûs, grid_fourier)
+    @inbounds for I ∈ eachindex(grid_fourier)
+        k⃗ = SVector(grid_fourier[I])
+        k² = sum(abs2, k⃗)
+        iszero(k²) && continue  # avoid division by zero
+        û = getindex.(ûs, Ref(I))  # (ûs[1][I], ûs[2][I], ...)
+        for i ∈ eachindex(û)
+            ŵ = û[i]
+            for j ∈ eachindex(û)
+                ŵ -= k⃗[i] * k⃗[j] * û[j] / k²
             end
-            ŵ[I] = wtmp
+            ûs[i][I] = ŵ
         end
     end
-    ŵs
+    ûs
 end
-
-F̂s_divfree = similar.(F̂s)
-project_divergence_free!(F̂s_divfree, F̂s, grid_fourier);
 
 # We can verify the correctness of the projection operator by checking that the
 # initial velocity field is not modified by it, since it is already
 # incompressible:
 
-v̂s_proj = project_divergence_free!(similar.(v̂s), v̂s, grid_fourier)
+v̂s_proj = project_divergence_free!(copy.(v̂s), grid_fourier)
 v̂s_proj .≈ v̂s  # the last one may be false because v_z = 0 initially
 
 # ## Putting it all together
@@ -368,91 +365,77 @@ v̂s_proj .≈ v̂s  # the last one may be false because v_z = 0 initially
 # side of the Navier--Stokes equations in Fourier space:
 
 function ns_rhs!(
-        dv̂s::NTuple{N, <:PencilArray}, v̂s::NTuple{N, <:PencilArray}, p, t,
+        dvs::NTuple{N, <:PencilArray}, vs::NTuple{N, <:PencilArray}, p, t,
     ) where {N}
-    ## 1. Transform velocity to physical space
-    plan = p.plan
-    cache = p.cache
-    vs = cache.vs
-    map((v, v̂) -> ldiv!(v, plan, v̂), vs, v̂s)
-
-    ## 2. Compute non-linear term and dealias it
-    ks_global = p.ks_global
-    grid_fourier = p.grid_fourier
+    ## 1. Compute non-linear term and dealias it
+    (; plan, cache, ks_global, grid_fourier) = p
     F̂s = cache.F̂s
-    ns_nonlinear!(F̂s, vs, plan, grid_fourier; vbuf = cache.vtmp, v̂buf = cache.v̂tmp)
+    ns_nonlinear!(F̂s, vs, plan, grid_fourier; vbuf = dvs[1], v̂buf = cache.v̂s[1])
     dealias_twothirds!(F̂s, grid_fourier, ks_global)
 
-    ## 3. Project into divergence-free space
-    project_divergence_free!(dv̂s, F̂s, grid_fourier)
+    ## 2. Project onto divergence-free space
+    project_divergence_free!(F̂s, grid_fourier)
+
+    ## 3. Transform velocity to Fourier space
+    v̂s = cache.v̂s
+    map((v, v̂) -> mul!(v̂, plan, v), vs, v̂s)
 
     ## 4. Add viscous term (and multiply projected non-linear term by -1)
     ν = p.ν
     for n ∈ eachindex(v̂s)
         v̂ = v̂s[n]
-        dv̂  = dv̂s[n]
+        F̂ = F̂s[n]
         @inbounds for I ∈ eachindex(grid_fourier)
             k⃗ = grid_fourier[I]  # = (kx, ky, kz)
             k² = sum(abs2, k⃗)
-            dv̂[I] = -dv̂[I] - ν * k² * v̂[I]
+            F̂[I] = -F̂[I] - ν * k² * v̂[I]
         end
     end
+
+    ## 5. Transform RHS back to physical space
+    map((dv, dv̂) -> ldiv!(dv, plan, dv̂), dvs, F̂s)
 
     nothing
 end
 
 # For the time-stepping, we load OrdinaryDiffEq.jl from the
 # DifferentialEquations.jl suite and set-up the simulation.
+# Since DifferentialEquations.jl can't directly deal with tuples of arrays, we
+# convert the input data to the
+# [`ArrayPartition`](https://github.com/SciML/RecursiveArrayTools.jl#arraypartition)
+# type and write an interface function to make things work with our functions
+# defined above.
 
 using OrdinaryDiffEq
-using StructArrays: StructArray, components
+using RecursiveArrayTools: ArrayPartition
 
-## Solver parameters and temporary variables
+ns_rhs!(dv::ArrayPartition, v::ArrayPartition, args...) = ns_rhs!(dv.x, v.x, args...)
+vs_init_ode = ArrayPartition(v⃗₀)
+summary(vs_init_ode)
+
+# We now define solver parameters and temporary variables, and initialise the
+# problem:
+
 params = (;
-    ν = 0.1,  # kinematic viscosity
+    ν = 5e-3,  # kinematic viscosity
     plan, grid_fourier, ks_global,
     cache = (
-        vs = similar.(v⃗₀),
+        v̂s = similar.(v̂s),
         F̂s = similar.(v̂s),
-        vtmp = similar(v⃗₀[1]),
-        v̂tmp = similar(v̂s[1]),
     )
 )
 
-tspan = (0.0, 1.0)
-v̂s_init = plan .* v⃗₀;
-
-# Since DifferentialEquations.jl can't directly deal with tuples of arrays, we
-# convert the input data to `StructArray{SVector{3, ComplexF64}}`, which is
-# understood by DifferentialEquations.
-
-to_structarray(vs::NTuple{N, A}) where {N, A <: AbstractArray} =
-    StructArray{SVector{N, eltype(A)}}(vs)
-
-v̂s_init_ode = to_structarray(v̂s_init)
-summary(v̂s_init_ode)
-
-# We also need to define a couple of interface functions to make things work:
-
-ns_rhs!(dv::StructArray, v::StructArray, args...) =
-    ns_rhs!(components(dv), components(v), args...)
-
-## This is also needed for the DifferentialEquations interface.
-## TODO should this be defined in PencilArrays.jl?
-Base.similar(us::StructArray{T, <:Any, <:Tuple{Vararg{PencilArray}}}) where {T} =
-    StructArray{T}(map(similar, components(us))) :: typeof(us)
-
-## Initialise problem
-prob = ODEProblem(ns_rhs!, v̂s_init_ode, tspan, params)
+tspan = (0.0, 10.0)
+prob = ODEProblem(ns_rhs!, vs_init_ode, tspan, params)
 integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);
 
 # We finally solve the problem over time and plot the vorticity associated to
 # the solution.
 # It is also useful to look at the energy spectrum ``E(k)``, to see if the small
 # scales are correctly resolved.
-# In practice, the viscosity ``ν`` must be high enough to avoid blow-up, but
-# while enough to allow the transient appearance of an energy cascade towards
-# the small scales.
+# To have turbulence, the viscosity ``ν`` must be high enough to allow the small
+# scales to be correctly resolved, while small enough to allow the transient
+# appearance of a turbulent energy cascade towards the small scales.
 
 function energy_spectrum!(Ek, ks, v̂s, grid_fourier)
     Nk = length(Ek)
@@ -473,10 +456,11 @@ end
 
 ks = rfftfreq(Ns[1], 2π * Ns[1] / Ls[1])
 Ek = similar(ks)
-energy_spectrum!(Ek, ks, components(integrator.u), grid_fourier)
+v̂s = plan .* integrator.u.x
+energy_spectrum!(Ek, ks, v̂s, grid_fourier)
 Ek ./= scale_factor(plan)^2  # rescale energy
 
-curl_fourier!(ω̂s, components(integrator.u), grid_fourier)
+curl_fourier!(ω̂s, v̂s, grid_fourier)
 ldiv!.(ωs, plan, ω̂s)
 ω⃗_plot = Observable(ωs)
 k_plot = @view ks[2:end]
@@ -489,22 +473,22 @@ fig = let
         fig[1, 1][1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
         aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z",
     )
-    ω_norm = @lift vecnorm($ω⃗_plot)
-    ω_max = @lift maximum($ω_norm)
+    ω_mag = @lift vecnorm($ω⃗_plot)
+    ω_mag_norm = @lift $ω_mag ./ maximum($ω_mag)
     ct = contour!(
-        ax, grid.x, grid.y, grid.z, ω_norm;
-        alpha = 0.2, levels = 5,
-        colormap = :viridis, colorrange = (0.1, 2.0),
+        ax, grid.x, grid.y, grid.z, ω_mag_norm;
+        alpha = 0.3, levels = 3,
+        colormap = :viridis, colorrange = (0.0, 1.0),
     )
-    cb = Colorbar(fig[1, 1][1, 2], ct; label = "Vorticity magnitude")
+    cb = Colorbar(fig[1, 1][1, 2], ct; label = "Normalised vorticity magnitude")
     ax_sp = Axis(
         fig[1, 2];
         xlabel = "k", ylabel = "E(k)", xscale = log2, yscale = log10,
         title = "Kinetic energy spectrum",
     )
-    ylims!(ax_sp, 1e-10, 1e0)
+    ylims!(ax_sp, 1e-8, 1e0)
     scatterlines!(ax_sp, k_plot, E_plot)
-    ks_slope = exp.(range(log(2.5), log(k_plot[end]), length = 3))
+    ks_slope = exp.(range(log(2.5), log(25.0), length = 3))
     E_fivethirds = @. 0.3 * ks_slope^(-5/3)
     @views lines!(ax_sp, ks_slope, E_fivethirds; color = :black, linestyle = :dot)
     text!(ax_sp, L"k^{-5/3}"; position = (ks_slope[2], E_fivethirds[2]), align = (:left, :bottom))
@@ -518,14 +502,15 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
         dt = 0.001
         step!(integrator, dt)
         t_plot[] = integrator.t
-        curl_fourier!(ω̂s, components(integrator.u), grid_fourier)
+        mul!.(v̂s, plan, integrator.u.x)  # current velocity in Fourier space
+        curl_fourier!(ω̂s, v̂s, grid_fourier)
         ldiv!.(ω⃗_plot[], plan, ω̂s)
         ω⃗_plot[] = ω⃗_plot[]  # to force updating the plot
-        energy_spectrum!(Ek, ks, components(integrator.u), grid_fourier)
+        energy_spectrum!(Ek, ks, v̂s, grid_fourier)
         Ek ./= scale_factor(plan)^2  # rescale energy
         E_plot[] = E_plot[]
         recordframe!(io)
-        integrator.t ≥ 2 && break
+        integrator.t ≥ 20 && break
     end
 end;
 
