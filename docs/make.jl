@@ -70,4 +70,5 @@ examples = vcat(
 deploydocs(
     repo = "github.com/jipolanco/PencilFFTs.jl",
     forcepush = true,
+    push_preview = true,  # PRs deploy at https://jipolanco.github.io/PencilFFTs.jl/previews/PR##
 )
