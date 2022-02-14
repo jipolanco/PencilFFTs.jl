@@ -231,7 +231,7 @@ let fig = Figure(resolution = (700, 600))
     ct = contour!(
         ax, grid.x, grid.y, grid.z, ω_norm;
         alpha = 0.1, levels = 0.8:0.2:2.0,
-        colormap = :viridis, colorrange = (0.0, 2.5),
+        colormap = :viridis, colorrange = (0.8, 2.0),
     )
     cb = Colorbar(fig[1, 2], ct; label = "Vorticity magnitude")
     fig
@@ -434,9 +434,10 @@ integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);
 # the solution.
 # It is also useful to look at the energy spectrum ``E(k)``, to see if the small
 # scales are correctly resolved.
-# To have turbulence, the viscosity ``ν`` must be high enough to allow the small
-# scales to be correctly resolved, while small enough to allow the transient
-# appearance of a turbulent energy cascade towards the small scales.
+# To obtain a turbulent flow, the viscosity ``ν`` must be small enough to allow
+# the transient appearance of an energy cascade towards the small scales (i.e.
+# from small to large ``k``), while high enough to allow the small-scale motions
+# to be correctly resolved.
 
 function energy_spectrum!(Ek, ks, v̂s, grid_fourier)
     Nk = length(Ek)
@@ -499,6 +500,7 @@ end
 using Printf # hide
 with_xvfb = ENV["DISPLAY"] == ":99" # hide
 nstep = 0  # hide
+filename_frame(procid, nstep) = @sprintf("vorticity_proc%d_step%04d.png", procid, nstep) # hide
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
     with_xvfb && recordframe!(io) # hide
     while true
@@ -514,7 +516,7 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
         E_plot[] = E_plot[]
         global nstep += 1  # hide
         with_xvfb ?  # hide
-        save(@sprintf("vorticity_proc%d_step%04d.png", procid, nstep), fig) :  # hide
+        save(filename_frame(procid, nstep), fig) :  # hide
         recordframe!(io)
         integrator.t ≥ 20 && break
     end
@@ -522,7 +524,7 @@ end;
 
 if with_xvfb  # hide
     run(pipeline(`ffmpeg -y -r 10 -i vorticity_proc$(procid)_step%04d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`; stdout = "ffmpeg.out", stderr = "ffmpeg.err"))   # hide
-    foreach(step -> rm(@sprintf("vorticity_proc%d_step%04d.png", procid, nstep)), 1:nstep)  # hide
+    foreach(step -> rm(filename_frame(procid, nstep); force = true), 1:nstep)  # hide
 end  # hide
 nothing  # hide
 
