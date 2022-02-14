@@ -3,7 +3,9 @@ using PencilFFTs
 using Literate
 using MPI
 
-MPI.Init()  # works around weird issue when generating docs locally
+MPI.Init()
+comm = MPI.COMM_WORLD
+rank = MPI.Comm_rank(comm)
 
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(
@@ -67,7 +69,7 @@ examples = vcat(
     # checkdocs = :all,
 )
 
-deploydocs(
+rank == 0 && deploydocs(
     repo = "github.com/jipolanco/PencilFFTs.jl",
     forcepush = true,
     push_preview = true,  # PRs deploy at https://jipolanco.github.io/PencilFFTs.jl/previews/PR##

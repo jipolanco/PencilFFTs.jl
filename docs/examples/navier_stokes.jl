@@ -25,6 +25,7 @@ using PencilFFTs
 
 MPI.Init()
 comm = MPI.COMM_WORLD
+procid = MPI.Comm_rank(comm) + 1
 
 ## Simulation parameters
 Ns = (64, 64, 64)  # = (Nx, Ny, Nz)
@@ -495,9 +496,11 @@ fig = let
     fig
 end
 
-procid = MPI.Comm_rank(comm) + 1
+with_xvfb = ENV["DISPLAY"] == ":99"  # hide // recordframe! is too slow on CI with xvfb-run
+nstep = 0  # hide
 
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
+    with_xvfb && recordframe!(io)  # hide // record a single frame to avoid failure
     while true
         dt = 0.001
         step!(integrator, dt)
@@ -509,10 +512,18 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
         energy_spectrum!(Ek, ks, v̂s, grid_fourier)
         Ek ./= scale_factor(plan)^2  # rescale energy
         E_plot[] = E_plot[]
+        global nstep += 1  # hide
+        with_xvfb ?  # hide
+        save("vorticity_proc$(procid)_step$(nstep).png", fig) :  # hide
         recordframe!(io)
         integrator.t ≥ 20 && break
     end
 end;
+
+if with_xvfb  # hide
+    run(`ffmpeg -y -r 10 -i vorticity_proc$(procid)_step%d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`)  # hide
+end  # hide
+nothing  # hide
 
 # ```@raw html
 # <figure class="video_container">
