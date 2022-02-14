@@ -39,7 +39,7 @@ examples = vcat(
     repo = "https://github.com/jipolanco/PencilFFTs.jl/blob/{commit}{path}#L{line}",
     sitename = "PencilFFTs.jl",
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", "false") == "true",
+        prettyurls = true,  # needed for correct path to movies (Navier-Stokes example)
         canonical = "https://jipolanco.github.io/PencilFFTs.jl",
         # load assets in <head>
         assets = [

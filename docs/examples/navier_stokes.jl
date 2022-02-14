@@ -496,11 +496,11 @@ fig = let
     fig
 end
 
-with_xvfb = ENV["DISPLAY"] == ":99"  # hide // recordframe! is too slow on CI with xvfb-run
+using Printf # hide
+with_xvfb = ENV["DISPLAY"] == ":99" # hide
 nstep = 0  # hide
-
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
-    with_xvfb && recordframe!(io)  # hide // record a single frame to avoid failure
+    with_xvfb && recordframe!(io) # hide
     while true
         dt = 0.001
         step!(integrator, dt)
@@ -514,21 +514,22 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
         E_plot[] = E_plot[]
         global nstep += 1  # hide
         with_xvfb ?  # hide
-        save("vorticity_proc$(procid)_step$(nstep).png", fig) :  # hide
+        save(@sprintf("vorticity_proc%d_step%04d.png", procid, nstep), fig) :  # hide
         recordframe!(io)
         integrator.t ≥ 20 && break
     end
 end;
 
 if with_xvfb  # hide
-    run(`ffmpeg -y -r 10 -i vorticity_proc$(procid)_step%d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`)  # hide
+    run(pipeline(`ffmpeg -y -r 10 -i vorticity_proc$(procid)_step%04d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`; stdout = "ffmpeg.out", stderr = "ffmpeg.err"))   # hide
+    foreach(step -> rm(@sprintf("vorticity_proc%d_step%04d.png", procid, nstep)), 1:nstep)  # hide
 end  # hide
 nothing  # hide
 
 # ```@raw html
 # <figure class="video_container">
 #   <video controls="true" allowfullscreen="true">
-#     <source src="vorticity_proc1.mp4" type="video/mp4">
+#     <source src="../vorticity_proc1.mp4" type="video/mp4">
 #   </video>
 # </figure>
 # ```
