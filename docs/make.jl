@@ -19,6 +19,7 @@ DocMeta.setdocmeta!(
 )
 
 literate_examples = [
+    joinpath(@__DIR__, "examples", "gradient.jl"),
     joinpath(@__DIR__, "examples", "navier_stokes.jl"),
 ]
 
@@ -30,7 +31,7 @@ generated = map(literate_examples) do inputfile
     relpath(outfile, joinpath(@__DIR__, "src"))
 end
 examples = vcat(
-    ["examples/in-place.md", "examples/gradient.md"],
+    ["examples/in-place.md"],
     generated,
 )
 @time makedocs(
