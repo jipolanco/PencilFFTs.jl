@@ -259,7 +259,7 @@ end
 # Moreover, it is quite generic, and can be made independent of the number of
 # dimensions with little effort.
 
-# ## Method 4: using broadcasting
+# ## [Method 4: using broadcasting](@id gradient_method_broadcast)
 
 # Finally, note that the local grid object returned by `localgrid` makes it is
 # possible to compute the gradient using broadcasting, thus fully avoiding scalar
@@ -281,14 +281,18 @@ nothing  # hide
 # The `PencilArrays` module provides different alternatives to deal with
 # MPI-distributed data that may be subject to dimension permutations.
 # In particular, one can choose to work with *global* indices (first two
-# examples) or with *local* indices (third example).
+# examples), with *local* indices (third example), or to avoid scalar indexing
+# altogether (fourth example).
 
 # If one wants to stay generic, making sure that the same code will work for
 # arbitrary dimensions and will be efficient regardless of the underlying
-# dimension permutation, methods [1](@ref gradient_method_global) and [3](@ref
-# gradient_method_local) should be preferred.
-# These use `CartesianIndices` and make no assumptions on the permutations
-# (actually, permutations are completely invisible in the implementations).
+# dimension permutation, methods [1](@ref gradient_method_global), [3](@ref
+# gradient_method_local) or [4](@ref gradient_method_broadcast) should be
+# preferred.
+# These use `CartesianIndices` and make no assumptions on possible dimension
+# permutations, which are by default enabled in the output of PencilFFTs
+# transforms.
+# In fact, such permutations are completely invisible in the implementations.
 
 # The [second method](@ref gradient_method_global_explicit) uses explicit
 # `(i, j, k)` indices.
