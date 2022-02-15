@@ -1,5 +1,3 @@
-#!/usr/bin/env julia
-
 # In-place transforms.
 
 using FFTW
@@ -52,8 +50,7 @@ plan * A
 
 # After the transform, operations should be performed on the output view
 # `u_out`. For instance, let's compute the global sum of the transformed data.
-sum_local = sum(u_out)
-sum_global = MPI.Allreduce(sum_local, +, comm)
+sum_global = sum(u_out)  # note that `sum` reduces over all processes
 
 # Apply in-place backward transform.
 plan \ A

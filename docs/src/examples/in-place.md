@@ -87,9 +87,8 @@ After performing an in-place transform, we usually want to do operations on the
 output data.
 For instance, let's compute the global sum of the transformed data:
 ```julia
-u_out = last(A)         # output data view
-sum_local = sum(u_out)  # sum of transformed data on local MPI process
-sum_global = MPI.Allreduce(sum_local, +, comm)
+u_out = last(A)          # output data view
+sum_global = sum(u_out)  # sum of transformed data (note that `sum` reduces over all processes)
 ```
 
 Finally, we can perform a backward transform and do stuff with the input view:
