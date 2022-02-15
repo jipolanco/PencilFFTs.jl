@@ -1,5 +1,3 @@
-#!/usr/bin/env julia
-
 # Test 3D real-to-complex FFTs.
 
 using PencilFFTs
@@ -13,9 +11,6 @@ using Test
 
 include("include/FourierOperations.jl")
 using .FourierOperations
-
-include("include/MPITools.jl")
-using .MPITools
 
 const DATA_DIMS_EVEN = (42, 24, 16)
 const DATA_DIMS_ODD = DATA_DIMS_EVEN .- 1
@@ -69,22 +64,6 @@ function micro_benchmarks(u, uF, gF_global::FourierGrid,
     @printf " - %-20s" "curl! local..."
     @btime curl!($ωF, $uF, $gF_local)
 
-    # For these, a generic implementation is used (LinearAlgebra.generic_norm2).
-    @printf " - %-20s" "norm2(u)..."
-    @btime norm2($u)
-
-    @printf " - %-20s" "norm2(uF)..."
-    @btime norm2($uF)
-
-    # These are much faster because parent(u) is a regular Array, and Julia
-    # calls BLAS in this case (LinearAlgebra.BLAS.nrm2).
-    @printf " - %-20s" "norm2(parent(u))..."
-    @btime norm2($(parent.(u)))
-
-    @printf " - %-20s" "norm2(parent(uF))..."
-    @btime norm2($(parent.(uF)))
-
-    # Interestingly, this is even faster than BLAS!
     @printf " - %-20s" "sqnorm(u)..."
     @btime sqnorm($u)
 
@@ -157,19 +136,12 @@ end
 
 function test_rfft(size_in; benchmark=true)
     comm = MPI.COMM_WORLD
-    Nproc = MPI.Comm_size(comm)
     rank = MPI.Comm_rank(comm)
 
     rank == 0 && @info "Input data size: $size_in"
 
-    pdims_2d = let pdims = zeros(Int, 2)
-        MPI.Dims_create!(Nproc, pdims)
-        pdims[1], pdims[2]
-    end
-
     # Test creating Pencil and PencilArray first, and creating plan afterwards.
-    topo = MPITopology(comm, pdims_2d)
-    pen = Pencil(topo, size_in, (2, 3))
+    pen = Pencil(size_in, comm)
     u1 = PencilArray{Float64}(undef, pen)
 
     plan = PencilFFTPlan(u1, Transforms.RFFT())
@@ -217,8 +189,10 @@ function test_rfft(size_in; benchmark=true)
     MPI.Barrier(comm)
 end
 
-MPI.Initialized() || MPI.Init()
-silence_stdout(MPI.COMM_WORLD)
+MPI.Init()
+comm = MPI.COMM_WORLD
+rank = MPI.Comm_rank(comm)
+rank == 0 || redirect_stdout(devnull)
 
 test_rfft(DATA_DIMS_EVEN)
 println()
