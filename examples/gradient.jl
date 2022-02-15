@@ -1,5 +1,3 @@
-#!/usr/bin/env julia
-
 # Different implementations of gradient computation in Fourier space, with
 # performance comparisons.
 
@@ -18,16 +16,11 @@
 #     gradient_local_linear_explicit!...  145.543 μs (0 allocations: 0 bytes)
 #
 # This was obtained when running julia with the default optimisation level -O2.
-#
-# If one uses -O1 instead, `gradient_global_view_explicit!` becomes much
-# slower than the rest, indicating that there's a lot of compiler optimisations
-# going on specifically in that function.
-
-# See also https://jipolanco.github.io/PencilFFTs.jl/dev/examples/gradient/.
 
 using BenchmarkTools
 using MPI
 using PencilFFTs
+using PencilFFTs.LocalGrids: LocalRectilinearGrid
 
 using AbstractFFTs: fftfreq, rfftfreq
 using Printf: @printf
@@ -36,8 +29,6 @@ using Random: randn!
 const PA = PencilFFTs.PencilArrays
 
 const INPUT_DIMS = (64, 32, 64)
-
-const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
 function generate_wavenumbers_r2c(dims::Dims{3})
     box_size = (2π, 2π, 2π)  # Lx, Ly, Lz
@@ -79,7 +70,6 @@ function gradient_global_view!(∇θ_hat::NTuple{3,PencilArray},
     ∇θ_hat
 end
 
-# This is the fastest implementation, and I'm not sure why!
 function gradient_global_view_explicit!(∇θ_hat::NTuple{3,PencilArray},
                                         θ_hat::PencilArray, kvec_global)
     # Generate OffsetArrays that take global indices.
@@ -129,6 +119,24 @@ function gradient_local!(∇θ_hat::NTuple{3,PencilArray}, θ_hat::PencilArray,
     ∇θ_hat
 end
 
+function gradient_grid!(∇θ_hat, θ_hat, grid_fourier::LocalRectilinearGrid)
+    @inbounds for I in CartesianIndices(grid_fourier)
+        k⃗ = grid_fourier[I]
+        u = im * θ_hat[I]
+        ∇θ_hat[1][I] = k⃗[1] * u
+        ∇θ_hat[2][I] = k⃗[2] * u
+        ∇θ_hat[3][I] = k⃗[3] * u
+    end
+    ∇θ_hat
+end
+
+function gradient_grid_broadcast!(∇θ_hat, θ_hat, g::LocalRectilinearGrid)
+    @. ∇θ_hat[1] = im * g[1] * θ_hat
+    @. ∇θ_hat[2] = im * g[2] * θ_hat
+    @. ∇θ_hat[3] = im * g[3] * θ_hat
+    ∇θ_hat
+end
+
 # Compute and return ∇θ in Fourier space, using local indices on the raw data
 # (which takes permuted indices).
 function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
@@ -158,7 +166,7 @@ function gradient_local_parent!(∇θ_hat::NTuple{3,PencilArray},
     ∇θ_hat
 end
 
-# Similar to gradient_local!, but avoiding CartesianIndices (slightly faster).
+# Similar to gradient_local!, but avoiding CartesianIndices.
 function gradient_local_linear!(∇θ_hat::NTuple{3,PencilArray},
                                 θ_hat::PencilArray, kvec_local)
     # We want to iterate over the arrays in memory order to maximise
@@ -229,16 +237,13 @@ Nproc = MPI.Comm_size(comm)
 rank = MPI.Comm_rank(comm)
 
 # Disable output on all but one process.
-rank == 0 || redirect_stdout(open(DEV_NULL, "w"))
+rank == 0 || redirect_stdout(devnull)
 
-# Let MPI_Dims_create choose the decomposition.
-proc_dims = let pdims = zeros(Int, 2)
-    MPI.Dims_create!(Nproc, pdims)
-    pdims[1], pdims[2]
-end
+# Automatically create decomposition configuration
+pen = Pencil(dims, comm)
 
 # Create plan
-plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+plan = PencilFFTPlan(pen, transform)
 println(plan, "\n")
 
 # Allocate data and initialise field
@@ -248,6 +253,10 @@ randn!(θ)
 # Perform distributed FFT
 θ_hat = plan * θ
 
+# Local part of the grid in Fourier space
+grid_fourier_lazy = localgrid(pencil(θ_hat), kvec)
+grid_fourier_col = localgrid(pencil(θ_hat), collect.(kvec))
+
 # Compute and compare gradients using different methods.
 # Note that these return a tuple of 3 PencilArrays representing a vector
 # field.
@@ -255,9 +264,7 @@ randn!(θ)
 ∇θ_hat_other = similar.(∇θ_hat_base)
 
 # Local wave numbers: (kx[i1:i2], ky[j1:j2], kz[k1:k2]).
-kvec_local = let rng = range_local(θ_hat)  # = (i1:i2, j1:j2, k1:k2)
-    getindex.(kvec, rng)
-end
+kvec_local = getindex.(kvec, range_local(θ_hat))
 
 gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
 
@@ -269,18 +276,32 @@ gradient_global_view!(∇θ_hat_base, θ_hat, kvec)
 @btime gradient_global_view!($∇θ_hat_other, $θ_hat, $kvec)
 @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
-# Slow version: kvec as a tuple of Vector
 @printf "%-40s" "gradient_global_view_explicit!..."
 @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec_collected)
 @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
-# Fast version: kvec as a tuple of lazy vectors (Frequencies)
 @printf "%-40s" "gradient_global_view_explicit! (lazy)..."
 @btime gradient_global_view_explicit!($∇θ_hat_other, $θ_hat, $kvec)
 @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
 @printf "%-40s" "gradient_local!..."
-@btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec_local)
+@btime gradient_local!($∇θ_hat_other, $θ_hat, $kvec_local);
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_grid!..."
+@btime gradient_grid!($∇θ_hat_other, $θ_hat, $grid_fourier_col);
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_grid! (lazy)..."
+@btime gradient_grid!($∇θ_hat_other, $θ_hat, $grid_fourier_lazy);
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_grid_broadcast!..."
+@btime gradient_grid_broadcast!($∇θ_hat_other, $θ_hat, $grid_fourier_col);
+@assert all(∇θ_hat_base .≈ ∇θ_hat_other)
+
+@printf "%-40s" "gradient_grid_broadcast! (lazy)..."
+@btime gradient_grid_broadcast!($∇θ_hat_other, $θ_hat, $grid_fourier_lazy);
 @assert all(∇θ_hat_base .≈ ∇θ_hat_other)
 
 @printf "%-40s" "gradient_local_parent!..."

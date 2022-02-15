@@ -86,7 +86,9 @@ jobs:
       - name: Install libraries
         run: |
           sudo apt-get update
-          sudo apt-get install mpich libmpich-dev
+          sudo apt-get install -y mpich libmpich-dev
+          # For GLMakie (adapted from https://github.com/JuliaPlots/Makie.jl/blob/master/.github/workflows/glmakie.yaml)
+          sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev ffmpeg
 
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@latest
@@ -99,7 +101,8 @@ jobs:
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
       - name: Build and deploy
-        run: julia --project=docs docs/make.jl
+        # Adapted from https://github.com/JuliaPlots/Makie.jl/blob/master/.github/workflows/glmakie.yaml
+        run: xvfb-run -s '-screen 0 1200x600x24' mpirun -n 2 julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

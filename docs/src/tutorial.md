@@ -21,38 +21,50 @@ defined on a grid of $N_x × N_y × N_z$ points.
 </div>
 ```
 
-The example assumes that 12 MPI processes are available.
-The data is to be distributed on a 2D MPI topology of dimensions $3 × 4$,
-as represented in the above figure.
+By default, the domain is distributed on a 2D MPI topology of dimensions
+``N_1 × N_2``.
+As an example, the above figure shows such a topology with ``N_1 = 4`` and
+``N_2 = 3``, for a total of 12 MPI processes.
 
 ## [Creating plans](@id tutorial:creating_plans)
 
-The first thing to do is to create a [`PencilFFTPlan`](@ref), which requires
-information on the global dimensions $N_x × N_y × N_z$ of the data, on the
-transforms that will be applied, and on the way the data is distributed among
-MPI processes (i.e. number of processes along each dimension):
+The first thing to do is to create a domain decomposition configuration for the
+given dataset dimensions ``N_x × N_y × N_z``.
+In the framework of PencilArrays, such a configuration is described by
+a `Pencil` object.
+As described in the [PencilArrays
+docs](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/), we can let the
+`Pencil` constructor automatically determine such a configuration.
+For this, only an MPI communicator and the dataset dimensions are needed:
 
 ```julia
 using MPI
 using PencilFFTs
 
 MPI.Init()
+comm = MPI.COMM_WORLD
 
 # Input data dimensions (Nx × Ny × Nz)
 dims = (16, 32, 64)
+pen = Pencil(dims, comm)
+```
 
+By default this creates a 2D decomposition (for the case of a 3D dataset), but
+one can change this as detailed in the PencilArrays documentation linked above.
+
+We can now create a [`PencilFFTPlan`](@ref), which requires
+information on decomposition configuration (the `Pencil` object) and on the
+transforms that will be applied:
+
+```julia
 # Apply a 3D real-to-complex (r2c) FFT.
 transform = Transforms.RFFT()
 
-# For more control, one can instead separately specify the transforms along each dimension:
+# Note that, for more control, one can instead separately specify the transforms along each dimension:
 # transform = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
 
-# MPI topology information
-comm = MPI.COMM_WORLD  # we assume MPI.Comm_size(comm) == 12
-proc_dims = (3, 4)     # 3 processes along `y`, 4 along `z`
-
 # Create plan
-plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+plan = PencilFFTPlan(pen, transform)
 ```
 
 See the [`PencilFFTPlan`](@ref) constructor for details on the accepted
@@ -171,12 +183,9 @@ For details on working with `PencilArray`s see the
 The examples on the sidebar further illustrate the use of transforms and
 provide an introduction to working with MPI-distributed data in the form of
 `PencilArray`s.
-
-In addition to the examples,
-some useful scripts are available in the `test/` directory of the
-`PencilFFTs` repo.
-In particular, the
-[`test/taylor_green.jl`](https://github.com/jipolanco/PencilFFTs.jl/blob/master/test/taylor_green.jl)
-example is a (very simple) fluid dynamics application around the
-[Taylor--Green](https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex)
-vortex flow.
+In particular, the [gradient example](@ref Gradient-of-a-scalar-field)
+illustrates different ways of computing things using Fourier-transformed
+distributed arrays.
+Then, the [incompressible Navier--Stokes example](@ref Navier–Stokes-equations)
+is a more advanced and complete example of a possible application of the
+PencilFFTs package.
