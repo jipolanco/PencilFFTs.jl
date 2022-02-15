@@ -1,4 +1,4 @@
-# In-place transforms.
+# # In-place transforms
 
 using FFTW
 using MPI

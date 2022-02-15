@@ -21,19 +21,16 @@ DocMeta.setdocmeta!(
 literate_examples = [
     joinpath(@__DIR__, "examples", "gradient.jl"),
     joinpath(@__DIR__, "examples", "navier_stokes.jl"),
+    joinpath(@__DIR__, "examples", "in-place.jl"),
 ]
 
 const gendir = joinpath(@__DIR__, "src", "generated")
 mkpath(gendir)
 
-generated = map(literate_examples) do inputfile
+examples = map(literate_examples) do inputfile
     outfile = Literate.markdown(inputfile, gendir)
     relpath(outfile, joinpath(@__DIR__, "src"))
 end
-examples = vcat(
-    ["examples/in-place.md"],
-    generated,
-)
 @time makedocs(
     modules = [PencilFFTs],
     authors = "Juan Ignacio Polanco <jipolanc@gmail.com> and contributors",
