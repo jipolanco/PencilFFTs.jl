@@ -47,8 +47,13 @@ MPI.Comm_size(comm)
 
 pen = Pencil(Ns, comm)
 
-# We construct a distributed vector field that follows this decomposition
-# configuration:
+# The subdomain associated to the local MPI process can be obtained using
+# [`range_local`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.range_local-Tuple{Pencil,%20LogicalOrder}):
+
+range_local(pen)
+
+# We now construct a distributed vector field that follows the decomposition
+# configuration we just created:
 
 v⃗₀ = (
     PencilArray{Float64}(undef, pen),  # vx
@@ -508,7 +513,7 @@ const tmpdir = mktempdir()  # hide
 filename_frame(procid, nstep) = joinpath(tmpdir, @sprintf("proc%d_%04d.png", procid, nstep)) # hide
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
     with_xvfb && recordframe!(io) # hide
-    while true
+    while integrator.t < 20
         dt = 0.001
         step!(integrator, dt)
         t_plot[] = integrator.t
@@ -523,7 +528,6 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
         with_xvfb ?  # hide
         save(filename_frame(procid, nstep), fig) :  # hide
         recordframe!(io)
-        integrator.t ≥ 20 && break
     end
 end;
 
