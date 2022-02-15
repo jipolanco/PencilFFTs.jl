@@ -187,8 +187,9 @@ pencil(v̂s[1])
 # and are usually the most time-consuming aspect of massively-parallel
 # simulations using this kind of methods.
 #
-# To solve the Navier--Stokes equations in Fourier space, we will also need the
-# respective wave numbers ``\bm{k}`` associated to the local MPI process.
+# To solve the Navier--Stokes equations in Fourier space, we will
+# also need the respective wave numbers ``\bm{k}`` associated to the local MPI
+# process.
 # Similarly to the local grid points, these are obtained using the `localgrid`
 # function:
 
@@ -252,8 +253,11 @@ end
 # ```
 #
 # where ``\mathcal{P}_{\bm{k}}`` is a projection operator allowing to preserve the
-# incompressibility condition ``\bm{∇} ⋅ \bm{v} = 0``, and ``I`` is the identity
-# matrix.
+# incompressibility condition ``\bm{∇} ⋅ \bm{v} = 0``.
+# This operator encodes the action of the pressure gradient term, which serves
+# precisely to enforce incompressibility.
+# Note that, because of this, the pressure gradient dissapears from the
+# equations.
 #
 # Now that we have the wave numbers ``\bm{k}``, computing the linear viscous
 # term in Fourier space is straighforward once we have the Fourier coefficients
@@ -261,15 +265,15 @@ end
 # What is slightly more challenging (and much more costly) is the computation of
 # the non-linear term in Fourier space, ``\hat{\bm{F}}_{\bm{k}} =
 # \left[ \widehat{(\bm{v} ⋅ \bm{∇}) \bm{v}} \right]_{\bm{k}}``.
-# Following the pseudo-spectral method, the quadratic nonlinearity is computed
-# by collocation in physical space, while derivatives are computed in Fourier
-# space.
+# In the pseudo-spectral method, the quadratic nonlinearity is computed
+# by collocation in physical space (i.e. this term is evaluated at grid points),
+# while derivatives are computed in Fourier space.
 # This requires transforming fields back and forth between both spaces.
 #
 # Below we implement a function that computes the non-linear term in Fourier
 # space based on its convective form ``(\bm{v} ⋅ \bm{∇}) \bm{v} = \bm{∇} ⋅
 # (\bm{v} ⊗ \bm{v})``.
-# This equivalence uses the incompressibility condition ``\bm{∇} ⋅ \bm{v} = 0``.
+# Note that this equivalence uses the incompressibility condition ``\bm{∇} ⋅ \bm{v} = 0``.
 
 using LinearAlgebra: mul!, ldiv!  # for applying FFT plans in-place
 
@@ -299,7 +303,7 @@ function ns_nonlinear!(
     F̂s
 end
 
-# As an example, we may use this function on our initial velocity field:
+# As an example, let's use this function on our initial velocity field:
 
 F̂s = similar.(v̂s)
 ns_nonlinear!(F̂s, v⃗₀, plan, grid_fourier);
@@ -307,7 +311,7 @@ ns_nonlinear!(F̂s, v⃗₀, plan, grid_fourier);
 # Strictly speaking, computing the non-linear term by collocation can lead to
 # [aliasing
 # errors](https://en.wikipedia.org/wiki/Aliasing#Sampling_sinusoidal_functions),
-# as the quadratic term generates Fourier modes that fall beyond the range of
+# as the quadratic term excites Fourier modes that fall beyond the range of
 # resolved wave numbers.
 # The typical solution is to apply Orzsag's 2/3 rule to zero-out the Fourier
 # coefficients associated to the highest wave numbers.
@@ -335,7 +339,7 @@ dealias_twothirds!(F̂s, grid_fourier, ks_global);
 
 function project_divergence_free!(ûs, grid_fourier)
     @inbounds for I ∈ eachindex(grid_fourier)
-        k⃗ = SVector(grid_fourier[I])
+        k⃗ = grid_fourier[I]
         k² = sum(abs2, k⃗)
         iszero(k²) && continue  # avoid division by zero
         û = getindex.(ûs, Ref(I))  # (ûs[1][I], ûs[2][I], ...)
@@ -449,8 +453,8 @@ function energy_spectrum!(Ek, ks, v̂s, grid_fourier)
         i = searchsortedfirst(ks, knorm)
         i > Nk && continue
         v⃗ = getindex.(v̂s, Ref(I))  # = (v̂s[1][I], v̂s[2][I], ...)
-        factor = k⃗[1] == 0 ? 2 : 1  # account for Hermitian symmetry and r2c transform
-        Ek[i] += factor * sum(abs2, v⃗)
+        factor = k⃗[1] == 0 ? 1 : 2  # account for Hermitian symmetry and r2c transform
+        Ek[i] += factor * sum(abs2, v⃗) / 2
     end
     MPI.Allreduce!(Ek, +, get_comm(v̂s[1]))  # sum across all processes
     Ek
@@ -500,7 +504,8 @@ end
 using Printf # hide
 with_xvfb = ENV["DISPLAY"] == ":99" # hide
 nstep = 0  # hide
-filename_frame(procid, nstep) = @sprintf("vorticity_proc%d_step%04d.png", procid, nstep) # hide
+const tmpdir = mktempdir()  # hide
+filename_frame(procid, nstep) = joinpath(tmpdir, @sprintf("proc%d_%04d.png", procid, nstep)) # hide
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
     with_xvfb && recordframe!(io) # hide
     while true
@@ -523,10 +528,9 @@ record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
 end;
 
 if with_xvfb  # hide
-    run(pipeline(`ffmpeg -y -r 10 -i vorticity_proc$(procid)_step%04d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`; stdout = "ffmpeg.out", stderr = "ffmpeg.err"))   # hide
-    foreach(step -> rm(filename_frame(procid, nstep); force = true), 1:nstep)  # hide
-end  # hide
-nothing  # hide
+    run(pipeline(`ffmpeg -y -r 10 -i $tmpdir/proc$(procid)_%04d.png -c:v libx264 -vf "fps=25,format=yuv420p" vorticity_proc$procid.mp4`; stdout = "ffmpeg.out", stderr = "ffmpeg.err"))   # hide
+end              # hide
+nothing          # hide
 
 # ```@raw html
 # <figure class="video_container">

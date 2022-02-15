@@ -48,6 +48,7 @@ examples = vcat(
         ],
         mathengine = KaTeX(),
     ),
+    build = rank == 0 ? "build" : mktempdir(),
     pages = [
         "Home" => "index.md",
         "tutorial.md",
