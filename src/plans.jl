@@ -43,6 +43,16 @@ data has type `T`.
 
 ---
 
+    PencilFFTPlan(p::Pencil, transforms; kwargs...)
+
+Create a `PencilFFTPlan` for distributed arrays following a given
+[`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.Pencil)
+configuration.
+See variant below for details on the specification of `transforms` and on
+possible keyword arguments.
+
+---
+
     PencilFFTPlan(
         A::PencilArray, transforms;
         fftw_flags = FFTW.ESTIMATE,
@@ -52,8 +62,6 @@ data has type `T`.
         timer = TimerOutput(),
     )
 
-    PencilFFTPlan(p::Pencil, transforms; kwargs...)
-
 Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
 
 # Extended help
@@ -61,9 +69,6 @@ Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
 This creates a `PencilFFTPlan` for arrays sharing the same properties as `A`
 (dimensions, MPI decomposition, memory layout, ...), which describe data on an
 `N`-dimensional domain.
-
-Alternatively, the second form creates a `PencilFFTPlan` for distributed arrays
-following a given [`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.Pencil) configuration.
 
 ## Transforms
 
@@ -132,7 +137,7 @@ The input `PencilArray` must satisfy the following constraints:
 ---
 
     PencilFFTPlan(
-        size_global::Dims{N}, transforms, proc_dims::Dims{M}, comm::MPI.Comm,
+        dims_global::Dims{N}, transforms, proc_dims::Dims{M}, comm::MPI.Comm,
         [real_type = Float64]; extra_dims = (), kws...
     )
 
