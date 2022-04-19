@@ -6,18 +6,40 @@
 # [the tutorial](@ref Tutorial).
 # The differences are illustrated in the sections below.
 
+# ## Creating a domain partition
+#
+# We start by partitioning a domain of dimensions ``16×32×64`` along all
+# available MPI processes.
+
+using PencilFFTs
+using MPI
+MPI.Init()
+
+dims_global = (16, 32, 64)  # global dimensions
+
+# Such a partitioning is described by a
+# [`Pencil`](https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/) object.
+# Here we choose to decompose the domain along the last two dimensions.
+# In this case, the actual number of processes along each of these dimensions is
+# chosen automatically.
+
+decomp_dims = (2, 3)
+comm = MPI.COMM_WORLD
+pen = Pencil(dims_global, decomp_dims, comm)
+
+# !!! warning "Allowed decompositions"
+#
+#     Distributed transforms using PencilFFTs.jl require that the first
+#     dimension is *not* decomposed.
+#     In other words, if one wants to perform transforms, then `decomp_dims`
+#     above must *not* contain `1`.
+
 # ## Creating in-place plans
 
 # To create an in-place plan, pass an in-place transform such as
 # [`Transforms.FFT!`](@ref) or [`Transforms.R2R!`](@ref) to
 # [`PencilFFTPlan`](@ref).
 # For instance:
-
-using PencilFFTs
-using MPI
-MPI.Init()
-
-dims = (16, 32, 64)
 
 ## Perform a 3D in-place complex-to-complex FFT.
 transform = Transforms.FFT!()
@@ -30,12 +52,11 @@ transform = Transforms.FFT!()
 ##     Transforms.R2R!(FFTW.DHT),
 ## )
 
-comm = MPI.COMM_WORLD
-Nproc = MPI.Comm_size(comm)
-proc_dims = (Nproc, )  # let's perform a 1D decomposition
 
-## Create plan
-plan = PencilFFTPlan(dims, transform, proc_dims, comm)
+# We can now create a distributed plan from the previously-created domain
+# partition and the chosen transform.
+
+plan = PencilFFTPlan(pen, transform)
 
 # Note that in-place real-to-complex transforms are not currently supported.
 # (In other words, the `RFFT!` transform type is not defined.)
@@ -53,8 +74,8 @@ plan = PencilFFTPlan(dims, transform, proc_dims, comm)
 A = allocate_input(plan)
 summary(A)
 
-# Note that [`allocate_output`](@ref) also works for in-place plans, but it
-# returns exactly the same thing as `allocate_input`.
+# Note that [`allocate_output`](@ref) also works for in-place plans.
+# In this case, it returns exactly the same thing as `allocate_input`.
 
 # As shown in the next section, in-place plans must be applied on the returned
 # `ManyPencilArray`.
@@ -80,9 +101,13 @@ summary(u_in)
 
 plan * A;  # performs in-place forward transform
 
-# After performing an in-place transform, we usually want to do operations on the
-# output data.
-# For instance, let's compute the global sum of the transformed data:
+# After performing an in-place transform, data contained in `u_in` has been
+# overwritten and has no "physical" meaning.
+# In other words, `u_in` should **not** be used at this point.
+# To access the transformed data, one should retrieve the output data view using
+# `last(A)`.
+#
+# For instance, to compute the global sum of the transformed data:
 
 u_out = last(A)  # output data view
 sum(u_out)       # sum of transformed data (note that `sum` reduces over all processes)
@@ -91,4 +116,5 @@ sum(u_out)       # sum of transformed data (note that `sum` reduces over all pro
 
 plan \ A;  # perform in-place backward transform
 
-## Now we can again do stuff with the input view `u_in`...
+# At this point, the data can be once again found in the input view `u_in`,
+# while `u_out` should not be accessed.
