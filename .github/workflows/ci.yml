@@ -100,6 +100,15 @@ jobs:
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
+      - name: Makie cache
+        # This is to avoid "generating font cache" on multiple MPI processes,
+        # which likely leads to race conditions when writing cache to file.
+        run: |
+          xvfb-run -s '-screen 0 1200x600x24' julia --project=docs -e '
+            using GLMakie
+            fig = Figure()
+            ax = Axis(fig[1, 1]; title = "aaa")
+            save("test.png", fig)'
       - name: Build and deploy
         # Adapted from https://github.com/JuliaPlots/Makie.jl/blob/master/.github/workflows/glmakie.yaml
         run: xvfb-run -s '-screen 0 1200x600x24' mpirun -n 2 julia --project=docs docs/make.jl
