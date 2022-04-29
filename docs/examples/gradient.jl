@@ -70,7 +70,7 @@ nothing  # hide
 
 summary(∇θ_hat)
 
-## Fourier wave numbers
+# ## Fourier wave numbers
 
 # In general, the Fourier wave numbers are of the form
 # ``k_i = 0, ±\frac{2π}{L_i}, ±\frac{4π}{L_i}, ±\frac{6π}{L_i}, …``,
