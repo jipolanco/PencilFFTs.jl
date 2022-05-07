@@ -9,9 +9,6 @@ using Random
 using Test
 using TimerOutputs
 
-include("include/MPITools.jl")
-using .MPITools
-
 const DATA_DIMS = (16, 12, 6)
 
 const FAST_TESTS = !("--all" in ARGS)
@@ -147,8 +144,10 @@ function test_transform_types(size_in)
     nothing
 end
 
-function test_inplace(::Type{T}, comm, proc_dims, size_in;
-                      extra_dims=()) where {T}
+function test_inplace_fft(
+        ::Type{T}, comm, proc_dims, size_in;
+        extra_dims=(),
+    ) where {T}
     transforms = Transforms.FFT!()  # in-place c2c FFT
     plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, T;
                          extra_dims=extra_dims)
@@ -351,7 +350,8 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
 end
 
 function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
-    @assert length(size_in) >= 3
+    N = length(size_in)
+    @assert N >= 3
 
     @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
 
@@ -390,8 +390,23 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     end
 
     for T in types, edims in extra_dims
-        test_inplace(T, comm, pdims, size_in, extra_dims=edims)
+        test_inplace_fft(T, comm, pdims, size_in, extra_dims=edims)
         test_transforms(T, comm, pdims, size_in, extra_dims=edims)
+    end
+
+    @testset "FFT! + NoTransform!" begin
+        transforms = (
+            ntuple(_ -> Transforms.FFT!(), N - 1)...,
+            Transforms.NoTransform!(),
+        )
+        transforms_oop = (
+            ntuple(_ -> Transforms.FFT(), N - 1)...,
+            Transforms.NoTransform(),
+        )
+        plan = PencilFFTPlan(size_in, transforms, pdims, comm)
+        plan_oop = PencilFFTPlan(size_in, transforms_oop, pdims, comm)
+        fftw_planner(x) = FFTW.plan_fft!(x, 1:(N - 1))
+        test_transform(plan, fftw_planner, plan_oop)
     end
 
     nothing
@@ -502,25 +517,21 @@ function make_pdims(::Val{M}, Nproc) where {M}
     ntuple(d -> pdims[d], Val(M))
 end
 
-function main()
-    size_in = DATA_DIMS
-    comm = MPI.COMM_WORLD
-    Nproc = MPI.Comm_size(comm)
-    silence_stdout(comm)
+MPI.Init()
 
-    test_transform_types(size_in)
-    test_incompatibility(comm)
-    test_dimensionality(comm)
+size_in = DATA_DIMS
+comm = MPI.COMM_WORLD
+Nproc = MPI.Comm_size(comm)
+rank = MPI.Comm_rank(comm)
+rank == 0 || redirect_stdout(devnull)
 
-    pdims_1d = (Nproc, )  # 1D ("slab") decomposition
-    pdims_2d = make_pdims(Val(2), Nproc)
+test_transform_types(size_in)
+test_incompatibility(comm)
+test_dimensionality(comm)
 
-    for p in (pdims_1d, pdims_2d)
-        test_pencil_plans(size_in, p, comm)
-    end
+pdims_1d = (Nproc, )  # 1D ("slab") decomposition
+pdims_2d = make_pdims(Val(2), Nproc)
 
-    nothing
+for p in (pdims_1d, pdims_2d)
+    test_pencil_plans(size_in, p, comm)
 end
-
-MPI.Initialized() || MPI.Init()
-main()

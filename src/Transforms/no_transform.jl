@@ -45,7 +45,7 @@ Base.:\(::IdentityPlan, x) = copy(x)
 
 Type of plan associated to [`NoTransform!`](@ref).
 """
-struct IdentityPlan! end
+struct IdentityPlan! <: AbstractCustomPlan end
 
 function LinearAlgebra.mul!(y, ::IdentityPlan!, x)
     if x !== y
