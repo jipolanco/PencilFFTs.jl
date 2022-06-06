@@ -133,38 +133,38 @@
 
   %% z-pencil
   \begin{scope}[xshift=\BoxNum * \BoxShiftX cm, local bounding box={zPencil}]
-    \pgfmathsetmacro\dy{\Ly / \Npen}
-    \pgfmathsetmacro\dx{\Lx / \Mpen}
+    \pgfmathsetmacro\dy{\Ly / \Mpen}
+    \pgfmathsetmacro\dx{\Lx / \Npen}
 
     % Invisible path + node for the back of the box (z = Lz).
     \path[local bounding box={zPencilBack}]
       (0, 0, \Lz) rectangle ++(\Lx, \Ly, 0);
 
     % Draw at x = Lx
-    \foreach \n in {0, ..., \Nprev} {
-      \pgfmathsetmacro\yzero{\n * \dy}
-      \pencol{pen}{\n}{\Mprev}
+    \foreach \m in {0, ..., \Mprev} {
+      \pgfmathsetmacro\yzero{\m * \dy}
+      \pencol{pen}{\Nprev}{\m}
       \draw[fill=pen]
         (\Lx, \yzero, 0) -- ++(0, \dy, 0) -- ++(0, 0, \Lz) -- ++(0, -\dy, 0) --
         cycle;
     }
 
     % Draw at y = Ly
-    \foreach \m in {0, ..., \Mprev} {
-      \pencol{pen}{\Nprev}{\m}
+    \foreach \n in {0, ..., \Nprev} {
+      \pencol{pen}{\n}{\Mprev}
       \draw[fill=pen]
-        (\m * \dx, \Ly, 0) -- ++(\dx, 0, 0) -- ++(0, 0, \Lz) -- ++(-\dx, 0, 0)
+        (\n * \dx, \Ly, 0) -- ++(\dx, 0, 0) -- ++(0, 0, \Lz) -- ++(-\dx, 0, 0)
         -- cycle;
     }
 
     % Draw at z = 0
     \begin{scope}[local bounding box=zPencilFront]
-      \foreach \n in {0, ..., \Nprev} {
-        \pgfmathsetmacro\yzero{\n * \dy}
-        \foreach \m in {0, ..., \Mprev} {
+      \foreach \m in {0, ..., \Mprev} {
+        \pgfmathsetmacro\yzero{\m * \dy}
+        \foreach \n in {0, ..., \Nprev} {
           \pencol{pen}{\n}{\m}
           \draw[fill=pen]
-            (\m * \dx, \yzero, 0) -- ++(0, \dy, 0) -- ++(\dx, 0, 0) --
+            (\n * \dx, \yzero, 0) -- ++(0, \dy, 0) -- ++(\dx, 0, 0) --
             ++(0, -\dy, 0) -- cycle;
         }
       }
@@ -187,3 +187,5 @@
     \draw (yPencilText.east) -- (zPencilText.west);
   \end{scope}
 \end{tikzpicture}
+
+% vim: filetype=tex
