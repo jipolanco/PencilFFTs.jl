@@ -211,6 +211,7 @@ struct PencilFFTPlan{
         G <: GlobalFFTParams,
         P <: NTuple{Nt, PencilPlan1D},
         TransposeMethod <: AbstractTransposeMethod,
+        Buffer <: DenseVector{UInt8},
     } <: AbstractFFTs.Plan{T}
 
     global_params :: G
@@ -227,9 +228,10 @@ struct PencilFFTPlan{
     # `method` parameter passed to `transpose!`
     transpose_method :: TransposeMethod
 
+    # TODO can I reuse the Pencil buffers (send_buf, recv_buf) to reduce allocations?
     # Temporary data buffers.
-    ibuf :: Vector{UInt8}
-    obuf :: Vector{UInt8}
+    ibuf :: Buffer
+    obuf :: Buffer
 
     # Runtime timing.
     # Should be used along with the @timeit_debug macro, to be able to turn it
@@ -244,10 +246,11 @@ struct PencilFFTPlan{
             transpose_method::AbstractTransposeMethod =
                 Transpositions.PointToPoint(),
             timer::TimerOutput = TimerOutput(),
-            ibuf = UInt8[], obuf = UInt8[],  # temporary data buffers
+            ibuf = _make_fft_buffer(A), obuf = _make_fft_buffer(A),
         )
         T = eltype(A)
-        dims_global = size_global(pencil(A), LogicalOrder())
+        pen = pencil(A)
+        dims_global = size_global(pen, LogicalOrder())
         g = GlobalFFTParams(dims_global, transforms, real(T))
         check_input_array(A, g)
         inplace = is_inplace(g)
@@ -266,7 +269,10 @@ struct PencilFFTPlan{
 
         # If the plan is in-place, the buffers won't be needed anymore, so we
         # free the memory.
+        # TODO this assumes that buffers are not shared with the Pencil object!
         if inplace
+            @assert ibuf ∉ (pen.send_buf, pen.recv_buf)
+            @assert obuf ∉ (pen.send_buf, pen.recv_buf)
             resize!.((ibuf, obuf), 0)
         end
 
@@ -279,15 +285,18 @@ struct PencilFFTPlan{
         TM = typeof(transpose_method)
         t = topology(A)
         Nd = ndims(t)
+        Buffer = typeof(ibuf)
 
-        new{T, N, inplace, Nt, Nd, Ne, G, P, TM}(
-            g, t, edims, plans, scale, transpose_method, ibuf, obuf, timer)
+        new{T, N, inplace, Nt, Nd, Ne, G, P, TM, Buffer}(
+            g, t, edims, plans, scale, transpose_method, ibuf, obuf, timer,
+        )
     end
 end
 
 function PencilFFTPlan(
         pen::Pencil{Nt}, transforms::AbstractTransformList{Nt}, ::Type{Tr} = Float64;
-        extra_dims::Dims = (), timer = TimerOutput(), ibuf = UInt8[], kws...,
+        extra_dims::Dims = (), timer = TimerOutput(), ibuf = _make_fft_buffer(pen),
+        kws...,
     ) where {Nt, Tr <: FFTReal}
     T = _input_data_type(Tr, transforms...)
     A = _temporary_pencil_array(T, pen, ibuf, extra_dims)
@@ -309,6 +318,9 @@ function PencilFFTPlan(A, transform::AbstractTransform, args...; kws...)
     transforms = expand_dims(transform, Val(N))
     PencilFFTPlan(A, transforms, args...; kws...)
 end
+
+_make_fft_buffer(p::Pencil) = similar(p.send_buf, UInt8, 0) :: DenseVector{UInt8}
+_make_fft_buffer(A::PencilArray) = _make_fft_buffer(pencil(A))
 
 @inline _ndims_transformable(dims::Dims) = length(dims)
 @inline _ndims_transformable(p::Pencil) = ndims(p)
