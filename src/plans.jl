@@ -254,7 +254,7 @@ struct PencilFFTPlan{
         g = GlobalFFTParams(dims_global, transforms, real(T))
         check_input_array(A, g)
         inplace = is_inplace(g)
-        fftw_kw = (; flags = fftw_flags, timelimit = fftw_timelimit)
+        fftw_kw = _make_fft_kwargs(pen; flags = fftw_flags, timelimit = fftw_timelimit)
 
         # Options for creation of 1D plans.
         plans = _create_plans(
@@ -321,6 +321,15 @@ end
 
 _make_fft_buffer(p::Pencil) = similar(p.send_buf, UInt8, 0) :: DenseVector{UInt8}
 _make_fft_buffer(A::PencilArray) = _make_fft_buffer(pencil(A))
+
+# We decide on passing FFTW flags or not depending on the type of underlying array.
+# In particular, note that CUFFT doesn't support keyword arguments (such as
+# FFTW.MEASURE), and therefore we silently suppress them.
+# TODO
+# - use a more generic way of differentiating between CPU and GPU arrays
+_make_fft_kwargs(p::Pencil; kws...) = _make_fft_kwargs(p.send_buf; kws...)
+_make_fft_kwargs(::Array; kws...) = kws          # CPU arrays
+_make_fft_kwargs(::AbstractArray; kws...) = (;)  # GPU arrays: suppress keyword arguments
 
 @inline _ndims_transformable(dims::Dims) = length(dims)
 @inline _ndims_transformable(p::Pencil) = ndims(p)
@@ -513,7 +522,8 @@ end
 
 function _make_1d_fft_plan(
         dim::Val{n}, ::Type{Ti}, A_fw::PencilArray, A_bw::PencilArray,
-        transform_fw::AbstractTransform; fftw_kw) where {n, Ti}
+        transform_fw::AbstractTransform; fftw_kw,
+    ) where {n, Ti}
     Pi = pencil(A_fw)
     Po = pencil(A_bw)
     perm = permutation(Pi)
