@@ -56,11 +56,11 @@ eltype_output(::BRFFT, ::Type{Complex{T}}) where {T <: FFTReal} = T
 eltype_input(::RFFT, ::Type{T}) where {T <: FFTReal} = T
 eltype_input(::BRFFT, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
-plan(::RFFT, args...; kwargs...) = FFTW.plan_rfft(args...; kwargs...)
+plan(::RFFT, A::AbstractArray, args...; kwargs...) = FFTW.plan_rfft(A, args...; kwargs...)
 
 # NOTE: unlike most FFTW plans, this function also requires the length `d` of
 # the transform output along the first transformed dimension.
-function plan(tr::BRFFT, A, dims; kwargs...)
+function plan(tr::BRFFT, A::AbstractArray, dims; kwargs...)
     Nin = size(A, first(dims))  # input length along first dimension
     d = length_output(tr, Nin)
     FFTW.plan_brfft(A, d, dims; kwargs...)
