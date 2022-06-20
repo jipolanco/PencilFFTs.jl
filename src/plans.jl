@@ -271,8 +271,8 @@ struct PencilFFTPlan{
         # free the memory.
         # TODO this assumes that buffers are not shared with the Pencil object!
         if inplace
-            @assert ibuf ∉ (pen.send_buf, pen.recv_buf)
-            @assert obuf ∉ (pen.send_buf, pen.recv_buf)
+            @assert all(x -> x !== ibuf, (pen.send_buf, pen.recv_buf))
+            @assert all(x -> x !== obuf, (pen.send_buf, pen.recv_buf))
             resize!.((ibuf, obuf), 0)
         end
 
