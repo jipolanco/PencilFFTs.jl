@@ -10,6 +10,7 @@ and [`FFTW.jl`](https://juliamath.github.io/FFTW.jl/stable/fft/).
 """
 module Transforms
 
+using AbstractFFTs
 using FFTW
 
 # Operations defined for custom plans (currently IdentityPlan).
@@ -39,19 +40,19 @@ The only custom plan defined in this module is [`IdentityPlan`](@ref).
 The user can define other custom plans that are also subtypes of
 `AbstractCustomPlan`.
 
-Note that [`plan`](@ref) returns a subtype of either `FFTW.FFTWPlan` or
+Note that [`plan`](@ref) returns a subtype of either `AbstractFFTs.Plan` or
 `AbstractCustomPlan`.
 """
 abstract type AbstractCustomPlan end
 
 """
-    Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
+    Plan = Union{AbstractFFTs.Plan, AbstractCustomPlan}
 
 Union type representing any plan returned by [`plan`](@ref).
 
 See also [`AbstractCustomPlan`](@ref).
 """
-const Plan = Union{FFTW.FFTWPlan, AbstractCustomPlan}
+const Plan = Union{AbstractFFTs.Plan, AbstractCustomPlan}
 
 """
     plan(transform::AbstractTransform, A, [dims];

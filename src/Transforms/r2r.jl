@@ -95,7 +95,7 @@ eltype_output(::AnyR2R, ::Type{T}) where {T} = T
 # `length(dims)` is known by the compiler. This will be the case if `dims` is a
 # tuple or a scalar value (e.g. `(1, 3)` or `1`), but not if it is a range (e.g.
 # `2:3`).
-function plan(transform::AnyR2R, A, dims; kwargs...)
+function plan(transform::AnyR2R, A::AbstractArray, dims; kwargs...)
     kd = kind(transform)
     K = ntuple(_ -> kd, length(dims))
     R = FFTW.r2rFFTWPlan{T,K} where {T}  # try to guess the return type

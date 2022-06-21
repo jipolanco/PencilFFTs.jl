@@ -50,10 +50,10 @@ length_output(::TransformC2C, length_in::Integer) = length_in
 eltype_output(::TransformC2C, ::Type{Complex{T}}) where {T <: FFTReal} = Complex{T}
 eltype_input(::TransformC2C, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
-plan(::FFT, args...; kwargs...) = FFTW.plan_fft(args...; kwargs...)
-plan(::FFT!, args...; kwargs...) = FFTW.plan_fft!(args...; kwargs...)
-plan(::BFFT, args...; kwargs...) = FFTW.plan_bfft(args...; kwargs...)
-plan(::BFFT!, args...; kwargs...) = FFTW.plan_bfft!(args...; kwargs...)
+plan(::FFT, A::AbstractArray, args...; kwargs...) = FFTW.plan_fft(A, args...; kwargs...)
+plan(::FFT!, A::AbstractArray, args...; kwargs...) = FFTW.plan_fft!(A, args...; kwargs...)
+plan(::BFFT, A::AbstractArray, args...; kwargs...) = FFTW.plan_bfft(A, args...; kwargs...)
+plan(::BFFT!, A::AbstractArray, args...; kwargs...) = FFTW.plan_bfft!(A, args...; kwargs...)
 
 binv(::FFT, d) = BFFT()
 binv(::FFT!, d) = BFFT!()
