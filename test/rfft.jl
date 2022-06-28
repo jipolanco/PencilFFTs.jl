@@ -145,7 +145,6 @@ function test_rfft(size_in; benchmark=true)
     u1 = PencilArray{Float64}(undef, pen)
 
     plan = @inferred PencilFFTPlan(u1, Transforms.RFFT())
-    @test timer(plan) === timer(u1)
     @test timer(plan) === timer(pen)
 
     # Allocate and initialise vector field in Fourier space.

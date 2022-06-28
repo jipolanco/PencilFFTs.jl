@@ -59,7 +59,7 @@ possible keyword arguments.
         fftw_timelimit = FFTW.NO_TIMELIMIT,
         permute_dims = Val(true),
         transpose_method = Transpositions.PointToPoint(),
-        timer = timer(A),
+        timer = timer(pencil(A)),
     )
 
 Create plan for `N`-dimensional transform on MPI-distributed `PencilArray`s.
@@ -245,7 +245,7 @@ struct PencilFFTPlan{
             permute_dims::ValBool = Val(true),
             transpose_method::AbstractTransposeMethod =
                 Transpositions.PointToPoint(),
-            timer::TimerOutput = timer(A),
+            timer::TimerOutput = timer(pencil(A)),
             ibuf = _make_fft_buffer(A), obuf = _make_fft_buffer(A),
         )
         T = eltype(A)
