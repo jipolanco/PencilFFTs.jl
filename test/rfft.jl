@@ -144,7 +144,8 @@ function test_rfft(size_in; benchmark=true)
     pen = Pencil(size_in, comm)
     u1 = PencilArray{Float64}(undef, pen)
 
-    plan = PencilFFTPlan(u1, Transforms.RFFT())
+    plan = @inferred PencilFFTPlan(u1, Transforms.RFFT())
+    @test timer(plan) === timer(pen)
 
     # Allocate and initialise vector field in Fourier space.
     uF = allocate_output(plan, Val(3))
@@ -152,7 +153,7 @@ function test_rfft(size_in; benchmark=true)
     init_random_field!.(uF, (rng, ))
 
     u = (u1, similar(u1), allocate_input(plan))
-    map(u) do v
+    for v ∈ u
         @test typeof(v) === typeof(u1)
         @test pencil(v) === pencil(u1)
         @test size(v) == size(u1)
