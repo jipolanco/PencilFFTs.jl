@@ -153,7 +153,7 @@ function test_rfft(size_in; benchmark=true)
     init_random_field!.(uF, (rng, ))
 
     u = (u1, similar(u1), allocate_input(plan))
-    map(u) do v
+    for v ∈ u
         @test typeof(v) === typeof(u1)
         @test pencil(v) === pencil(u1)
         @test size(v) == size(u1)
