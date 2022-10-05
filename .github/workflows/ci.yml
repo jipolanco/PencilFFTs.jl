@@ -63,7 +63,6 @@ jobs:
           println("\n", MPI.MPI_LIBRARY_VERSION_STRING)
 
       - uses: julia-actions/julia-buildpkg@v1
-
       - uses: julia-actions/julia-runtest@v1
 
       - uses: julia-actions/julia-processcoverage@v1
@@ -78,6 +77,7 @@ jobs:
       - name: Install libraries
         run: |
           sudo apt-get update
+          sudo apt-get install -y mpich libmpich-dev
           # For GLMakie (adapted from https://github.com/JuliaPlots/Makie.jl/blob/master/.github/workflows/glmakie.yaml)
           sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev ffmpeg
 
@@ -85,6 +85,19 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.8'
+
+      - name: Add MPIPreferences
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using Pkg
+          Pkg.add("MPIPreferences")
+
+      - name: Use system MPI
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using MPIPreferences
+          MPIPreferences.use_system_binary()
+
       - name: Install dependencies
         run: |
           julia --project=docs -e '
