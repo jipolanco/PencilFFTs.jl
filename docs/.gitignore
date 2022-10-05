@@ -1,3 +1,6 @@
 /build
 /Manifest.toml
 /src/generated
+
+*.mp4
+/build.*
