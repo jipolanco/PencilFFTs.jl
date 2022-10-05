@@ -10,9 +10,6 @@ on:
       - master
     tags: '*'
 
-env:
-  JULIA_MPI_BINARY: system
-
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -23,7 +20,7 @@ jobs:
       matrix:
         experimental: [false]
         version:
-          - '1.6'
+          - '1.7'
           - '1.8'
         os:
           - ubuntu-latest
@@ -36,11 +33,6 @@ jobs:
             experimental: true
 
     steps:
-      - name: Install libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install mpich libmpich-dev
-
       - uses: actions/checkout@v2
 
       - uses: julia-actions/setup-julia@v1
@@ -60,18 +52,17 @@ jobs:
             ${{ runner.os }}-
 
       - name: Precompile
+        shell: julia --color=yes --project=. {0}
         run: |
-          julia --project -e '
-            using Pkg
-            using InteractiveUtils
-            versioninfo()
-            pkg"instantiate"
-            pkg"precompile"
-            using MPI
-            println("\n", MPI.MPI_LIBRARY_VERSION_STRING)'
+          using Pkg
+          using InteractiveUtils
+          versioninfo()
+          pkg"instantiate"
+          pkg"precompile"
+          using MPI
+          println("\n", MPI.MPI_LIBRARY_VERSION_STRING)
 
       - uses: julia-actions/julia-buildpkg@v1
-
       - uses: julia-actions/julia-runtest@v1
 
       - uses: julia-actions/julia-processcoverage@v1
@@ -94,6 +85,19 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.8'
+
+      - name: Add MPIPreferences
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using Pkg
+          Pkg.add("MPIPreferences")
+
+      - name: Use system MPI
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using MPIPreferences
+          MPIPreferences.use_system_binary()
+
       - name: Install dependencies
         run: |
           julia --project=docs -e '
