@@ -205,7 +205,7 @@ _apply_plans_out_of_place!(dir::Val, ::PencilFFTPlan, y::PencilArray,
 
 # Wait for send operations to complete (only has an effect for specific
 # transposition methods).
-_wait_mpi_operations!(t, to) = @timeit_debug to "MPI.Waitall!" MPI.Waitall!(t)
+_wait_mpi_operations!(t, to) = @timeit_debug to "MPI.Waitall" MPI.Waitall(t)
 _wait_mpi_operations!(::Nothing, to) = nothing
 
 function _apply_plans_in_place!(
