@@ -6,6 +6,9 @@
 using PencilFFTs
 
 import MPI
+using AMDGPU
+using CUDA
+using GPUArrays
 
 using BenchmarkTools
 using Test
@@ -94,6 +97,13 @@ end
 
 MPI.Init()
 
+AT = [Array,]
+if CUDA.functional()
+    push!(AT, CuArray)
+end
+if AMDGPU.functional(:rocfft)
+    push!(AT, ROCArray)
+end
 size_in = DATA_DIMS
 comm = MPI.COMM_WORLD
 Nproc = MPI.Comm_size(comm)
@@ -105,67 +115,74 @@ pdims_2d = let pdims = zeros(Int, 2)
     MPI.Dims_create!(Nproc, pdims)
     pdims[1], pdims[2]
 end
+for type in AT
+    plan = PencilFFTPlan(
+        size_in, Transforms.RFFT(), pdims_2d, comm, type;
+        permute_dims=Val(true)
+    )
+    u = allocate_input(plan, Val(3))  # allocate vector field
 
-plan = PencilFFTPlan(
-    size_in, Transforms.RFFT(), pdims_2d, comm;
-    permute_dims=Val(true),
-)
-u = allocate_input(plan, Val(3))  # allocate vector field
-
-g_global = PhysicalGrid(GEOMETRY, size_in, permutation(u))
-g_local = LocalGridIterator(g_global, u)
-taylor_green!(u, g_local)   # initialise TG velocity field
-
-uF = plan * u  # apply 3D FFT
-
-gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
-gF_local = LocalGridIterator(gF_global, uF)
-ωF = similar.(uF)
-
-@testset "Taylor-Green" begin
-    let u_glob = similar.(u)
-        # Compare with initialisation using global indices
-        taylor_green!(u_glob, g_global)
-        @test all(u .≈ u_glob)
+    g_global = PhysicalGrid(GEOMETRY, size_in, permutation(u))
+    g_local = LocalGridIterator(g_global, u)
+    @allowscalar begin
+        taylor_green!(u, g_local)   # initialise TG velocity field
     end
 
-    div2 = divergence(uF, gF_local)
+    uF = plan * u  # apply 3D FFT
 
-    # Compare local and global versions of divergence
-    @test div2 == divergence(uF, gF_global)
+    gF_global = FourierGrid(GEOMETRY, size_in, permutation(uF))
+    gF_local = LocalGridIterator(gF_global, uF)
+    ωF = similar.(uF)
 
-    div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
-    @test div2_mean ≈ 0 atol=1e-16
+    @testset "Taylor-Green" begin
+        @allowscalar begin
+            let u_glob = similar.(u)
+                # Compare with initialisation using global indices
+                taylor_green!(u_glob, g_global)
+                @test all(u .≈ u_glob)
+            end
 
-    curl!(ωF, uF, gF_local)
-    ω = plan \ ωF
+            div2 = divergence(uF, gF_local)
 
-    # Test global version of curl
-    ωF_glob = similar.(ωF)
-    curl!(ωF_glob, uF, gF_global)
-    @test all(ωF_glob .== ωF)
+            # Compare local and global versions of divergence
+            @test div2 == divergence(uF, gF_global)
 
-    ω_err = check_vorticity_TG(ω, g_local, comm)
-    @test ω_err ≈ 0 atol=1e-16
-end
+            div2_mean = MPI.Allreduce(div2, +, comm) / prod(size_in)
+            @test div2_mean ≈ 0 atol=1e-16
+
+            curl!(ωF, uF, gF_local)
+            ω = plan \ ωF
+
+            # Test global version of curl
+            ωF_glob = similar.(ωF)
+            curl!(ωF_glob, uF, gF_global)
+            @test all(ωF_glob .== ωF)
+
+            ω_err = check_vorticity_TG(ω, g_local, comm)
+            @test ω_err ≈ 0 atol=1e-16
+        end
+    end
 
 # Micro-benchmarks
-print("divergence local...  ")
-@btime divergence($uF, $gF_local)
+    @allowscalar begin
+        print("divergence local...  ")
+        @btime divergence($uF, $gF_local)
 
-print("divergence global... ")
-@btime divergence($uF, $gF_global)
+        print("divergence global... ")
+        @btime divergence($uF, $gF_global)
 
-print("curl! local...       ")
-@btime curl!($ωF, $uF, $gF_local)
+        print("curl! local...       ")
+        @btime curl!($ωF, $uF, $gF_local)
 
-print("curl! global...      ")
-ωF_glob = similar.(ωF)
-@btime curl!($ωF_glob, $uF, $gF_global)
+        print("curl! global...      ")
+        ωF_glob = similar.(ωF)
+        @btime curl!($ωF_glob, $uF, $gF_global)
 
-if SAVE_VTK
-    fields_to_vtk(
-        g_local, "TG_proc_$(rank + 1)of$(Nproc)";
-        u = u, ω = ω,
-    )
+        if SAVE_VTK
+            fields_to_vtk(
+                g_local, "TG_proc_$(rank + 1)of$(Nproc)";
+                u = u, ω = ω,
+            )
+        end 
+    end
 end

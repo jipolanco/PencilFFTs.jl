@@ -2,6 +2,7 @@ using PencilFFTs
 using .Transforms: binv, is_inplace
 
 import FFTW
+using AMDGPU: rocFFT
 using MPI
 
 using LinearAlgebra
@@ -161,6 +162,9 @@ function test_inplace_fft(
     @testset "In-place transforms 3D" begin
         test_transform(plan, x -> FFTW.plan_fft!(x, dims_fft), plan_oop)
     end
+    @testset "In-place transforms 3D" begin
+        test_transform(plan, x -> rocFFT.plan_fft!(x, dims_fft), plan_oop)
+    end
 
     nothing
 end
@@ -314,20 +318,20 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
     pairs = if FAST_TESTS &&
             (T === Float32 || !isempty(extra_dims) || length(proc_dims) == 1)
         # Only test one transform with Float32 / extra_dims / 1D decomposition.
-        (Transforms.RFFT() => make_plan(FFTW.plan_rfft), )
+        (Transforms.RFFT() => make_plan(rocFFT.plan_rfft), )
     else
         (
-         Transforms.FFT() => make_plan(FFTW.plan_fft),
-         Transforms.RFFT() => make_plan(FFTW.plan_rfft),
-         Transforms.BFFT() => make_plan(FFTW.plan_bfft),
+         Transforms.FFT() => make_plan(rocFFT.plan_fft),
+         Transforms.RFFT() => make_plan(rocFFT.plan_rfft),
+         Transforms.BFFT() => make_plan(rocFFT.plan_bfft),
          Transforms.NoTransform() => (x -> Transforms.IdentityPlan()),
          pairs_r2r...,
          (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-             => make_plan(FFTW.plan_rfft, dims=2:3),
+             => make_plan(rocFFT.plan_rfft, dims=2:3),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
-             => make_plan(FFTW.plan_fft, dims=(1, 3)),
+             => make_plan(rocFFT.plan_fft, dims=(1, 3)),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
-             => make_plan(FFTW.plan_fft, dims=1),
+             => make_plan(rocFFT.plan_fft, dims=1),
 
          # TODO compare BRFFT with serial equivalent?
          # The special case of BRFFT is a bit complicated, because
@@ -405,7 +409,7 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
         )
         plan = PencilFFTPlan(size_in, transforms, pdims, comm)
         plan_oop = PencilFFTPlan(size_in, transforms_oop, pdims, comm)
-        fftw_planner(x) = FFTW.plan_fft!(x, 1:(N - 1))
+        fftw_planner(x) = rocFFT.plan_fft!(x, 1:(N - 1))
         test_transform(plan, fftw_planner, plan_oop)
     end
 
@@ -422,7 +426,7 @@ function test_dimensionality(dims::Dims{N}, ::Val{M}, comm;
         # Out-of-place transform.
         let transform = Transforms.RFFT()
             plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
-            test_transform(plan, FFTW.plan_rfft)
+            test_transform(plan, rocFFT.plan_rfft)
         end
 
         # In-place transform.
@@ -430,7 +434,7 @@ function test_dimensionality(dims::Dims{N}, ::Val{M}, comm;
             plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
             plan_oop = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm;
                                      plan_kw...)
-            test_transform(plan, FFTW.plan_fft!, plan_oop)
+            test_transform(plan, rocFFT.plan_fft!, plan_oop)
         end
 
     end

@@ -12,6 +12,11 @@ module Transforms
 
 using AbstractFFTs
 using FFTW
+using CUDA
+using AMDGPU
+if AMDGPU.functional(:rocfft)
+    using AMDGPU: rocFFT, AnyROCArray
+end
 
 # Operations defined for custom plans (currently IdentityPlan).
 using LinearAlgebra

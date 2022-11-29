@@ -57,6 +57,10 @@ eltype_input(::RFFT, ::Type{T}) where {T <: FFTReal} = T
 eltype_input(::BRFFT, ::Type{T}) where {T <: FFTReal} = Complex{T}
 
 plan(::RFFT, A::AbstractArray, args...; kwargs...) = FFTW.plan_rfft(A, args...; kwargs...)
+plan(::RFFT, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_rfft(A, args...; kwargs...)
+if AMDGPU.functional(:rocfft)
+    plan(::RFFT, A::AnyROCArray, args...; kwargs...) = rocFFT.plan_rfft(A, args...; kwargs...)
+end
 
 # NOTE: unlike most FFTW plans, this function also requires the length `d` of
 # the transform output along the first transformed dimension.
@@ -64,6 +68,20 @@ function plan(tr::BRFFT, A::AbstractArray, dims; kwargs...)
     Nin = size(A, first(dims))  # input length along first dimension
     d = length_output(tr, Nin)
     FFTW.plan_brfft(A, d, dims; kwargs...)
+end
+
+function plan(tr::BRFFT, A::AnyCuArray, dims; kwargs...)
+    Nin = size(A, first(dims))  # input length along first dimension
+    d = length_output(tr, Nin)
+    CUFFT.plan_brfft(A, d, dims; kwargs...)
+end
+
+if AMDGPU.functional(:rocfft)
+    function plan(tr::BRFFT, A::AnyROCArray, dims; kwargs...)
+        Nin = size(A, first(dims))  # input length along first dimension
+        d = length_output(tr, Nin)
+        rocFFT.plan_brfft(A, d, dims; kwargs...)
+    end
 end
 
 binv(::RFFT, d) = BRFFT(d)

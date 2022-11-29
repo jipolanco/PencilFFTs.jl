@@ -305,11 +305,11 @@ end
 
 function PencilFFTPlan(
         dims_global::Dims{Nt}, transforms::AbstractTransformList{Nt},
-        proc_dims::Dims, comm::MPI.Comm, ::Type{Tr} = Float64;
+        proc_dims::Dims, comm::MPI.Comm, ::Type{A} = Array, ::Type{Tr} = Float64;
         timer = TimerOutput(), kws...,
-    ) where {Nt, Tr}
+    ) where {Nt, Tr, A <: AbstractArray}
     t = MPITopology(comm, proc_dims)
-    pen = _make_input_pencil(dims_global, t, timer)
+    pen = _make_input_pencil(dims_global, t, timer, A)
     PencilFFTPlan(pen, transforms, Tr; timer = timer, kws...)
 end
 
@@ -448,7 +448,7 @@ end
 # No transforms left!
 _create_plans(::Type, ::GlobalFFTParams, ::Nothing, plan_prev; kws...) = ()
 
-function _make_input_pencil(dims_global, topology, timer)
+function _make_input_pencil(dims_global, topology, timer, ::Type{A}=Array) where {A <: AbstractArray}
     # This is the case of the first pencil pair.
     # Generate initial pencils for the first dimension.
     # - Decompose along dimensions "far" from the first one.
@@ -459,7 +459,7 @@ function _make_input_pencil(dims_global, topology, timer)
     M = ndims(topology)
     decomp_dims = input_decomposition(N, Val(M))
     perm = NoPermutation()
-    Pencil(topology, dims_global, decomp_dims; permute=perm, timer=timer)
+    Pencil(A, topology, dims_global, decomp_dims; permute=perm, timer=timer)
 end
 
 function _make_intermediate_pencil(
