@@ -7,6 +7,8 @@ import FFTW
 using MPI
 import Pkg
 
+using AMDGPU
+using CUDA
 using OrderedCollections: OrderedDict
 using TimerOutputs
 
@@ -83,49 +85,57 @@ getenv(key, default::T) where {T} = getenv(T, key, default)
 function parse_params()
     dims_str = getenv("PENCILFFTS_BENCH_DIMENSIONS", DIMS_DEFAULT)
     repetitions = getenv("PENCILFFTS_BENCH_REPETITIONS", 100)
+    array_types = [Array,]
+    if CUDA.functional()
+        push!(array_types, CuArray)
+    end
+    if AMDGPU.functional(:rocfft)
+        push!(array_types, ROCArray)
+    end
     outfile = getenv(String, "PENCILFFTS_BENCH_OUTPUT", nothing)
     (
         dims = parse_dimensions(dims_str) :: Dims{3},
+        array_types = array_types :: Vector{UnionAll}, 
         iterations = repetitions :: Int,
         outfile = outfile :: Union{Nothing,String},
     )
 end
 
 # Slab decomposition
-function create_pencils(topo::MPITopology{1}, data_dims, permutation::Val{true};
-                        kwargs...)
-    pen1 = Pencil(topo, data_dims, (2, ); kwargs...)
+function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims, permutation::Val{true};
+                        kwargs...) where {AT}
+    pen1 = Pencil(AT, topo, data_dims, (2, ); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(3, ), permute=Permutation(2, 1, 3); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(2, ), permute=Permutation(3, 2, 1); kwargs...)
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::MPITopology{1}, data_dims,
+function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims,
                         permutation::Val{false}; kwargs...)
-    pen1 = Pencil(topo, data_dims, (2, ); kwargs...)
+    pen1 = Pencil(AT, topo, data_dims, (2, ); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(3, ); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(2, ); kwargs...)
     pen1, pen2, pen3
 end
 
 # Pencil decomposition
-function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{true};
+function create_pencils(topo::MPITopology{2}, ::type{AT}, data_dims, permutation::Val{true};
                         kwargs...)
-    pen1 = Pencil(topo, data_dims, (2, 3); kwargs...)
+    pen1 = Pencil(AT, topo, data_dims, (2, 3); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Permutation(2, 1, 3); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Permutation(3, 2, 1); kwargs...)
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::MPITopology{2}, data_dims, permutation::Val{false};
+function create_pencils(topo::MPITopology{2}, ::type{AT}, data_dims, permutation::Val{false};
                         kwargs...)
-    pen1 = Pencil(topo, data_dims, (2, 3); kwargs...)
+    pen1 = Pencil(AT, topo, data_dims, (2, 3); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(1, 3); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(1, 2); kwargs...)
     pen1, pen2, pen3
 end
 
-function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
+function benchmark_pencils(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
                            iterations=1,
                            with_permutations::Val=Val(true),
                            extra_dims::Tuple=(),
@@ -137,7 +147,7 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
 
     to = TimerOutput()
 
-    pens = create_pencils(topo, data_dims, with_permutations, timer=to)
+    pens = create_pencils(topo, AT, data_dims, with_permutations, timer=to)
 
     u = map(p -> PencilArray{Float64}(undef, p, extra_dims...), pens)
 
@@ -197,16 +207,16 @@ function benchmark_pencils(comm, proc_dims::Tuple, data_dims::Tuple;
     nothing
 end
 
-function benchmark_rfft(comm, proc_dims::Tuple, data_dims::Tuple;
+function benchmark_rfft(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
                         iterations=1,
                         transpose_method=Transpositions.PointToPoint(),
                         permute_dims=Val(true),
-                       )
+                       ) where {AT}
     isroot = MPI.Comm_rank(comm) == 0
 
     to = TimerOutput()
-    plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm,
+    plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm, AT,
                          extra_dims=extra_dims,
                          permute_dims=permute_dims,
                          fftw_flags=FFTW.ESTIMATE,
@@ -380,6 +390,7 @@ function run_benchmarks(params)
 
     dims = params.dims
     iterations = params.iterations
+    array_types = params.array_types
     outfile = params.outfile
 
     if myrank == 0
@@ -398,10 +409,10 @@ function run_benchmarks(params)
     permutes = (Val(true), Val(false))
     timings = Array{TimerData}(undef, 2, 2)
 
-    map(Iterators.product(transpose_methods, permutes)) do (method, permute)
+    map(Iterators.product(transpose_methods, permutes, array_types)) do (method, permute, AT)
         I = make_index(permute, method)
         timings[I] = benchmark_rfft(
-            comm, proc_dims, dims;
+            comm, AT, proc_dims, dims;
             iterations = iterations, permute_dims = permute, transpose_method = method,
         )
     end
