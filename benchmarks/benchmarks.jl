@@ -102,7 +102,7 @@ function parse_params()
 end
 
 # Slab decomposition
-function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims, permutation::Val{true};
+function create_pencils(topo::MPITopology{1}, ::Type{AT}, data_dims, permutation::Val{true};
                         kwargs...) where {AT}
     pen1 = Pencil(AT, topo, data_dims, (2, ); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(3, ), permute=Permutation(2, 1, 3); kwargs...)
@@ -110,8 +110,8 @@ function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims, permutation
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims,
-                        permutation::Val{false}; kwargs...)
+function create_pencils(topo::MPITopology{1}, ::Type{AT}, data_dims,
+                        permutation::Val{false}; kwargs...) where {AT}
     pen1 = Pencil(AT, topo, data_dims, (2, ); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(3, ); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(2, ); kwargs...)
@@ -119,28 +119,28 @@ function create_pencils(topo::MPITopology{1}, ::type{AT}, data_dims,
 end
 
 # Pencil decomposition
-function create_pencils(topo::MPITopology{2}, ::type{AT}, data_dims, permutation::Val{true};
-                        kwargs...)
+function create_pencils(topo::MPITopology{2}, ::Type{AT}, data_dims, permutation::Val{true};
+                        kwargs...) where {AT}
     pen1 = Pencil(AT, topo, data_dims, (2, 3); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(1, 3), permute=Permutation(2, 1, 3); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(1, 2), permute=Permutation(3, 2, 1); kwargs...)
     pen1, pen2, pen3
 end
 
-function create_pencils(topo::MPITopology{2}, ::type{AT}, data_dims, permutation::Val{false};
-                        kwargs...)
+function create_pencils(topo::MPITopology{2}, ::Type{AT}, data_dims, permutation::Val{false};
+                        kwargs...) where {AT}
     pen1 = Pencil(AT, topo, data_dims, (2, 3); kwargs...)
     pen2 = Pencil(pen1, decomp_dims=(1, 3); kwargs...)
     pen3 = Pencil(pen2, decomp_dims=(1, 2); kwargs...)
     pen1, pen2, pen3
 end
 
-function benchmark_pencils(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
+function benchmark_pencils(comm, ::Type{AT}, proc_dims::Tuple, data_dims::Tuple;
                            iterations=1,
                            with_permutations::Val=Val(true),
                            extra_dims::Tuple=(),
                            transpose_method=Transpositions.PointToPoint(),
-                          )
+                          ) where {AT}
     topo = MPITopology(comm, proc_dims)
     M = length(proc_dims)
     @assert M in (1, 2)
@@ -186,6 +186,7 @@ function benchmark_pencils(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
             Permutations (1, 2, 3):  $(permutation.(pens))
             Transpositions:          1 -> 2 -> 3 -> 2 -> 1
             Method:                  $(transpose_method)
+            Array Type:              $AT
             """)
         println(to, SEPARATOR)
     end
@@ -207,7 +208,7 @@ function benchmark_pencils(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
     nothing
 end
 
-function benchmark_rfft(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
+function benchmark_rfft(comm, ::Type{AT}, proc_dims::Tuple, data_dims::Tuple;
                         extra_dims=(),
                         iterations=1,
                         transpose_method=Transpositions.PointToPoint(),
@@ -218,13 +219,14 @@ function benchmark_rfft(comm, ::type{AT}, proc_dims::Tuple, data_dims::Tuple;
     to = TimerOutput()
     plan = PencilFFTPlan(data_dims, Transforms.RFFT(), proc_dims, comm, AT,
                          extra_dims=extra_dims,
-                         permute_dims=permute_dims,
+                        #  permute_dims=permute_dims,
                          fftw_flags=FFTW.ESTIMATE,
                          timer=to, transpose_method=transpose_method)
 
     if isroot
         println("\n", plan, "\nMethod: ", plan.transpose_method)
-        println("Permutations: $permute_dims\n")
+        println("Permutations: $permute_dims")
+        println("Array Type: $AT\n")
     end
 
     u = allocate_input(plan)
@@ -295,13 +297,13 @@ function AggregatedTimes(to::TimerOutput, transpose_method)
     data = avgtime(tf["copy_permuted!"]) + avgtime(tf["copy_range!"])
 
     mpi = if transpose_method === Transpositions.PointToPoint()
-        t = avgtime(to["MPI.Waitall!"])
+        t = avgtime(to["MPI.Waitall"])
         if haskey(tf, "wait receive")  # this will be false in serial mode
             t += avgtime(tf["wait receive"])
         end
         t
     elseif transpose_method === Transpositions.Alltoallv()
-        avgtime(tf["MPI.Alltoallv!"]) + avgtime(to["MPI.Waitall!"])
+        avgtime(tf["MPI.Alltoallv!"]) + avgtime(to["MPI.Waitall"])
     end
 
     others = 0.0
