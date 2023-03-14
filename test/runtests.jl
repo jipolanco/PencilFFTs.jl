@@ -9,9 +9,10 @@ using InteractiveUtils: versioninfo
 using PencilFFTs
 
 test_files = [
-    "test/taylor_green.jl",
-    "test/brfft.jl",
-    "test/rfft.jl"
+    "taylor_green.jl",
+    "brfft.jl",
+    "rfft.jl",
+    "transforms.jl",
 ]
 
 # Also run some (but not all!) examples.
@@ -24,18 +25,18 @@ example_files = joinpath.(
 Nproc = let N = get(ENV, "JULIA_MPI_TEST_NPROCS", nothing)
     N === nothing ? clamp(Sys.CPU_THREADS, 4, 6) : parse(Int, N)
 end
-# files = vcat(example_files, test_files)
+files = vcat(example_files, test_files)
 
 println()
 versioninfo()
 println("\n", MPI.MPI_LIBRARY_VERSION_STRING, "\n")
 
-for fname in test_files
+for fname in files
     @info "Running $fname with $Nproc processes..."
     mpiexec() do cmd
         # Disable precompilation to prevent race conditions when loading
         # packages.
-        run(`$cmd -n $Nproc $(Base.julia_cmd()[1]) --project $fname`)
+        run(`$cmd -n $Nproc $(Base.julia_cmd()) $fname`)
     end
     println()
 end
