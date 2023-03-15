@@ -1,6 +1,6 @@
 module CUDAPencilFFTs
 
-using Transforms
+using .Transforms
 using CUDA
 
 # c2c.jl

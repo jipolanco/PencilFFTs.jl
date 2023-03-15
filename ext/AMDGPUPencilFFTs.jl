@@ -1,6 +1,6 @@
 module AMDGPUPencilFFTs
 
-using Transforms
+using .Transforms
 using AMDGPU
 if AMDGPU.functional(:rocfft)
     using AMDGPU: rocFFT, AnyROCArray
