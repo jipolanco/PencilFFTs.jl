@@ -5,7 +5,6 @@ using PencilFFTs.Transforms: FFT, FFT!, BFFT, BFFT!, RFFT, BRFFT
 using CUDA
 
 # c2c.jl
-@show 212341
 
 PencilFFTs.Transforms.plan(::FFT, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_fft(A, args...; kwargs...)
 PencilFFTs.Transforms.plan(::FFT!, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_fft!(A, args...; kwargs...)
