@@ -510,9 +510,9 @@ end
 
 function make_pdims(::Val{M}, Nproc) where {M}
     # Let MPI.Dims_create! choose the decomposition.
-    pdims = zeros(Int, M)
-    MPI.Dims_create!(Nproc, pdims)
-    ntuple(d -> pdims[d], Val(M))
+    pdims_in = ntuple(_ -> 0, Val(M))
+    pdims = MPI.Dims_create(Nproc, pdims_in)
+    ntuple(d -> Int(pdims[d]), Val(M))
 end
 
 MPI.Init()
