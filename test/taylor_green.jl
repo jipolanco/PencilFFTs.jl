@@ -101,9 +101,9 @@ rank = MPI.Comm_rank(comm)
 
 silence_stdout(comm)
 
-pdims_2d = let pdims = zeros(Int, 2)
-    MPI.Dims_create!(Nproc, pdims)
-    pdims[1], pdims[2]
+pdims_2d = let pdims_in = zeros(Int, 2)
+    pdims = MPI.Dims_create(Nproc, pdims_in)
+    ntuple(i -> Int(pdims[i]), 2)
 end
 
 plan = PencilFFTPlan(
