@@ -1,0 +1,2 @@
+# Don't ignore the Manifest.toml used for benchmarks
+!Manifest.toml
