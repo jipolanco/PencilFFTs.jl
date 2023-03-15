@@ -30,9 +30,9 @@ include("plans.jl")
 include("allocate.jl")
 include("operations.jl")
 
-function __init__()
-    @static if !isdefined(Base, :get_extension)
-        include("../ext/CUDAPencilFFTs.jl")
-        include("../ext/AMDGPUPencilFFTs.jl")
-    end
+@static if !isdefined(Base, :get_extension)
+    include("../ext/CUDAPencilFFTs.jl")
+    include("../ext/AMDGPUPencilFFTs.jl")
+end
+
 end # module
