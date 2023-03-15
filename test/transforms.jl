@@ -102,9 +102,7 @@ function test_transform_types(size_in)
             @inferred Transforms.plan(tr, A, 2)
             @inferred Transforms.plan(tr, A, (1, 3))
             @inferred Transforms.plan(tr, A)
-
-            # This will fail because length(2:3) is not known by the compiler.
-            @test_throws ErrorException @inferred Transforms.plan(tr, A, 2:3)
+            @inferred Transforms.plan(tr, A, 2:3)  # also inferred since FFTW.jl 1.6!
         end
 
         for kind in (FFTW.R2HC, FFTW.HC2R), T in (Transforms.R2R, Transforms.R2R!)
