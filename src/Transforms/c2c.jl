@@ -55,18 +55,6 @@ plan(::FFT!, A::AbstractArray, args...; kwargs...) = FFTW.plan_fft!(A, args...; 
 plan(::BFFT, A::AbstractArray, args...; kwargs...) = FFTW.plan_bfft(A, args...; kwargs...)
 plan(::BFFT!, A::AbstractArray, args...; kwargs...) = FFTW.plan_bfft!(A, args...; kwargs...)
 
-if AMDGPU.functional(:rocfft)
-    plan(::FFT, A::AnyROCArray, args...; kwargs...) = rocFFT.plan_fft(A, args...; kwargs...)
-    plan(::FFT!, A::AnyROCArray, args...; kwargs...) = rocFFT.plan_fft!(A, args...; kwargs...)
-    plan(::BFFT, A::AnyROCArray, args...; kwargs...) = rocFFT.plan_bfft(A, args...; kwargs...)
-    plan(::BFFT!, A::AnyROCArray, args...; kwargs...) = rocFFT.plan_bfft!(A, args...; kwargs...)
-end
-
-plan(::FFT, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_fft(A, args...; kwargs...)
-plan(::FFT!, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_fft!(A, args...; kwargs...)
-plan(::BFFT, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_bfft(A, args...; kwargs...)
-plan(::BFFT!, A::AnyCuArray, args...; kwargs...) = CUFFT.plan_bfft!(A, args...; kwargs...)
-
 binv(::FFT, d) = BFFT()
 binv(::FFT!, d) = BFFT!()
 binv(::BFFT, d) = FFT()
