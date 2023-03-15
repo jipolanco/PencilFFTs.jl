@@ -83,23 +83,10 @@ length_output(::AnyR2R, length_in::Integer) = length_in
 eltype_input(::AnyR2R, ::Type) = nothing  # both real and complex inputs are accepted
 eltype_output(::AnyR2R, ::Type{T}) where {T} = T
 
-# NOTE: plan_r2r is type-unstable!!
-# More precisely, plan_r2r returns a FFTW.r2rFFTWPlan{T, K, inplace, N},
-# whose second parameter `K` is "a tuple of the transform kinds along each
-# dimension". That is, `K` is a tuple of the form `(kind1, kind2, ..., kindN)`
-# with the same length as `dims`.
-#
-# Since we have static information on the kind (it's a parameter of the R2R
-# type), we try to work around the issue by typing the return type. This
-# function will be type-stable if `dims` has a static length, i.e. if
-# `length(dims)` is known by the compiler. This will be the case if `dims` is a
-# tuple or a scalar value (e.g. `(1, 3)` or `1`), but not if it is a range (e.g.
-# `2:3`).
 function plan(transform::AnyR2R, A::AbstractArray, dims; kwargs...)
     kd = kind(transform)
     K = ntuple(_ -> kd, length(dims))
-    R = FFTW.r2rFFTWPlan{T,K} where {T}  # try to guess the return type
-    _plan_r2r(transform, A, kd, dims; kwargs...) :: R
+    _plan_r2r(transform, A, kd, dims; kwargs...)
 end
 
 _plan_r2r(::R2R, args...; kwargs...) = FFTW.plan_r2r(args...; kwargs...)
