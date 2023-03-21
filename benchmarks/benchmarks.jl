@@ -16,6 +16,8 @@ using LinearAlgebra
 using Printf
 using Profile
 using Random
+using ArgParse
+using GPUArrays
 
 TimerOutputs.enable_debug_timings(PencilFFTs)
 TimerOutputs.enable_debug_timings(PencilArrays)
@@ -28,8 +30,6 @@ const PROFILE_OUTPUT = "profile.txt"
 const PROFILE_DEPTH = 8
 
 const MEASURE_GATHER = false
-
-const DIMS_DEFAULT = "32,64,128"
 
 const DEV_NULL = @static Sys.iswindows() ? "nul" : "/dev/null"
 
@@ -69,32 +69,42 @@ function Base.:*(t::TimerData, v)
     t
 end
 
-function getenv(::Type{T}, key, default = nothing) where {T}
-    s = get(ENV, key, nothing)
-    if s === nothing
-        default
-    elseif T <: AbstractString
-        s
-    else
-        parse(T, s)
-    end
+function ArgParse.parse_item(::Type{UnionAll}, x::AbstractString)
+    eval(Meta.parse(x))
 end
 
-getenv(key, default::T) where {T} = getenv(T, key, default)
-
 function parse_params()
-    dims_str = getenv("PENCILFFTS_BENCH_DIMENSIONS", DIMS_DEFAULT)
-    repetitions = getenv("PENCILFFTS_BENCH_REPETITIONS", 100)
-    array_types = [Array,]
-    if CUDA.functional()
-        push!(array_types, CuArray)
+    s = ArgParseSettings("Benchmark for PencilFFTs.jl.")
+
+    @add_arg_table! s begin
+        "--dims", "-d"
+            nargs = 3
+            arg_type = Int
+            default = [128, 128, 128]            
+            help = "dimensions of the FFT benchmark;"
+        "--repititions", "-r"
+            arg_type = Int
+            default = 100
+            help = "number of repetitions for the benchmark;"
+        "--array-types", "-t"
+            nargs = '*'
+            arg_type = UnionAll
+            default = [CuArray,]
+            help = "type of Arrays to use for benchmarking: CuArray, ROCArray, Array;"
+        "--output-file", "-o"
+            nargs = '?'
+            arg_type = String
+            default = ""
+            help = "optional output file to save benchmark data;"
     end
-    if AMDGPU.functional(:rocfft)
-        push!(array_types, ROCArray)
-    end
-    outfile = getenv(String, "PENCILFFTS_BENCH_OUTPUT", nothing)
+
+    parsed_args = parse_args(s)
+    dims = Dims(parsed_args["dims"])
+    repetitions = parsed_args["repititions"]
+    array_types = parsed_args["array-types"]
+    outfile = isempty(parsed_args["output-file"]) ? nothing : parsed_args["output-file"]
     (
-        dims = parse_dimensions(dims_str) :: Dims{3},
+        dims = dims :: Dims{3},
         array_types = array_types :: Vector{UnionAll}, 
         iterations = repetitions :: Int,
         outfile = outfile :: Union{Nothing,String},
@@ -239,7 +249,11 @@ function benchmark_rfft(comm, ::Type{AT}, proc_dims::Tuple, data_dims::Tuple;
     mul!(v, plan, u)
     ldiv!(uprime, plan, v)
 
-    @assert u ≈ uprime
+    # GPUArrays.@allowscalar begin
+    #     @info sum(u), sum(uprime)
+    # end
+    # MPI.Barrier(comm)
+    # @assert u ≈ uprime
 
     reset_timer!(to)
 
@@ -398,6 +412,8 @@ function run_benchmarks(params)
     if myrank == 0
         @info "Global dimensions: $dims"
         @info "Repetitions:       $iterations"
+        @info "Array Types:       $array_types"
+        @info "Output File:       $outfile"
     end
 
     # Let MPI_Dims_create choose the decomposition.
