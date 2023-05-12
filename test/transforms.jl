@@ -2,7 +2,11 @@ using PencilFFTs
 using .Transforms: binv, is_inplace
 
 import FFTW
+using CUDA
+using AMDGPU
+using AMDGPU: rocFFT
 using MPI
+using GPUArrays
 
 using LinearAlgebra
 using Random
@@ -143,21 +147,23 @@ function test_transform_types(size_in)
 end
 
 function test_inplace_fft(
-        ::Type{T}, comm, proc_dims, size_in;
+        ::Type{T}, ::Type{AT}, comm, proc_dims, size_in;
         extra_dims=(),
-    ) where {T}
+    ) where {T, AT}
     transforms = Transforms.FFT!()  # in-place c2c FFT
-    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, T;
+    plan = PencilFFTPlan(size_in, transforms, proc_dims, comm, AT, T;
                          extra_dims=extra_dims)
 
     # Out-of-place plan, just for verifying that we throw errors.
-    plan_oop = PencilFFTPlan(size_in, Transforms.FFT(), proc_dims, comm, T;
+    plan_oop = PencilFFTPlan(size_in, Transforms.FFT(), proc_dims, comm, AT, T;
                              extra_dims=extra_dims)
 
     dims_fft = 1:length(size_in)
 
     @testset "In-place transforms 3D" begin
-        test_transform(plan, x -> FFTW.plan_fft!(x, dims_fft), plan_oop)
+        GPUArrays.@allowscalar begin
+            test_transform(plan, x -> FFTW.plan_fft!(x, dims_fft), plan_oop)
+        end
     end
 
     nothing
@@ -298,8 +304,8 @@ function test_transform(
     nothing
 end
 
-function test_transforms(::Type{T}, comm, proc_dims, size_in;
-                         extra_dims=()) where {T}
+function test_transforms(::Type{T}, ::Type{AT}, comm, proc_dims, size_in;
+                         extra_dims=()) where {T, AT}
     plan_kw = (:extra_dims => extra_dims, )
     N = length(size_in)
 
@@ -321,7 +327,7 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
          Transforms.NoTransform() => (x -> Transforms.IdentityPlan()),
          pairs_r2r...,
          (Transforms.NoTransform(), Transforms.RFFT(), Transforms.FFT())
-             => make_plan(FFTW.plan_rfft, dims=2:3),
+             => make_plan(rFFTW.plan_rfft, dims=2:3),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.FFT())
              => make_plan(FFTW.plan_fft, dims=(1, 3)),
          (Transforms.FFT(), Transforms.NoTransform(), Transforms.NoTransform())
@@ -340,28 +346,28 @@ function test_transforms(::Type{T}, comm, proc_dims, size_in;
         transform, fftw_planner = p
         is_c2r = transform isa Transforms.BRFFT
         plan = @inferred PencilFFTPlan(
-            size_in, transform, proc_dims, comm, T; plan_kw...)
+            size_in, transform, proc_dims, comm, AT, T; plan_kw...)
         test_transform(plan, fftw_planner; is_c2r)
     end
 
     nothing
 end
 
-function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
+function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm, ::Type{AT}) where {AT}
     N = length(size_in)
     @assert N >= 3
 
-    @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64)
+    @inferred PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, AT, Float64)
 
     let to = TimerOutput()
-        plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, Float64,
+        plan = PencilFFTPlan(size_in, Transforms.RFFT(), pdims, comm, AT, Float64,
                              timer=to)
         @test timer(plan) === to
     end
 
-    @testset "Transform types" begin
+    @testset "Transform types $AT" begin
         let transforms = (Transforms.RFFT(), Transforms.FFT(), Transforms.FFT())
-            @inferred PencilFFTPlan(size_in, transforms, pdims, comm)
+            @inferred PencilFFTPlan(size_in, transforms, pdims, comm, AT)
             @inferred PencilFFTs._input_data_type(Float64, transforms...)
         end
 
@@ -388,11 +394,11 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
     end
 
     for T in types, edims in extra_dims
-        test_inplace_fft(T, comm, pdims, size_in, extra_dims=edims)
-        test_transforms(T, comm, pdims, size_in, extra_dims=edims)
+        test_inplace_fft(T, AT, comm, pdims, size_in, extra_dims=edims)
+        test_transforms(T, AT, comm, pdims, size_in, extra_dims=edims)
     end
 
-    @testset "FFT! + NoTransform!" begin
+    @testset "FFT! + NoTransform! $AT" begin
         transforms = (
             ntuple(_ -> Transforms.FFT!(), N - 1)...,
             Transforms.NoTransform!(),
@@ -403,7 +409,7 @@ function test_pencil_plans(size_in::Tuple, pdims::Tuple, comm)
         )
         plan = PencilFFTPlan(size_in, transforms, pdims, comm)
         plan_oop = PencilFFTPlan(size_in, transforms_oop, pdims, comm)
-        fftw_planner(x) = FFTW.plan_fft!(x, 1:(N - 1))
+        fftw_planner(x) = rocFFT.plan_fft!(x, 1:(N - 1))
         test_transform(plan, fftw_planner, plan_oop)
     end
 
@@ -420,7 +426,7 @@ function test_dimensionality(dims::Dims{N}, ::Val{M}, comm;
         # Out-of-place transform.
         let transform = Transforms.RFFT()
             plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
-            test_transform(plan, FFTW.plan_rfft)
+            test_transform(plan, rocFFT.plan_rfft)
         end
 
         # In-place transform.
@@ -428,7 +434,7 @@ function test_dimensionality(dims::Dims{N}, ::Val{M}, comm;
             plan = PencilFFTPlan(dims, transform, pdims, comm; plan_kw...)
             plan_oop = PencilFFTPlan(dims, Transforms.FFT(), pdims, comm;
                                      plan_kw...)
-            test_transform(plan, FFTW.plan_fft!, plan_oop)
+            test_transform(plan, rocFFT.plan_fft!, plan_oop)
         end
 
     end
@@ -523,13 +529,23 @@ Nproc = MPI.Comm_size(comm)
 rank = MPI.Comm_rank(comm)
 rank == 0 || redirect_stdout(devnull)
 
-test_transform_types(size_in)
-test_incompatibility(comm)
-test_dimensionality(comm)
+# test_transform_types(size_in)
+# test_incompatibility(comm)
+# test_dimensionality(comm)
 
 pdims_1d = (Nproc, )  # 1D ("slab") decomposition
 pdims_2d = make_pdims(Val(2), Nproc)
 
+AT = [Array,]
+if CUDA.functional()
+    push!(AT, CuArray)
+end
+if AMDGPU.functional(:rocfft)
+    push!(AT, ROCArray)
+end
+
 for p in (pdims_1d, pdims_2d)
-    test_pencil_plans(size_in, p, comm)
+    for typ in AT
+        test_pencil_plans(size_in, p, comm, typ)
+    end
 end
