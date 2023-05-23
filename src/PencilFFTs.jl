@@ -27,6 +27,7 @@ const AbstractTransformList{N} = NTuple{N, AbstractTransform} where N
 
 include("global_params.jl")
 include("plans.jl")
+include("multiarrays_r2c.jl")
 include("allocate.jl")
 include("operations.jl")
 
