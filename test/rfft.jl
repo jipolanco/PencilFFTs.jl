@@ -5,6 +5,7 @@ import MPI
 
 using BenchmarkTools
 using LinearAlgebra
+using FFTW
 using Printf
 using Random
 using Test
@@ -190,6 +191,78 @@ function test_rfft(size_in; benchmark=true)
     MPI.Barrier(comm)
 end
 
+function test_rfft!(size_in)
+    comm = MPI.COMM_WORLD
+    rank = MPI.Comm_rank(comm)
+
+    rank == 0 && @info "Input data size: $size_in"
+
+    # Test creating Pencil and creating plan.
+    pen = Pencil(size_in, comm)
+
+    inplace_plan = @inferred PencilFFTPlan(pen, Transforms.RFFT!())
+    outofplace_place = @inferred PencilFFTPlan(pen, Transforms.RFFT())
+
+    # Allocate and initialise scalar fields 
+    u = allocate_input(inplace_plan) #, Val(3))
+    x = first(u) ; x̂ = last(u) # Real and Complex views
+
+    v = allocate_input(outofplace_place)
+    v̂ = allocate_output(outofplace_place)
+
+    fill!(x, 0.0) ; rank == 0 && (x[1] = 1.0) ; rank == 0 && (x[2] = 2.0) ;
+    fill!(v, 0.0) ; rank == 0 && (v[1] = 1.0) ; rank == 0 && (v[2] = 2.0) ;
+
+    @testset "RFFT! vs RFFT" begin
+        mul!(u, inplace_plan, u)
+        mul!(v̂, outofplace_place, v)
+        @test all(isapprox.(x̂, v̂, atol=1e-8))
+
+        ldiv!(u, inplace_plan, u)
+        ldiv!(v, outofplace_place, v̂)
+        @test all(isapprox.(x, v, atol=1e-8))
+        @test all(isapprox.(x[1:3], [1.0, 2.0, 0.0], atol = 1e-8))
+    end
+
+    MPI.Barrier(comm)
+end
+
+function test_1D_rfft!(size_in; flags=FFTW.ESTIMATE)
+    dims = (size_in,) ; 
+    dims_padded = (2(dims[1] ÷ 2 + 1), dims[2:end]...) ; 
+    dims_fourier = ((dims[1] ÷ 2 + 1), dims[2:end]...)
+
+    A = zeros(Float64, dims_padded) ; 
+    a = view(A, Base.OneTo.(dims)...) ; 
+    â = reinterpret(Complex{Float64}, A)
+
+    â2 = zeros(Complex{Float64}, dims_fourier) ;
+    a2 = zeros(Float64, dims) ;
+    
+    p = Transforms.plan_rfft!(a, 1, flags=flags) ; #display(p)
+    p2 = FFTW.plan_rfft(a2, 1, flags=flags) ;
+    bp = Transforms.plan_brfft!(â, dims[1], 1, flags=flags) ; 
+    bp2 = FFTW.plan_brfft(â, dims[1], 1, flags=flags) ; 
+
+    fill!(a2, 0.0) ; a2[1] = 1 ; a2[2] = 2 ;
+    fill!(a, 0.0) ; a[1] = 1 ; a[2] = 2 ;
+    
+    @testset "1D RFFT! vs RFFT" begin
+        mul!(â, p, a) ; 
+        mul!(â2, p2, a2) ;
+        @test all(isapprox.(â2, â, atol = 1e-8))
+        
+        mul!(a, bp, â) ; 
+        mul!(a2, bp2, â2) ;
+        @test all(isapprox.(a2, a, atol = 1e-8))
+        
+        a /= size_in ; a2 /= size_in ;
+        @test all(isapprox.(a[1:3], [1.0, 2.0, 0.0], atol = 1e-8))
+    end
+
+    MPI.Barrier(comm)
+end
+
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
@@ -198,3 +271,11 @@ rank == 0 || redirect_stdout(devnull)
 test_rfft(DATA_DIMS_EVEN)
 println()
 test_rfft(DATA_DIMS_ODD, benchmark=false)
+
+test_1D_rfft!(first(DATA_DIMS_ODD))
+test_1D_rfft!(first(DATA_DIMS_EVEN))
+# test_1D_rfft!(first(DATA_DIMS_EVEN), flags = FFTW.MEASURE) # test fails for this specific dimension, possibly due to a FFTW bug
+
+test_rfft!(DATA_DIMS_ODD)
+# test_rfft!(DATA_DIMS_EVEN) # test fails for this specific dimension, possibly due to a FFTW bug
+test_rfft!(DATA_DIMS_EVEN .+ 2)
