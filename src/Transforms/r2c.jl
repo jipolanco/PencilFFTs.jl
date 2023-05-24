@@ -117,8 +117,10 @@ expand_dims(tr::RFFT!, ::Val{N}) where {N} =
 
 expand_dims(tr::BRFFT, ::Val{N}) where {N} = (BFFT(), expand_dims(tr, Val(N - 1))...)
 expand_dims(tr::BRFFT!, ::Val{N}) where {N} = (BFFT!(), expand_dims(tr, Val(N - 1))...)
-expand_dims(tr::TransformC2R, ::Val{1}) = (tr, )
-expand_dims(tr::TransformC2R, ::Val{0}) = ()
+expand_dims(tr::BRFFT, ::Val{1}) = (tr, )
+expand_dims(tr::BRFFT, ::Val{0}) = ()
+expand_dims(tr::BRFFT!, ::Val{1}) = (tr, )
+expand_dims(tr::BRFFT!, ::Val{0}) = ()
 
 ## FFTW wrappers for inplace RFFT plans
 
