@@ -61,12 +61,12 @@ function Base.:\(p::PencilFFTPlan, src::FFTArray)
     ldiv!(dst, p, src)
 end
 
-function _scale!(dst::PencilArray{<:RealOrComplex{T},N}, inv_scale::T) where {T,N}
-    parent(dst) .*= inv_scale
+function _scale!(dst::PencilArray{<:RealOrComplex{T},N}, inv_scale::Number) where {T,N}
+    dst .*= inv_scale
 end
 
-function _scale!(dst::PencilMultiarray{<:RealOrComplex{T},N}, inv_scale::T) where {T,N}
-    parent(first(dst)) .*= inv_scale
+function _scale!(dst::PencilMultiarray{<:RealOrComplex{T},N}, inv_scale::Number) where {T,N}
+    first(dst) .*= inv_scale
 end
 
 # Out-of-place version
