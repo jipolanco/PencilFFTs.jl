@@ -15,11 +15,9 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     If `p` is an in-place real-to-real or complex-to-complex plan, a
     [`ManyPencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.ManyPencilArray)
     is allocated. If `p` is an in-place real-to-complex plan, a
-    []`ManyPencilArrayRFFT!`](@ref)
-    is allocated. 
+    [`ManyPencilArrayRFFT!`](@ref) is allocated. 
     
-    These
-    types hold `PencilArray` wrappers for the input and output transforms (as
+    These types hold `PencilArray` wrappers for the input and output transforms (as
     well as for intermediate transforms) which share the same space in memory.
     The input and output `PencilArray`s should be respectively accessed by
     calling [`first(::ManyPencilArray)`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Base.first-Tuple{ManyPencilArray}) and
