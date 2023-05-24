@@ -191,7 +191,7 @@ function test_rfft(size_in; benchmark=true)
     MPI.Barrier(comm)
 end
 
-function test_rfft!(size_in)
+function test_rfft!(size_in; flags = FFTW.ESTIMATE, benchmark=true)
     comm = MPI.COMM_WORLD
     rank = MPI.Comm_rank(comm)
 
@@ -200,8 +200,8 @@ function test_rfft!(size_in)
     # Test creating Pencil and creating plan.
     pen = Pencil(size_in, comm)
 
-    inplace_plan = @inferred PencilFFTPlan(pen, Transforms.RFFT!())
-    outofplace_place = @inferred PencilFFTPlan(pen, Transforms.RFFT())
+    inplace_plan = @inferred PencilFFTPlan(pen, Transforms.RFFT!(), fftw_flags=flags)
+    outofplace_place = @inferred PencilFFTPlan(pen, Transforms.RFFT(), fftw_flags=flags)
 
     # Allocate and initialise scalar fields 
     u = allocate_input(inplace_plan) #, Val(3))
@@ -221,9 +221,26 @@ function test_rfft!(size_in)
         ldiv!(u, inplace_plan, u)
         ldiv!(v, outofplace_place, v̂)
         @test all(isapprox.(x, v, atol=1e-8))
-        @test all(isapprox.(x[1:3], [1.0, 2.0, 0.0], atol = 1e-8))
-    end
+        rank == 0 && @test all(isapprox.(x[1:3], [1.0, 2.0, 0.0], atol = 1e-8))
 
+        rng = MersenneTwister(42)
+        init_random_field!(x̂, rng)
+        copyto!(parent(v̂), parent(x̂))
+
+        PencilFFTs.bmul!(u, inplace_plan, u)
+        PencilFFTs.bmul!(v, outofplace_place, v̂)
+        @test all(isapprox.(x, v, atol=1e-8))
+
+        mul!(u, inplace_plan, u)
+        mul!(v̂, outofplace_place, v)
+        @test all(isapprox.(x̂, v̂, atol=1e-8))
+    end
+    if benchmark
+        println("micro-benchmarks: ")
+        println("- rfft!...\t") ; @time mul!(u, inplace_plan, u)  ; @time mul!(u, inplace_plan, u)
+        println("- rfft...\t") ; @time mul!(v̂, outofplace_place, v)  ; @time mul!(v̂, outofplace_place, v)
+        println("done ")
+    end
     MPI.Barrier(comm)
 end
 
@@ -273,9 +290,9 @@ println()
 test_rfft(DATA_DIMS_ODD, benchmark=false)
 
 test_1D_rfft!(first(DATA_DIMS_ODD))
+test_1D_rfft!(first(DATA_DIMS_EVEN), flags = FFTW.MEASURE)
 test_1D_rfft!(first(DATA_DIMS_EVEN))
-# test_1D_rfft!(first(DATA_DIMS_EVEN), flags = FFTW.MEASURE) # test fails for this specific dimension, possibly due to a FFTW bug
 
-test_rfft!(DATA_DIMS_ODD)
-# test_rfft!(DATA_DIMS_EVEN) # test fails for this specific dimension, possibly due to a FFTW bug
-test_rfft!(DATA_DIMS_EVEN .+ 2)
+test_rfft!(DATA_DIMS_ODD, benchmark=false)
+test_rfft!(DATA_DIMS_EVEN, benchmark=false)
+# test_rfft!((256,256,256)) # similar execution times for large rfft and rfft!
