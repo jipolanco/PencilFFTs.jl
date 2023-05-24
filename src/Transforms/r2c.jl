@@ -1,5 +1,5 @@
 ## Real-to-complex and complex-to-real transforms.
-
+import FFTW: rFFTWPlan, FORWARD, BACKWARD, ESTIMATE, NO_TIMELIMIT, FakeArray, colmajorstrides, brfft_output_size
 """
     RFFT()
 
@@ -128,12 +128,14 @@ function plan_rfft!(X::StridedArray{T,N}, region;
     sz = size(X) # physical input size (real)
     osize = FFTW.rfft_output_size(sz, region) # output size (complex)
     isize = ntuple(i -> i == first(region) ? 2osize[i] : osize[i], Val(N)) # padded input size (real)
-    X_padded = flags&FFTW.ESTIMATE != 0 ? # is time measurement not required ?
-        FFTW.FakeArray{T,N}(sz, FFTW.colmajorstrides(isize)) : # fake allocation, only size and strides matter
-        view(Array{T}(undef, isize), Base.OneTo.(sz)...) # allocation
-    Y = flags&FFTW.ESTIMATE != 0 ? 
-        FFTW.FakeArray{Complex{T}}(osize) : # fake allocation, only size and strides matter
-        Array{Complex{T}}(undef, osize) # allocation
+    if flags&FFTW.ESTIMATE != 0 # time measurement not required
+        X_padded = FFTW.FakeArray{T,N}(sz, FFTW.colmajorstrides(isize))  # fake allocation, only pointer, size and strides matter
+        Y = FFTW.FakeArray{Complex{T}}(osize) 
+    else # need to allocate new array since size of X is too small...
+        data = Array{T}(undef, prod(isize))
+        X_padded = view(reshape(data, isize), Base.OneTo.(sz)...) # allocation
+        Y = reshape(reinterpret(Complex{T}, data), osize)
+    end
     return FFTW.rFFTWPlan{T,FFTW.FORWARD,true,N}(X_padded, Y, region, flags, timelimit)
 end
 
@@ -143,22 +145,7 @@ function plan_brfft!(X::StridedArray{Complex{T},N}, d, region;
     isize = size(X) # input size (complex)
     osize = ntuple(i -> i == first(region) ? 2isize[i] : isize[i], Val(N)) # padded output size (real)
     sz = FFTW.brfft_output_size(X, d, region) # physical output size (real)
-    # Y is padded
-    Y = flags&FFTW.ESTIMATE != 0 ?  # is time measurement not required ?
-        FFTW.FakeArray{T,N}(sz, FFTW.colmajorstrides(osize)) : # fake allocation, only size and strides matter
-        view(Array{T}(undef, osize), Base.OneTo.(sz)...) # allocation
+    Yflat = reinterpret(T, reshape(X, prod(isize)))
+    Y = view(reshape(Yflat, osize), Base.OneTo.(sz)...) # Y is padded
     return FFTW.rFFTWPlan{Complex{T},FFTW.BACKWARD,true,N}(X, Y, region, flags, timelimit)
 end
-#= function Base.:*(p::FFTW.rFFTWPlan{T,FFTW.FORWARD,true,N}, X::StridedArray{T,N}) where {T<:FFTW.fftwReal,N}
-    ptr_complex = convert(Ptr{Complex{T}}, pointer(X)) 
-    Y = unsafe_wrap(Array, ptr_complex, p.osz) # reinterpretation of X as a complex Array
-    mul!(Y, p, X) # assesses size, strides and memory alignment
-end
-
-function Base.:*(p::FFTW.rFFTWPlan{Complex{T},FFTW.BACKWARD,true,N}, X::StridedArray{Complex{T},N}) where {T<:FFTW.fftwReal,N}
-    ptr_real = convert(Ptr{T}, pointer(X))
-    osize = ntuple(i -> i == first(p.region) ? 2p.sz[i] : p.sz[i], Val(N)) # padded real size
-    Y_parent = unsafe_wrap(Array, ptr_real, osize) # reinterpretation of X as a real Array
-    Y = view(Y_parent, Base.OneTo.(p.osz)...) # skip padded values, view to physical real size only
-    mul!(Y, p, X) # assesses size, strides and memory alignment
-end =#
