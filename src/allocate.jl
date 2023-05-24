@@ -15,11 +15,11 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     If `p` is an in-place real-to-real or complex-to-complex plan, a
     [`ManyPencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.ManyPencilArray)
     is allocated. If `p` is an in-place real-to-complex plan, a
-    [`ManyPencilArrayInplaceRFFT`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.ManyPencilArray)
+    []`ManyPencilArrayRFFT!`](@ref)
     is allocated. 
     
-    This
-    type holds `PencilArray` wrappers for the input and output transforms (as
+    These
+    types hold `PencilArray` wrappers for the input and output transforms (as
     well as for intermediate transforms) which share the same space in memory.
     The input and output `PencilArray`s should be respectively accessed by
     calling [`first(::ManyPencilArray)`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Base.first-Tuple{ManyPencilArray}) and
@@ -70,11 +70,10 @@ function allocate_input(plan::PencilFFTPlan{T,N,true,
     Nt,  # number of transformed dimensions
     Nd,  # number of decomposed dimensions
     Ne,  # number of extra dimensions
-    G }
-    ; unsafe::Bool = true, fill_with_zeros::Bool = false) where {N,Nd,Ne,G<:PencilFFTs.GlobalFFTParams{T,Nt,true,TR}} where {T<:FFTReal,Nt,TR<:Tuple{Transforms.RFFT!,Vararg{Transforms.FFT!}}}
+    G }) where {N,Nd,Ne,G<:PencilFFTs.GlobalFFTParams{T,Nt,true,TR}} where {T<:FFTReal,Nt,TR<:Tuple{Transforms.RFFT!,Vararg{Transforms.FFT!}}}
     plans = plan.plans
     pencils = (first(plans).pencil_in, first(plans).pencil_out,  map(pp -> pp.pencil_in, plans[2:end])...)
-    ManyPencilArrayInplaceRFFT{T}(undef, pencils...; extra_dims=plan.extra_dims, unsafe=unsafe, fill_with_zeros = fill_with_zeros)
+    ManyPencilArrayRFFT!{T}(undef, pencils...; extra_dims=plan.extra_dims)
 end
 
 allocate_input(p::PencilFFTPlan, dims...) =
