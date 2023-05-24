@@ -204,7 +204,7 @@ function test_rfft!(size_in; flags = FFTW.ESTIMATE, benchmark=true)
     outofplace_place = @inferred PencilFFTPlan(pen, Transforms.RFFT(), fftw_flags=flags)
 
     # Allocate and initialise scalar fields 
-    u = allocate_input(inplace_plan) #, Val(3))
+    u = allocate_input(inplace_plan)
     x = first(u) ; x̂ = last(u) # Real and Complex views
 
     v = allocate_input(outofplace_place)
@@ -256,7 +256,7 @@ function test_1D_rfft!(size_in; flags=FFTW.ESTIMATE)
     â2 = zeros(Complex{Float64}, dims_fourier) ;
     a2 = zeros(Float64, dims) ;
     
-    p = Transforms.plan_rfft!(a, 1, flags=flags) ; #display(p)
+    p = Transforms.plan_rfft!(a, 1, flags=flags) ;
     p2 = FFTW.plan_rfft(a2, 1, flags=flags) ;
     bp = Transforms.plan_brfft!(â, dims[1], 1, flags=flags) ; 
     bp2 = FFTW.plan_brfft(â, dims[1], 1, flags=flags) ; 
