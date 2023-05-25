@@ -204,14 +204,18 @@ function test_rfft!(size_in; flags = FFTW.ESTIMATE, benchmark=true)
     outofplace_place = @inferred PencilFFTPlan(pen, Transforms.RFFT(), fftw_flags=flags)
 
     # Allocate and initialise scalar fields 
-    u = allocate_input(inplace_plan)
-    x = first(u) ; x̂ = last(u) # Real and Complex views
+    u = @inferred allocate_input(inplace_plan)
+    x = first(u); x̂ = last(u) # Real and Complex views
 
-    v = allocate_input(outofplace_place)
-    v̂ = allocate_output(outofplace_place)
+    v = @inferred allocate_input(outofplace_place)
+    v̂ = @inferred allocate_output(outofplace_place)
 
-    fill!(x, 0.0) ; rank == 0 && (x[1] = 1.0) ; rank == 0 && (x[2] = 2.0) ;
-    fill!(v, 0.0) ; rank == 0 && (v[1] = 1.0) ; rank == 0 && (v[2] = 2.0) ;
+    fill!(x, 0.0)
+    fill!(v, 0.0)
+    if rank == 0
+        x[1] = 1.0; x[2] = 2.0
+        v[1] = 1.0; v[2] = 2.0
+    end
 
     @testset "RFFT! vs RFFT" begin
         mul!(u, inplace_plan, u)
@@ -237,43 +241,48 @@ function test_rfft!(size_in; flags = FFTW.ESTIMATE, benchmark=true)
     end
     if benchmark
         println("micro-benchmarks: ")
-        println("- rfft!...\t") ; @time mul!(u, inplace_plan, u)  ; @time mul!(u, inplace_plan, u)
-        println("- rfft...\t") ; @time mul!(v̂, outofplace_place, v)  ; @time mul!(v̂, outofplace_place, v)
+        println("- rfft!...\t")
+        @time mul!(u, inplace_plan, u)
+        @time mul!(u, inplace_plan, u)
+        println("- rfft...\t")
+        @time mul!(v̂, outofplace_place, v)
+        @time mul!(v̂, outofplace_place, v)
         println("done ")
     end
     MPI.Barrier(comm)
 end
 
 function test_1D_rfft!(size_in; flags=FFTW.ESTIMATE)
-    dims = (size_in,) ; 
-    dims_padded = (2(dims[1] ÷ 2 + 1), dims[2:end]...) ; 
+    dims = (size_in,)
+    dims_padded = (2(dims[1] ÷ 2 + 1), dims[2:end]...)
     dims_fourier = ((dims[1] ÷ 2 + 1), dims[2:end]...)
 
-    A = zeros(Float64, dims_padded) ; 
-    a = view(A, Base.OneTo.(dims)...) ; 
+    A = zeros(Float64, dims_padded)
+    a = view(A, Base.OneTo.(dims)...)
     â = reinterpret(Complex{Float64}, A)
 
-    â2 = zeros(Complex{Float64}, dims_fourier) ;
-    a2 = zeros(Float64, dims) ;
-    
-    p = Transforms.plan_rfft!(a, 1, flags=flags) ;
-    p2 = FFTW.plan_rfft(a2, 1, flags=flags) ;
-    bp = Transforms.plan_brfft!(â, dims[1], 1, flags=flags) ; 
-    bp2 = FFTW.plan_brfft(â, dims[1], 1, flags=flags) ; 
+    â2 = zeros(Complex{Float64}, dims_fourier)
+    a2 = zeros(Float64, dims)
 
-    fill!(a2, 0.0) ; a2[1] = 1 ; a2[2] = 2 ;
-    fill!(a, 0.0) ; a[1] = 1 ; a[2] = 2 ;
+    p = Transforms.plan_rfft!(a, 1, flags=flags)
+    p2 = FFTW.plan_rfft(a2, 1, flags=flags)
+    bp = Transforms.plan_brfft!(â, dims[1], 1, flags=flags)
+    bp2 = FFTW.plan_brfft(â, dims[1], 1, flags=flags)
+
+    fill!(a2, 0.0); a2[1] = 1; a2[2] = 2;
+    fill!(a, 0.0); a[1] = 1; a[2] = 2;
     
     @testset "1D RFFT! vs RFFT" begin
-        mul!(â, p, a) ; 
-        mul!(â2, p2, a2) ;
+        mul!(â, p, a)
+        mul!(â2, p2, a2)
         @test all(isapprox.(â2, â, atol = 1e-8))
         
-        mul!(a, bp, â) ; 
-        mul!(a2, bp2, â2) ;
+        mul!(a, bp, â) 
+        mul!(a2, bp2, â2)
         @test all(isapprox.(a2, a, atol = 1e-8))
         
-        a /= size_in ; a2 /= size_in ;
+        a /= size_in
+        a2 /= size_in
         @test all(isapprox.(a[1:3], [1.0, 2.0, 0.0], atol = 1e-8))
     end
 

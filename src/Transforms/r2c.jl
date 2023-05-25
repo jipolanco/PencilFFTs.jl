@@ -1,5 +1,6 @@
 ## Real-to-complex and complex-to-real transforms.
-import FFTW: rFFTWPlan, FORWARD, BACKWARD, ESTIMATE, NO_TIMELIMIT, FakeArray, colmajorstrides, brfft_output_size
+using FFTW: FFTW
+
 """
     RFFT()
 
