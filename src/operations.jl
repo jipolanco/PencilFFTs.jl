@@ -2,15 +2,17 @@ const RealOrComplex{T} = Union{T, Complex{T}} where T <: FFTReal
 const PlanArrayPair{P,A} = Pair{P,A} where {P <: PencilPlan1D, A <: PencilArray}
 
 # Types of array over which a PencilFFTPlan can operate.
-# PencilArray and ManyPencilArray are respectively for out-of-place and in-place
+# PencilArray, ManyPencilArray and ManyPencilArrayRFFT! are respectively for out-of-place, in-place and in-place rfft
 # transforms.
-const FFTArray{T,N} = Union{PencilArray{T,N}, ManyPencilArray{T,N}} where {T,N}
+const FFTArray{T,N} = Union{PencilArray{T,N}, ManyPencilArray{T,N}, ManyPencilArrayRFFT!{T,N}} where {T,N}
 
 # Collections of FFTArray (e.g. for vector components), for broadcasting plans
 # to each array. These types are basically those returned by `allocate_input`
 # and `allocate_output` when optional arguments are passed.
 const FFTArrayCollection =
     Union{Tuple{Vararg{A}}, AbstractArray{A}} where {A <: FFTArray}
+
+const PencilMultiarray{T,N} = Union{ManyPencilArray{T,N}, ManyPencilArrayRFFT!{T,N}} where {T,N}
 
 # This allows to treat plans as scalars when broadcasting.
 # This means that, if u = (u1, u2, u3) is a tuple of PencilArrays
@@ -28,13 +30,24 @@ function LinearAlgebra.mul!(
     end
 end
 
-# Backward transforms
+# Backward transforms (unscaled)
+function bmul!(
+        dst::FFTArray{T,N}, p::PencilFFTPlan{T,N}, src::FFTArray{Ti,N},
+    ) where {T, N, Ti <: RealOrComplex}
+    @timeit_debug p.timer "PencilFFTs bmul!" begin
+        _check_arrays(p, dst, src)
+        _apply_plans!(Val(FFTW.BACKWARD), p, dst, src)
+    end
+end
+
+# Inverse transforms (scaled)
 function LinearAlgebra.ldiv!(
         dst::FFTArray{T,N}, p::PencilFFTPlan{T,N}, src::FFTArray{Ti,N},
     ) where {T, N, Ti <: RealOrComplex}
     @timeit_debug p.timer "PencilFFTs ldiv!" begin
         _check_arrays(p, dst, src)
         _apply_plans!(Val(FFTW.BACKWARD), p, dst, src)
+        _scale!(dst, inv(scale_factor(p)))
     end
 end
 
@@ -48,13 +61,21 @@ function Base.:\(p::PencilFFTPlan, src::FFTArray)
     ldiv!(dst, p, src)
 end
 
+function _scale!(dst::PencilArray{<:RealOrComplex{T},N}, inv_scale::Number) where {T,N}
+    dst .*= inv_scale
+end
+
+function _scale!(dst::PencilMultiarray{<:RealOrComplex{T},N}, inv_scale::Number) where {T,N}
+    first(dst) .*= inv_scale
+end
+
 # Out-of-place version
 _maybe_allocate(allocator::Function, p::PencilFFTPlan{T,N,false} where {T,N},
                 ::PencilArray) = allocator(p)
 
 # In-place version
 _maybe_allocate(::Function, ::PencilFFTPlan{T,N,true} where {T,N},
-                src::ManyPencilArray) = src
+                src::PencilMultiarray) = src
 
 # Fallback case.
 function _maybe_allocate(::Function, p::PencilFFTPlan, src::A) where {A}
@@ -76,7 +97,7 @@ end
 
 function _check_arrays(
         p::PencilFFTPlan{T,N,true} where {T,N},
-        Ain::ManyPencilArray, Aout::ManyPencilArray,
+        Ain::PencilMultiarray, Aout::PencilMultiarray,
     )
     if Ain !== Aout
         throw(ArgumentError(
@@ -121,6 +142,10 @@ for f in (:mul!, :ldiv!)
         (check_compatible(dst, src); $f.(dst, p, src))
 end
 
+bmul!(dst::FFTArrayCollection, p::PencilFFTPlan,
+                           src::FFTArrayCollection) =
+        (check_compatible(dst, src); bmul!.(dst, p, src))
+
 for f in (:*, :\)
     @eval Base.$f(p::PencilFFTPlan, src::FFTArrayCollection) =
         $f.(p, src)
@@ -143,11 +168,6 @@ function _apply_plans!(
 
     _apply_plans_out_of_place!(dir, full_plan, y, x, plans...)
 
-    if dir === Val(FFTW.BACKWARD)
-        # Scale transform.
-        y ./= scale_factor(full_plan)
-    end
-
     y
 end
 
@@ -163,9 +183,42 @@ function _apply_plans!(
 
     _apply_plans_in_place!(dir, full_plan, nothing, pp...)
 
-    if dir === Val(FFTW.BACKWARD)
-        # Scale transform.
-        first(A) ./= scale_factor(full_plan)
+    A
+end
+
+# In-place RFFT version
+function _apply_plans!(
+    dir::Val, full_plan::PencilFFTPlan{T,N,true},
+    A::ManyPencilArrayRFFT!{T,N}, A_again::ManyPencilArrayRFFT!{T,N}) where {T<:FFTReal,N}
+    @assert A === A_again
+
+    # pairs for 1D FFT! plans, RFFT! plan is treated separately
+    pairs = _make_pairs(full_plan.plans[2:end], A.arrays[3:end])
+
+    # Backward transforms are applied in reverse order.
+    pp = dir === Val(FFTW.BACKWARD) ? reverse(pairs) : pairs
+
+    if dir === Val(FFTW.FORWARD)
+        # apply separately first transform (RFFT!)
+        _apply_rfft_plan_in_place!(dir, full_plan, A.arrays[2], first(full_plan.plans), A.arrays[1])
+        # apply recursively all successive transforms (FFT!)
+        _apply_plans_in_place!(dir, full_plan, A.arrays[2], pp...)
+    elseif dir === Val(FFTW.BACKWARD)
+        # apply recursively all transforms but last (BFFT!)
+        _apply_plans_in_place!(dir, full_plan, nothing, pp...)
+        # transpose before last transform
+        t = if pp == ()
+                nothing
+            else
+                @assert Base.mightalias(A.arrays[3], A.arrays[2]) # they're aliased!
+                t = Transpositions.Transposition(A.arrays[2], A.arrays[3],
+                                         method=full_plan.transpose_method)
+                transpose!(t, waitall=false)
+            end
+        # apply separately last transform (BRFFT!)
+        _apply_rfft_plan_in_place!(dir, full_plan, A.arrays[1], first(full_plan.plans), A.arrays[2])
+
+        _wait_mpi_operations!(t, full_plan.timer)
     end
 
     A
@@ -239,6 +292,12 @@ function _apply_plans_in_place!(
 end
 
 _apply_plans_in_place!(::Val, ::PencilFFTPlan, u_prev::PencilArray) = u_prev
+
+function _apply_rfft_plan_in_place!(dir::Val, full_plan::PencilFFTPlan, A_out ::PencilArray{To,N}, p::PencilPlan1D{ti,to,Pi,Po,Tr}, A_in ::PencilArray{Ti,N}) where
+    {Ti<:RealOrComplex{T},To<:RealOrComplex{T},ti<:RealOrComplex{T},to<:RealOrComplex{T},Pi,Po,N,Tr<:Union{Transforms.RFFT!,Transforms.BRFFT!}} where T<:FFTReal
+   fft_plan = dir === Val(FFTW.FORWARD) ? p.fft_plan : p.bfft_plan
+   @timeit_debug full_plan.timer "FFT!" mul!(parent(A_out), fft_plan, parent(A_in)) 
+end
 
 _split_first(a, b...) = (a, b)  # (x, y, z, w) -> (x, (y, z, w))
 

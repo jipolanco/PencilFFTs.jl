@@ -12,10 +12,12 @@ size `dims`, and a tuple of `N` `PencilArray`s.
 
 !!! note "In-place plans"
 
-    If `p` is an in-place plan, a
+    If `p` is an in-place real-to-real or complex-to-complex plan, a
     [`ManyPencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.ManyPencilArray)
-    is allocated. This
-    type holds `PencilArray` wrappers for the input and output transforms (as
+    is allocated. If `p` is an in-place real-to-complex plan, a
+    [`ManyPencilArrayRFFT!`](@ref) is allocated. 
+    
+    These types hold `PencilArray` wrappers for the input and output transforms (as
     well as for intermediate transforms) which share the same space in memory.
     The input and output `PencilArray`s should be respectively accessed by
     calling [`first(::ManyPencilArray)`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#Base.first-Tuple{ManyPencilArray}) and
@@ -39,17 +41,26 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     # p * v_in  # not allowed!!
     ```
 """
-function allocate_input end
+function allocate_input(p::PencilFFTPlan)
+    inplace = is_inplace(p)
+    _allocate_input(Val(inplace), p)
+end
 
 # Out-of-place version
-function allocate_input(p::PencilFFTPlan{T,N,false} where {T,N})
+function _allocate_input(inplace::Val{false}, p::PencilFFTPlan)
     T = eltype_input(p)
     pen = pencil_input(p)
     PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # In-place version
-function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
+function _allocate_input(inplace::Val{true}, p::PencilFFTPlan)
+    (; transforms,) = p.global_params
+    _allocate_input(inplace, p, transforms...)
+end
+
+# In-place: generic case
+function _allocate_input(inplace::Val{true}, p::PencilFFTPlan, transforms...)
     pencils = map(pp -> pp.pencil_in, p.plans)
 
     # Note that for each 1D plan, the input and output pencils are the same.
@@ -59,6 +70,16 @@ function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
 
     T = eltype_input(p)
     ManyPencilArray{T}(undef, pencils...; extra_dims=p.extra_dims)
+end
+
+# In-place: specific case of RFFT!
+function _allocate_input(
+        inplace::Val{true}, p::PencilFFTPlan{T},
+        ::Transforms.RFFT!, ::Vararg{Transforms.FFT!},
+    ) where {T}
+    plans = p.plans
+    pencils = (first(plans).pencil_in, first(plans).pencil_out,  map(pp -> pp.pencil_in, plans[2:end])...)
+    ManyPencilArrayRFFT!{T}(undef, pencils...; extra_dims=p.extra_dims)
 end
 
 allocate_input(p::PencilFFTPlan, dims...) =
@@ -76,17 +97,20 @@ If `p` is an in-place plan, a [`ManyPencilArray`](https://jipolanco.github.io/Pe
 
 See [`allocate_input`](@ref) for details.
 """
-function allocate_output end
+function allocate_output(p::PencilFFTPlan)
+    inplace = is_inplace(p)
+    _allocate_output(Val(inplace), p)
+end
 
 # Out-of-place version.
-function allocate_output(p::PencilFFTPlan{T,N,false} where {T,N})
+function _allocate_output(inplace::Val{false}, p::PencilFFTPlan)
     T = eltype_output(p)
     pen = pencil_output(p)
     PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # For in-place plans, the output and input are the same ManyPencilArray.
-allocate_output(p::PencilFFTPlan{T,N,true} where {T,N}) = allocate_input(p)
+_allocate_output(inplace::Val{true}, p::PencilFFTPlan) = _allocate_input(inplace, p)
 
 allocate_output(p::PencilFFTPlan, dims...) =
     _allocate_many(allocate_output, p, dims...)
