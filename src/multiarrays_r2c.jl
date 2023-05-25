@@ -9,7 +9,7 @@ underlying data buffer. All views share the same and dimensionality `N`.
 The element type `T` of the first view is real, that of subsequent views is 
 `Complex{T}`. 
 
-This can be used to perform in-place real-to-complex plan, see also[`Tranforms.RFFT!`](@ref). 
+This can be used to perform in-place real-to-complex plan, see also[`Transforms.RFFT!`](@ref). 
 It is used internally for such transforms by [`allocate_input`](@ref) and should not be constructed directly.
 
 ---

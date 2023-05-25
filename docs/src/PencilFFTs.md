@@ -28,3 +28,9 @@ scale_factor(::PencilFFTPlan)
 timer(::PencilFFTPlan)
 is_inplace(::PencilFFTPlan)
 ```
+
+## Internals
+
+```@docs
+ManyPencilArrayRFFT!
+```
