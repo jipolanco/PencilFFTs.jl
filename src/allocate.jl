@@ -41,17 +41,26 @@ size `dims`, and a tuple of `N` `PencilArray`s.
     # p * v_in  # not allowed!!
     ```
 """
-function allocate_input end
+function allocate_input(p::PencilFFTPlan)
+    inplace = is_inplace(p)
+    _allocate_input(Val(inplace), p)
+end
 
 # Out-of-place version
-function allocate_input(p::PencilFFTPlan{T,N,false} where {T,N})
+function _allocate_input(inplace::Val{false}, p::PencilFFTPlan)
     T = eltype_input(p)
     pen = pencil_input(p)
     PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # In-place version
-function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
+function _allocate_input(inplace::Val{true}, p::PencilFFTPlan)
+    (; transforms,) = p.global_params
+    _allocate_input(inplace, p, transforms...)
+end
+
+# In-place: generic case
+function _allocate_input(inplace::Val{true}, p::PencilFFTPlan, transforms...)
     pencils = map(pp -> pp.pencil_in, p.plans)
 
     # Note that for each 1D plan, the input and output pencils are the same.
@@ -63,15 +72,14 @@ function allocate_input(p::PencilFFTPlan{T,N,true} where {T,N})
     ManyPencilArray{T}(undef, pencils...; extra_dims=p.extra_dims)
 end
 
-# In-place version for real-to-complex RFFT!
-function allocate_input(plan::PencilFFTPlan{T,N,true, 
-    Nt,  # number of transformed dimensions
-    Nd,  # number of decomposed dimensions
-    Ne,  # number of extra dimensions
-    G }) where {N,Nd,Ne,G<:PencilFFTs.GlobalFFTParams{T,Nt,true,TR}} where {T<:FFTReal,Nt,TR<:Tuple{Transforms.RFFT!,Vararg{Transforms.FFT!}}}
-    plans = plan.plans
+# In-place: specific case of RFFT!
+function _allocate_input(
+        inplace::Val{true}, p::PencilFFTPlan{T},
+        ::Transforms.RFFT!, ::Vararg{Transforms.FFT!},
+    ) where {T}
+    plans = p.plans
     pencils = (first(plans).pencil_in, first(plans).pencil_out,  map(pp -> pp.pencil_in, plans[2:end])...)
-    ManyPencilArrayRFFT!{T}(undef, pencils...; extra_dims=plan.extra_dims)
+    ManyPencilArrayRFFT!{T}(undef, pencils...; extra_dims=p.extra_dims)
 end
 
 allocate_input(p::PencilFFTPlan, dims...) =
@@ -89,17 +97,20 @@ If `p` is an in-place plan, a [`ManyPencilArray`](https://jipolanco.github.io/Pe
 
 See [`allocate_input`](@ref) for details.
 """
-function allocate_output end
+function allocate_output(p::PencilFFTPlan)
+    inplace = is_inplace(p)
+    _allocate_output(Val(inplace), p)
+end
 
 # Out-of-place version.
-function allocate_output(p::PencilFFTPlan{T,N,false} where {T,N})
+function _allocate_output(inplace::Val{false}, p::PencilFFTPlan)
     T = eltype_output(p)
     pen = pencil_output(p)
     PencilArray{T}(undef, pen, p.extra_dims...)
 end
 
 # For in-place plans, the output and input are the same ManyPencilArray.
-allocate_output(p::PencilFFTPlan{T,N,true} where {T,N}) = allocate_input(p)
+_allocate_output(inplace::Val{true}, p::PencilFFTPlan) = _allocate_input(inplace, p)
 
 allocate_output(p::PencilFFTPlan, dims...) =
     _allocate_many(allocate_output, p, dims...)
