@@ -191,6 +191,7 @@ function _apply_plans!(
     dir::Val, full_plan::PencilFFTPlan{T,N,true},
     A::ManyPencilArrayRFFT!{T,N}, A_again::ManyPencilArrayRFFT!{T,N}) where {T<:FFTReal,N}
     @assert A === A_again
+
     # pairs for 1D FFT! plans, RFFT! plan is treated separately
     pairs = _make_pairs(full_plan.plans[2:end], A.arrays[3:end])
 
@@ -206,7 +207,7 @@ function _apply_plans!(
         # apply recursively all transforms but last (BFFT!)
         _apply_plans_in_place!(dir, full_plan, nothing, pp...)
         # transpose before last transform
-        t = if pp ==()
+        t = if pp == ()
                 nothing
             else
                 @assert Base.mightalias(A.arrays[3], A.arrays[2]) # they're aliased!
