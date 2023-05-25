@@ -233,7 +233,7 @@ function test_rfft!(size_in; flags = FFTW.ESTIMATE, benchmark=true)
 
         mul!(u, inplace_plan, u)
         mul!(v̂, outofplace_place, v)
-        @test all(isapprox.(x̂, v̂, rtol=1e-8))
+        @test all(isapprox.(x̂, v̂, atol=1e-8))
     end
     if benchmark
         println("micro-benchmarks: ")
