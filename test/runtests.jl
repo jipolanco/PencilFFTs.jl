@@ -1,5 +1,3 @@
-#!/usr/bin/env julia
-
 # This is based on the runtests.jl file of MPI.jl.
 
 using MPI: MPI, mpiexec
@@ -29,7 +27,11 @@ files = vcat(example_files, test_files)
 
 println()
 versioninfo()
-println("\n", MPI.MPI_LIBRARY_VERSION_STRING, "\n")
+if isdefined(MPI, :versioninfo)
+    MPI.versioninfo()
+else
+    println("\n", MPI.MPI_LIBRARY_VERSION_STRING, "\n")
+end
 
 for fname in files
     @info "Running $fname with $Nproc processes..."
