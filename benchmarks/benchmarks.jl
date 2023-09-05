@@ -96,17 +96,23 @@ function parse_params()
             arg_type = String
             default = ""
             help = "optional output file to save benchmark data;"
+        "--transposition-coll", "-c"
+            arg_type = String
+            default = "p2p"
+            help = "type of MPI collective used for the transpose stage: p2p, a2av"
     end
 
     parsed_args = parse_args(s)
     dims = Dims(parsed_args["dims"])
     repetitions = parsed_args["repititions"]
     array_types = parsed_args["array-types"]
+    transposition_coll = parsed_args["transposition-coll"]
     outfile = isempty(parsed_args["output-file"]) ? nothing : parsed_args["output-file"]
     (
         dims = dims :: Dims{3},
         array_types = array_types :: Vector{UnionAll}, 
         iterations = repetitions :: Int,
+        transposition_coll = transposition_coll :: String,
         outfile = outfile :: Union{Nothing,String},
     )
 end
@@ -408,12 +414,14 @@ function run_benchmarks(params)
     iterations = params.iterations
     array_types = params.array_types
     outfile = params.outfile
+    transposition = params.transposition_coll
 
     if myrank == 0
-        @info "Global dimensions: $dims"
-        @info "Repetitions:       $iterations"
-        @info "Array Types:       $array_types"
-        @info "Output File:       $outfile"
+        @info "Global dimensions:  $dims"
+        @info "Repetitions:        $iterations"
+        @info "Array Types:        $array_types"
+        @info "Transposition Type: $transposition"
+        @info "Output File:        $outfile"
     end
 
     # Let MPI_Dims_create choose the decomposition.
@@ -421,17 +429,21 @@ function run_benchmarks(params)
         MPI.Dims_create!(Nproc, pdims)
         pdims[1], pdims[2]
     end
-
-    transpose_methods = (Transpositions.PointToPoint(),
-                         Transpositions.Alltoallv())
+    if transposition == "p2p"
+        transpose_method = Transpositions.PointToPoint()
+    elseif tranposition_method == "a2av"
+        transpose_method = Transpositions.Alltoallv()
+    else
+        throw(ArgumentError("Invalid transposition collective $transposition."))
+    end
     permutes = (Val(true), Val(false))
     timings = Array{TimerData}(undef, 2, 2)
 
-    map(Iterators.product(transpose_methods, permutes, array_types)) do (method, permute, AT)
-        I = make_index(permute, method)
+    map(Iterators.product(permutes, array_types)) do (permute, AT)
+        I = make_index(permute, transpose_method)
         timings[I] = benchmark_rfft(
             comm, AT, proc_dims, dims;
-            iterations = iterations, permute_dims = permute, transpose_method = method,
+            iterations = iterations, permute_dims = permute, transpose_method = transpose_method,
         )
     end
 

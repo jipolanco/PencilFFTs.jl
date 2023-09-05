@@ -3,14 +3,6 @@ uuid = "4a48f351-57a6-4416-9ec4-c37015456aae"
 authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
 version = "0.14.3"
 
-[weakdeps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
-
-[extensions]
-CUDAPencilFFTs = "CUDA"
-AMDGPUPencilFFTs = "AMDGPU"
-
 [deps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
@@ -21,6 +13,14 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PencilArrays = "0e08944d-e94e-41b1-9406-dcf66b6a9d2e"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+
+[weakdeps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+
+[extensions]
+AMDGPUPencilFFTs = "AMDGPU"
+CUDAPencilFFTs = "CUDA"
 
 [compat]
 AbstractFFTs = "1"

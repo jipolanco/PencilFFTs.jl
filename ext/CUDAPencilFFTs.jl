@@ -1,7 +1,7 @@
 module CUDAPencilFFTs
 
 using PencilFFTs
-using PencilFFTs.Transforms: FFT, FFT!, BFFT, BFFT!, RFFT, BRFFT
+using PencilFFTs.Transforms: FFT, FFT!, BFFT, BFFT!, RFFT, BRFFT, length_output
 using CUDA
 
 # c2c.jl

@@ -1,7 +1,7 @@
 module AMDGPUPencilFFTs
 
 using PencilFFTs
-using PencilFFTs.Transforms: FFT, FFT!, BFFT, BFFT!, RFFT, BRFFT
+using PencilFFTs.Transforms: FFT, FFT!, BFFT, BFFT!, RFFT, BRFFT, length_output
 using AMDGPU
 if AMDGPU.functional(:rocfft)
     using AMDGPU: rocFFT, AnyROCArray
