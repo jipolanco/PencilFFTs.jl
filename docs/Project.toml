@@ -6,6 +6,7 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 PencilFFTs = "4a48f351-57a6-4416-9ec4-c37015456aae"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -15,3 +16,4 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 Documenter = "0.27"
+Makie = "0.19.9"
