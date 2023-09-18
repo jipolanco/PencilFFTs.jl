@@ -43,7 +43,7 @@ examples = MPI.bcast(examples, 0, comm) :: Vector{String}
 @time makedocs(
     modules = [PencilFFTs],
     authors = "Juan Ignacio Polanco <jipolanc@gmail.com> and contributors",
-    repo = "https://github.com/jipolanco/PencilFFTs.jl/blob/{commit}{path}#L{line}",
+    repo = Remotes.GitHub("jipolanco", "PencilFFTs.jl"),
     sitename = "PencilFFTs.jl",
     format = Documenter.HTML(
         prettyurls = true,  # needed for correct path to movies (Navier-Stokes example)
@@ -69,12 +69,6 @@ examples = MPI.bcast(examples, 0, comm) :: Vector{String}
         "benchmarks.md",
     ],
     doctest = true,
-    # linkcheck = true,
-    linkcheck_ignore = [
-        # This URL is correct, but gets incorrectly flagged by linkcheck.
-        "https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.Pencils.range_local-Tuple{Union{PencilArray,%20Union{Tuple{Vararg{A,N}%20where%20N},%20AbstractArray{A,N}%20where%20N}%20where%20A%3C:PencilArray}}",
-    ],
-    # checkdocs = :all,
 )
 
 if rank == 0

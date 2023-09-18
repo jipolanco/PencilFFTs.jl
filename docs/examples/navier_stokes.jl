@@ -120,11 +120,13 @@ end
 
 let fig = Figure(resolution = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
-    vnorm = vecnorm(v⃗₀)
+    vnorm = parent(vecnorm(v⃗₀))  # use `parent` because Makie doesn't like custom array types...
     ct = contour!(
         ax, grid.x, grid.y, grid.z, vnorm;
         alpha = 0.2, levels = 4,
-        colormap = :viridis, colorrange = (0.0, 1.0),
+        colormap = :viridis,
+        colorrange = (0.0, 1.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
     )
     cb = Colorbar(fig[1, 2], ct; label = "Velocity magnitude")
     fig
@@ -233,11 +235,12 @@ curl_fourier!(ω̂s, v̂s, grid_fourier);
 
 let fig = Figure(resolution = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
-    ω_norm = vecnorm(ωs)
+    ω_norm = parent(vecnorm(ωs))
     ct = contour!(
         ax, grid.x, grid.y, grid.z, ω_norm;
         alpha = 0.1, levels = 0.8:0.2:2.0,
         colormap = :viridis, colorrange = (0.8, 2.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
     )
     cb = Colorbar(fig[1, 2], ct; label = "Vorticity magnitude")
     fig
@@ -436,7 +439,7 @@ params = (;
 )
 
 tspan = (0.0, 10.0)
-prob = ODEProblem(ns_rhs!, vs_init_ode, tspan, params)
+prob = ODEProblem{true}(ns_rhs!, vs_init_ode, tspan, params)
 integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);
 
 # We finally solve the problem over time and plot the vorticity associated to
@@ -484,12 +487,13 @@ fig = let
         fig[1, 1][1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
         aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z",
     )
-    ω_mag = @lift vecnorm($ω⃗_plot)
+    ω_mag = @lift parent(vecnorm($ω⃗_plot))
     ω_mag_norm = @lift $ω_mag ./ maximum($ω_mag)
     ct = contour!(
         ax, grid.x, grid.y, grid.z, ω_mag_norm;
         alpha = 0.3, levels = 3,
         colormap = :viridis, colorrange = (0.0, 1.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
     )
     cb = Colorbar(fig[1, 1][1, 2], ct; label = "Normalised vorticity magnitude")
     ax_sp = Axis(
