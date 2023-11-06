@@ -35,10 +35,6 @@ end
 
 for fname in files
     @info "Running $fname with $Nproc processes..."
-    mpiexec() do cmd
-        # Disable precompilation to prevent race conditions when loading
-        # packages.
-        run(`$cmd -n $Nproc $(Base.julia_cmd()) $fname`)
-    end
+    run(`$(mpiexec()) -n $Nproc $(Base.julia_cmd()) $fname`)
     println()
 end
