@@ -15,6 +15,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [compat]
 AbstractFFTs = "1"
 FFTW = "1.6"
+LinearAlgebra = "1.8"
 MPI = "0.20"
 PencilArrays = "0.18, 0.19"
 Reexport = "1"
