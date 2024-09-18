@@ -5,7 +5,7 @@ import PencilArrays: AbstractManyPencilArray, _make_arrays
     ManyPencilArrayRFFT!{T,N,M} <: AbstractManyPencilArray{N,M}
 
 Container holding `M` different [`PencilArray`](https://jipolanco.github.io/PencilArrays.jl/dev/PencilArrays/#PencilArrays.PencilArray) views to the same
-underlying data buffer. All views share the same and dimensionality `N`.
+underlying data buffer. All views share the same dimensionality `N`.
 The element type `T` of the first view is real, that of subsequent views is 
 `Complex{T}`. 
 
@@ -72,7 +72,7 @@ function _make_real_array(data, extra_dims, p)
     dims = (dims_padded_local..., extra_dims...)
     axes_local = (Base.OneTo.(dims_space_local)..., Base.OneTo.(extra_dims)...)
     n = prod(dims)
-    vec = view(data, Base.OneTo(n))
+    vec = unsafe_wrap(typeof(data), pointer(data), n) # fixes efficiency issues with vec = view(data, Base.OneTo(n))
     parent_arr = reshape(vec, dims)
     arr = view(parent_arr, axes_local...)
     PencilArray(p, arr)
