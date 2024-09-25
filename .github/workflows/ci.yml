@@ -21,7 +21,7 @@ jobs:
         experimental: [false]
         version:
           - '1.8'
-          - '1.9'
+          - '1.10'
         os:
           - ubuntu-latest
         arch:
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: julia-actions/setup-julia@v1
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
@@ -75,9 +75,9 @@ jobs:
           sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev ffmpeg
 
       - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@latest
+      - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.9'
+          version: '1.10'
 
       - name: Add MPIPreferences
         shell: julia --color=yes --project=. {0}
