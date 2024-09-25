@@ -48,6 +48,8 @@ examples = MPI.bcast(examples, 0, comm) :: Vector{String}
     format = Documenter.HTML(
         prettyurls = true,  # needed for correct path to movies (Navier-Stokes example)
         canonical = "https://jipolanco.github.io/PencilFFTs.jl",
+        size_threshold = 400 << 10,  # in bytes
+        size_threshold_warn = 200 << 10,  # in bytes
         # load assets in <head>
         assets = [
             "assets/custom.css",

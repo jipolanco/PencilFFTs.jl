@@ -118,11 +118,14 @@ function vecnorm(v⃗::NTuple)
     vnorm
 end
 
-let fig = Figure(resolution = (700, 600))
+## This is useful for passing coordinates to Makie.contour!
+to_intervals(grid) = map(xs -> xs[begin]..xs[end], grid.coords)
+
+let fig = Figure(size = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
     vnorm = parent(vecnorm(v⃗₀))  # use `parent` because Makie doesn't like custom array types...
     ct = contour!(
-        ax, grid.x, grid.y, grid.z, vnorm;
+        ax, to_intervals(grid)..., vnorm;
         alpha = 0.2, levels = 4,
         colormap = :viridis,
         colorrange = (0.0, 1.0),
@@ -233,11 +236,11 @@ curl_fourier!(ω̂s, v̂s, grid_fourier);
 
 ωs = plan .\ ω̂s
 
-let fig = Figure(resolution = (700, 600))
+let fig = Figure(size = (700, 600))
     ax = Axis3(fig[1, 1]; aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z")
     ω_norm = parent(vecnorm(ωs))
     ct = contour!(
-        ax, grid.x, grid.y, grid.z, ω_norm;
+        ax, to_intervals(grid)..., ω_norm;
         alpha = 0.1, levels = 0.8:0.2:2.0,
         colormap = :viridis, colorrange = (0.8, 2.0),
         highclip = (:red, 0.2), lowclip = (:green, 0.2),
@@ -419,7 +422,7 @@ end
 # type and write an interface function to make things work with our functions
 # defined above.
 
-using OrdinaryDiffEq
+using OrdinaryDiffEqLowOrderRK  # includes RK4
 using RecursiveArrayTools: ArrayPartition
 
 ns_rhs!(dv::ArrayPartition, v::ArrayPartition, args...) = ns_rhs!(dv.x, v.x, args...)
@@ -482,7 +485,7 @@ E_plot = Observable(@view Ek[2:end])
 t_plot = Observable(integrator.t)
 
 fig = let
-    fig = Figure(resolution = (1200, 600))
+    fig = Figure(size = (1200, 600))
     ax = Axis3(
         fig[1, 1][1, 1]; title = @lift("t = $(round($t_plot, digits = 3))"),
         aspect = :data, xlabel = "x", ylabel = "y", zlabel = "z",
@@ -490,7 +493,7 @@ fig = let
     ω_mag = @lift parent(vecnorm($ω⃗_plot))
     ω_mag_norm = @lift $ω_mag ./ maximum($ω_mag)
     ct = contour!(
-        ax, grid.x, grid.y, grid.z, ω_mag_norm;
+        ax, to_intervals(grid)..., ω_mag_norm;
         alpha = 0.3, levels = 3,
         colormap = :viridis, colorrange = (0.0, 1.0),
         highclip = (:red, 0.2), lowclip = (:green, 0.2),
@@ -511,9 +514,9 @@ fig = let
 end
 
 using Printf # hide
-with_xvfb = ENV["DISPLAY"] == ":99" # hide
-nstep = 0  # hide
-const tmpdir = mktempdir()  # hide
+with_xvfb::Bool = ENV["DISPLAY"] == ":99" # hide
+nstep::Int = 0  # hide
+tmpdir::String = mktempdir()  # hide
 filename_frame(procid, nstep) = joinpath(tmpdir, @sprintf("proc%d_%04d.png", procid, nstep)) # hide
 record(fig, "vorticity_proc$procid.mp4"; framerate = 10) do io
     with_xvfb && recordframe!(io) # hide
