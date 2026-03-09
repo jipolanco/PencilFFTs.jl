@@ -40,7 +40,7 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
 
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
         with:
           cache-registries: "true"
 
@@ -82,7 +82,7 @@ jobs:
         with:
           version: '1.11'
 
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
         with:
           cache-registries: "true"
 
