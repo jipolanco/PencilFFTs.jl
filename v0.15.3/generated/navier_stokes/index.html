@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Navier–Stokes equations · PencilFFTs.jl</title><meta name="title" content="Navier–Stokes equations · PencilFFTs.jl"/><meta property="og:title" content="Navier–Stokes equations · PencilFFTs.jl"/><meta property="twitter:title" content="Navier–Stokes equations · PencilFFTs.jl"/><meta name="description" content="Documentation for PencilFFTs.jl."/><meta property="og:description" content="Documentation for PencilFFTs.jl."/><meta property="twitter:description" content="Documentation for PencilFFTs.jl."/><meta property="og:url" content="https://jipolanco.github.io/PencilFFTs.jl/generated/navier_stokes/"/><meta property="twitter:url" content="https://jipolanco.github.io/PencilFFTs.jl/generated/navier_stokes/"/><link rel="canonical" href="https://jipolanco.github.io/PencilFFTs.jl/generated/navier_stokes/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/><script src="../../assets/tomate.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="PencilFFTs.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">PencilFFTs.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../tutorial/">Tutorial</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../gradient/">Gradient of a scalar field</a></li><li class="is-active"><a class="tocitem" href>Navier–Stokes equations</a><ul class="internal"><li><a class="tocitem" href="#First-steps"><span>First steps</span></a></li><li><a class="tocitem" href="#Initial-condition"><span>Initial condition</span></a></li><li><a class="tocitem" href="#Velocity-in-Fourier-space"><span>Velocity in Fourier space</span></a></li><li><a class="tocitem" href="#Computing-the-non-linear-term"><span>Computing the non-linear term</span></a></li><li><a class="tocitem" href="#Putting-it-all-together"><span>Putting it all together</span></a></li></ul></li><li><a class="tocitem" href="../in-place/">In-place transforms</a></li></ul></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../PencilFFTs/">Distributed FFT plans</a></li><li><a class="tocitem" href="../../Transforms/">Available transforms</a></li><li><a class="tocitem" href="../../PencilFFTs_timers/">Measuring performance</a></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../GlobalFFTParams/">Global FFT parameters</a></li></ul></li></ul></li><li><a class="tocitem" href="../../benchmarks/">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Navier–Stokes equations</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Navier–Stokes equations</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jipolanco/PencilFFTs.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/jipolanco/PencilFFTs.jl/blob/master/docs/examples/navier_stokes.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Navier–Stokes-equations"><a class="docs-heading-anchor" href="#Navier–Stokes-equations">Navier–Stokes equations</a><a id="Navier–Stokes-equations-1"></a><a class="docs-heading-anchor-permalink" href="#Navier–Stokes-equations" title="Permalink"></a></h1><p>In this example, we numerically solve the incompressible Navier–Stokes equations</p><p class="math-container">\[∂_t \bm{v} + (\bm{v} ⋅ \bm{∇}) \bm{v} = -\frac{1}{ρ} \bm{∇} p + ν ∇^2 \bm{v},
+\quad \bm{∇} ⋅ \bm{v} = 0,\]</p><p>where <span>$\bm{v}(\bm{x}, t)$</span> and <span>$p(\bm{x}, t)$</span> are respectively the velocity and pressure fields, <span>$ν$</span> is the fluid kinematic viscosity and <span>$ρ$</span> is the fluid density.</p><p>We solve the above equations a 3D periodic domain using a standard Fourier pseudo-spectral method.</p><h2 id="First-steps"><a class="docs-heading-anchor" href="#First-steps">First steps</a><a id="First-steps-1"></a><a class="docs-heading-anchor-permalink" href="#First-steps" title="Permalink"></a></h2><p>We start by loading the required packages, initialising MPI and setting the simulation parameters.</p><pre><code class="language-julia hljs">using MPI
+using PencilFFTs
+
+MPI.Init()
+comm = MPI.COMM_WORLD
+procid = MPI.Comm_rank(comm) + 1
+
+# Simulation parameters
+Ns = (64, 64, 64)  # = (Nx, Ny, Nz)
+Ls = (2π, 2π, 2π)  # = (Lx, Ly, Lz)
+
+# Collocation points (&quot;global&quot; = over all processes).
+# We include the endpoint (length = N + 1) for convenience.
+xs_global = map((N, L) -&gt; range(0, L; length = N + 1), Ns, Ls)  # = (x, y, z)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.0:0.09817477042468103:6.283185307179586, 0.0:0.09817477042468103:6.283185307179586, 0.0:0.09817477042468103:6.283185307179586)</code></pre><p>Let&#39;s check the number of MPI processes over which we&#39;re running our simulation:</p><pre><code class="language-julia hljs">MPI.Comm_size(comm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2</code></pre><p>We can now create a partitioning of the domain based on the number of grid points (<code>Ns</code>) and on the number of MPI processes. There are different ways to do this. For simplicity, here we do it automatically following the <a href="https://jipolanco.github.io/PencilArrays.jl/stable/Pencils/#pencil-high-level">PencilArrays.jl docs</a>:</p><pre><code class="language-julia hljs">pen = Pencil(Ns, comm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Decomposition of 3D data
+    Data dimensions: (64, 64, 64)
+    Decomposed dimensions: (2, 3)
+    Data permutation: NoPermutation()
+    Array type: Array</code></pre><p>The subdomain associated to the local MPI process can be obtained using <a href="https://jipolanco.github.io/PencilArrays.jl/dev/Pencils/#PencilArrays.Pencils.range_local-Tuple{Pencil,%20LogicalOrder}"><code>range_local</code></a>:</p><pre><code class="language-julia hljs">range_local(pen)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(1:64, 1:32, 1:64)</code></pre><p>We now construct a distributed vector field that follows the decomposition configuration we just created:</p><pre><code class="language-julia hljs">v⃗₀ = (
+    PencilArray{Float64}(undef, pen),  # vx
+    PencilArray{Float64}(undef, pen),  # vy
+    PencilArray{Float64}(undef, pen),  # vz
+)
+summary(v⃗₀[1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;64×32×64 PencilArray{Float64, 3}(::Pencil{3, 2, NoPermutation, Array})&quot;</code></pre><p>We still need to fill this array with interesting values that represent a physical velocity field.</p><h2 id="Initial-condition"><a class="docs-heading-anchor" href="#Initial-condition">Initial condition</a><a id="Initial-condition-1"></a><a class="docs-heading-anchor-permalink" href="#Initial-condition" title="Permalink"></a></h2><p>Let&#39;s set the initial condition in physical space. In this example, we choose the <a href="https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex">Taylor–Green vortex</a> configuration as an initial condition:</p><p class="math-container">\[\begin{aligned}
+v_x(x, y, z) &amp;=  u₀ \sin(k₀ x) \cos(k₀ y) \cos(k₀ z) \\
+v_y(x, y, z) &amp;= -u₀ \cos(k₀ x) \sin(k₀ y) \cos(k₀ z) \\
+v_z(x, y, z) &amp;= 0
+\end{aligned}\]</p><p>where <span>$u₀$</span> and <span>$k₀$</span> are two parameters setting the amplitude and the period of the velocity field.</p><p>To set the initial condition, each MPI process needs to know which portion of the physical grid it has been attributed. For this, PencilArrays.jl includes a <a href="https://jipolanco.github.io/PencilArrays.jl/dev/LocalGrids/#PencilArrays.LocalGrids.localgrid"><code>localgrid</code></a> helper function:</p><pre><code class="language-julia hljs">grid = localgrid(pen, xs_global)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LocalRectilinearGrid{3} with coordinates:
+ (1) 0.0:0.09817477042468103:6.1850105367549055
+ (2) 0.0:0.09817477042468103:3.043417883165112
+ (3) 0.0:0.09817477042468103:6.1850105367549055</code></pre><p>We can use this to initialise the velocity field:</p><pre><code class="language-julia hljs">u₀ = 1.0
+k₀ = 2π / Ls[1]  # should be integer if L = 2π (to preserve periodicity)
+
+@. v⃗₀[1] =  u₀ * sin(k₀ * grid.x) * cos(k₀ * grid.y) * cos(k₀ * grid.z)
+@. v⃗₀[2] = -u₀ * cos(k₀ * grid.x) * sin(k₀ * grid.y) * cos(k₀ * grid.z)
+@. v⃗₀[3] =  0</code></pre><p>Let&#39;s plot a 2D slice of the velocity field managed by the local MPI process:</p><pre><code class="language-julia hljs">using GLMakie
+
+# Compute the norm of a vector field represented by a tuple of arrays.
+function vecnorm(v⃗::NTuple)
+    vnorm = similar(v⃗[1])
+    for n ∈ eachindex(v⃗[1])
+        w = zero(eltype(vnorm))
+        for v ∈ v⃗
+            w += v[n]^2
+        end
+        vnorm[n] = sqrt(w)
+    end
+    vnorm
+end
+
+# This is useful for passing coordinates to Makie.contour!
+to_intervals(grid) = map(xs -&gt; xs[begin]..xs[end], grid.coords)
+
+let fig = Figure(size = (700, 600))
+    ax = Axis3(fig[1, 1]; aspect = :data, xlabel = &quot;x&quot;, ylabel = &quot;y&quot;, zlabel = &quot;z&quot;)
+    vnorm = parent(vecnorm(v⃗₀))  # use `parent` because Makie doesn&#39;t like custom array types...
+    ct = contour!(
+        ax, to_intervals(grid)..., vnorm;
+        alpha = 0.2, levels = 4,
+        colormap = :viridis,
+        colorrange = (0.0, 1.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
+    )
+    cb = Colorbar(fig[1, 2], ct; label = &quot;Velocity magnitude&quot;)
+    fig
+end</code></pre><img src="0ca5492f.png" alt="Example block output"/><h2 id="Velocity-in-Fourier-space"><a class="docs-heading-anchor" href="#Velocity-in-Fourier-space">Velocity in Fourier space</a><a id="Velocity-in-Fourier-space-1"></a><a class="docs-heading-anchor-permalink" href="#Velocity-in-Fourier-space" title="Permalink"></a></h2><p>In the Fourier pseudo-spectral method, the periodic velocity field is discretised in space as a truncated Fourier series</p><p class="math-container">\[\bm{v}(\bm{x}, t) =
+∑_{\bm{k}} \hat{\bm{v}}_{\bm{k}}(t) \, e^{i \bm{k} ⋅ \bm{x}},\]</p><p>where <span>$\bm{k} = (k_x, k_y, k_z)$</span> are the discrete wave numbers.</p><p>The wave numbers can be obtained using the <a href="https://juliamath.github.io/AbstractFFTs.jl/dev/api/#AbstractFFTs.fftfreq"><code>fftfreq</code></a> function. Since we perform a real-to-complex transform along the first dimension, we use <a href="https://juliamath.github.io/AbstractFFTs.jl/dev/api/#AbstractFFTs.rfftfreq"><code>rfftfreq</code></a> instead for <span>$k_x$</span>:</p><pre><code class="language-julia hljs">using AbstractFFTs: fftfreq, rfftfreq
+
+ks_global = (
+    rfftfreq(Ns[1], 2π * Ns[1] / Ls[1]),  # kx | real-to-complex
+     fftfreq(Ns[2], 2π * Ns[2] / Ls[2]),  # ky | complex-to-complex
+     fftfreq(Ns[3], 2π * Ns[3] / Ls[3]),  # kz | complex-to-complex
+)
+
+ks_global[1]&#39;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1×33 adjoint(::AbstractFFTs.Frequencies{Float64}) with eltype Float64:
+ 0.0  1.0  2.0  3.0  4.0  5.0  6.0  …  27.0  28.0  29.0  30.0  31.0  32.0</code></pre><pre><code class="language-julia hljs">ks_global[2]&#39;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1×64 adjoint(::AbstractFFTs.Frequencies{Float64}) with eltype Float64:
+ 0.0  1.0  2.0  3.0  4.0  5.0  6.0  …  -6.0  -5.0  -4.0  -3.0  -2.0  -1.0</code></pre><pre><code class="language-julia hljs">ks_global[3]&#39;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1×64 adjoint(::AbstractFFTs.Frequencies{Float64}) with eltype Float64:
+ 0.0  1.0  2.0  3.0  4.0  5.0  6.0  …  -6.0  -5.0  -4.0  -3.0  -2.0  -1.0</code></pre><p>To transform the velocity field to Fourier space, we first create a real-to-complex FFT plan to be applied to one of the velocity components:</p><pre><code class="language-julia hljs">plan = PencilFFTPlan(v⃗₀[1], Transforms.RFFT())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Transforms: (RFFT, FFT, FFT)
+Input type: Float64
+Global dimensions: (64, 64, 64) -&gt; (33, 64, 64)
+MPI topology: 2D decomposition (2×1 processes)</code></pre><p>See <a href="../../PencilFFTs/#PencilFFTs.PencilFFTPlan"><code>PencilFFTPlan</code></a> for details on creating plans and on optional keyword arguments.</p><p>We can now apply this plan to the three velocity components to obtain the respective Fourier coefficients <span>$\hat{\bm{v}}_{\bm{k}}$</span>:</p><pre><code class="language-julia hljs">v̂s = plan .* v⃗₀
+summary(v̂s[1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;16×64×64 PencilArray{ComplexF64, 3}(::Pencil{3, 2, Permutation{(3, 2, 1), 3}, Array})&quot;</code></pre><p>Note that, in Fourier space, the domain decomposition is performed along the directions <span>$x$</span> and <span>$y$</span>:</p><pre><code class="language-julia hljs">pencil(v̂s[1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Decomposition of 3D data
+    Data dimensions: (33, 64, 64)
+    Decomposed dimensions: (1, 2)
+    Data permutation: Permutation(3, 2, 1)
+    Array type: Array</code></pre><p>This is because the 3D FFTs are performed one dimension at a time, with the <span>$x$</span> direction first and the <span>$z$</span> direction last. To efficiently perform an FFT along a given direction (taking advantage of serial FFT implementations like FFTW), all the data along that direction must be contained locally within a single MPI process. For that reason, data redistributions (or <em>transpositions</em>) among MPI processes are performed behind the scenes during each FFT computation. Such transpositions require important communications between MPI processes, and are usually the most time-consuming aspect of massively-parallel simulations using this kind of methods.</p><p>To solve the Navier–Stokes equations in Fourier space, we will also need the respective wave numbers <span>$\bm{k}$</span> associated to the local MPI process. Similarly to the local grid points, these are obtained using the <code>localgrid</code> function:</p><pre><code class="language-julia hljs">grid_fourier = localgrid(v̂s[1], ks_global)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LocalRectilinearGrid{3} with Permutation(3, 2, 1) and coordinates:
+ (1) [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+ (2) [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, -32.0, -31.0, -30.0, -29.0, -28.0, -27.0, -26.0, -25.0, -24.0, -23.0, -22.0, -21.0, -20.0, -19.0, -18.0, -17.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0]
+ (3) [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, -32.0, -31.0, -30.0, -29.0, -28.0, -27.0, -26.0, -25.0, -24.0, -23.0, -22.0, -21.0, -20.0, -19.0, -18.0, -17.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0]</code></pre><p>As an example, let&#39;s first use this to compute and plot the vorticity associated to the initial condition. The vorticity is defined as the curl of the velocity, <span>$\bm{ω} = \bm{∇} × \bm{v}$</span>. In Fourier space, this becomes <span>$\hat{\bm{ω}} = i \bm{k} × \hat{\bm{v}}$</span>.</p><pre><code class="language-julia hljs">using StaticArrays: SVector
+using LinearAlgebra: ×
+
+function curl_fourier!(
+        ω̂s::NTuple{N, &lt;:PencilArray}, v̂s::NTuple{N, &lt;:PencilArray}, grid_fourier,
+    ) where {N}
+    @inbounds for I ∈ eachindex(grid_fourier)
+        # We use StaticArrays for the cross product between small vectors.
+        ik⃗ = im * SVector(grid_fourier[I])
+        v⃗ = SVector(getindex.(v̂s, Ref(I)))  # = (v̂s[1][I], v̂s[2][I], ...)
+        ω⃗ = ik⃗ × v⃗
+        for n ∈ eachindex(ω⃗)
+            ω̂s[n][I] = ω⃗[n]
+        end
+    end
+    ω̂s
+end
+
+ω̂s = similar.(v̂s)
+curl_fourier!(ω̂s, v̂s, grid_fourier);</code></pre><p>We finally transform back to physical space and plot the result:</p><pre><code class="language-julia hljs">ωs = plan .\ ω̂s
+
+let fig = Figure(size = (700, 600))
+    ax = Axis3(fig[1, 1]; aspect = :data, xlabel = &quot;x&quot;, ylabel = &quot;y&quot;, zlabel = &quot;z&quot;)
+    ω_norm = parent(vecnorm(ωs))
+    ct = contour!(
+        ax, to_intervals(grid)..., ω_norm;
+        alpha = 0.1, levels = 0.8:0.2:2.0,
+        colormap = :viridis, colorrange = (0.8, 2.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
+    )
+    cb = Colorbar(fig[1, 2], ct; label = &quot;Vorticity magnitude&quot;)
+    fig
+end</code></pre><img src="5b4b1d0a.png" alt="Example block output"/><h2 id="Computing-the-non-linear-term"><a class="docs-heading-anchor" href="#Computing-the-non-linear-term">Computing the non-linear term</a><a id="Computing-the-non-linear-term-1"></a><a class="docs-heading-anchor-permalink" href="#Computing-the-non-linear-term" title="Permalink"></a></h2><p>One can show that, in Fourier space, the incompressible Navier–Stokes equations can be written as</p><p class="math-container">\[∂_t \hat{\bm{v}}_{\bm{k}} =
+- \mathcal{P}_{\bm{k}} \! \left[ \widehat{(\bm{v} ⋅ \bm{∇}) \bm{v}} \right]
+- ν |\bm{k}|^2 \hat{\bm{v}}_{\bm{k}}
+\quad \text{ with } \quad
+\mathcal{P}_{\bm{k}}(\hat{\bm{F}}_{\bm{k}}) = \left( I - \frac{\bm{k} ⊗
+\bm{k}}{|\bm{k}|^2} \right) \hat{\bm{F}}_{\bm{k}},\]</p><p>where <span>$\mathcal{P}_{\bm{k}}$</span> is a projection operator allowing to preserve the incompressibility condition <span>$\bm{∇} ⋅ \bm{v} = 0$</span>. This operator encodes the action of the pressure gradient term, which serves precisely to enforce incompressibility. Note that, because of this, the pressure gradient dissapears from the equations.</p><p>Now that we have the wave numbers <span>$\bm{k}$</span>, computing the linear viscous term in Fourier space is straighforward once we have the Fourier coefficients <span>$\hat{\bm{v}}_{\bm{k}}$</span> of the velocity field. What is slightly more challenging (and much more costly) is the computation of the non-linear term in Fourier space, <span>$\hat{\bm{F}}_{\bm{k}} = \left[ \widehat{(\bm{v} ⋅ \bm{∇}) \bm{v}} \right]_{\bm{k}}$</span>. In the pseudo-spectral method, the quadratic nonlinearity is computed by collocation in physical space (i.e. this term is evaluated at grid points), while derivatives are computed in Fourier space. This requires transforming fields back and forth between both spaces.</p><p>Below we implement a function that computes the non-linear term in Fourier space based on its convective form <span>$(\bm{v} ⋅ \bm{∇}) \bm{v} = \bm{∇} ⋅ (\bm{v} ⊗ \bm{v})$</span>. Note that this equivalence uses the incompressibility condition <span>$\bm{∇} ⋅ \bm{v} = 0$</span>.</p><pre><code class="language-julia hljs">using LinearAlgebra: mul!, ldiv!  # for applying FFT plans in-place
+
+# Compute non-linear term in Fourier space from velocity field in physical
+# space. Optional keyword arguments may be passed to avoid allocations.
+function ns_nonlinear!(
+        F̂s, vs, plan, grid_fourier;
+        vbuf = similar(vs[1]), v̂buf = similar(F̂s[1]),
+    )
+    # Compute F_i = ∂_j (v_i v_j) for each i.
+    # In Fourier space: F̂_i = im * k_j * FFT(v_i * v_j)
+    w, ŵ = vbuf, v̂buf
+    @inbounds for (i, F̂i) ∈ enumerate(F̂s)
+        F̂i .= 0
+        vi = vs[i]
+        for (j, vj) ∈ enumerate(vs)
+            w .= vi .* vj     # w = v_i * v_j in physical space
+            mul!(ŵ, plan, w)  # same in Fourier space
+            # Add derivative in Fourier space
+            for I ∈ eachindex(grid_fourier)
+                k⃗ = grid_fourier[I]  # = (kx, ky, kz)
+                kj = k⃗[j]
+                F̂i[I] += im * kj * ŵ[I]
+            end
+        end
+    end
+    F̂s
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ns_nonlinear! (generic function with 1 method)</code></pre><p>As an example, let&#39;s use this function on our initial velocity field:</p><pre><code class="language-julia hljs">F̂s = similar.(v̂s)
+ns_nonlinear!(F̂s, v⃗₀, plan, grid_fourier);</code></pre><p>Strictly speaking, computing the non-linear term by collocation can lead to <a href="https://en.wikipedia.org/wiki/Aliasing#Sampling_sinusoidal_functions">aliasing errors</a>, as the quadratic term excites Fourier modes that fall beyond the range of resolved wave numbers. The typical solution is to apply Orzsag&#39;s 2/3 rule to zero-out the Fourier coefficients associated to the highest wave numbers. We define a function that applies this procedure below.</p><pre><code class="language-julia hljs">function dealias_twothirds!(ŵs::Tuple, grid_fourier, ks_global)
+    ks_max = maximum.(abs, ks_global)  # maximum stored wave numbers (kx_max, ky_max, kz_max)
+    ks_lim = (2 / 3) .* ks_max
+    @inbounds for I ∈ eachindex(grid_fourier)
+        k⃗ = grid_fourier[I]
+        if any(abs.(k⃗) .&gt; ks_lim)
+            for ŵ ∈ ŵs
+                ŵ[I] = 0
+            end
+        end
+    end
+    ŵs
+end
+
+# We can apply this on the previously computed non-linear term:
+dealias_twothirds!(F̂s, grid_fourier, ks_global);</code></pre><p>Finally, we implement the projection associated to the incompressibility condition:</p><pre><code class="language-julia hljs">function project_divergence_free!(ûs, grid_fourier)
+    @inbounds for I ∈ eachindex(grid_fourier)
+        k⃗ = grid_fourier[I]
+        k² = sum(abs2, k⃗)
+        iszero(k²) &amp;&amp; continue  # avoid division by zero
+        û = getindex.(ûs, Ref(I))  # (ûs[1][I], ûs[2][I], ...)
+        for i ∈ eachindex(û)
+            ŵ = û[i]
+            for j ∈ eachindex(û)
+                ŵ -= k⃗[i] * k⃗[j] * û[j] / k²
+            end
+            ûs[i][I] = ŵ
+        end
+    end
+    ûs
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">project_divergence_free! (generic function with 1 method)</code></pre><p>We can verify the correctness of the projection operator by checking that the initial velocity field is not modified by it, since it is already incompressible:</p><pre><code class="language-julia hljs">v̂s_proj = project_divergence_free!(copy.(v̂s), grid_fourier)
+v̂s_proj .≈ v̂s  # the last one may be false because v_z = 0 initially</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(true, true, false)</code></pre><h2 id="Putting-it-all-together"><a class="docs-heading-anchor" href="#Putting-it-all-together">Putting it all together</a><a id="Putting-it-all-together-1"></a><a class="docs-heading-anchor-permalink" href="#Putting-it-all-together" title="Permalink"></a></h2><p>To perform the time integration of the Navier–Stokes equations, we will use the timestepping routines implemented in the DifferentialEquations.jl suite. For simplicity, we use here an explicit Runge–Kutta scheme. In this case, we just need to write a function that computes the right-hand side of the Navier–Stokes equations in Fourier space:</p><pre><code class="language-julia hljs">function ns_rhs!(
+        dvs::NTuple{N, &lt;:PencilArray}, vs::NTuple{N, &lt;:PencilArray}, p, t,
+    ) where {N}
+    # 1. Compute non-linear term and dealias it
+    (; plan, cache, ks_global, grid_fourier) = p
+    F̂s = cache.F̂s
+    ns_nonlinear!(F̂s, vs, plan, grid_fourier; vbuf = dvs[1], v̂buf = cache.v̂s[1])
+    dealias_twothirds!(F̂s, grid_fourier, ks_global)
+
+    # 2. Project onto divergence-free space
+    project_divergence_free!(F̂s, grid_fourier)
+
+    # 3. Transform velocity to Fourier space
+    v̂s = cache.v̂s
+    map((v, v̂) -&gt; mul!(v̂, plan, v), vs, v̂s)
+
+    # 4. Add viscous term (and multiply projected non-linear term by -1)
+    ν = p.ν
+    for n ∈ eachindex(v̂s)
+        v̂ = v̂s[n]
+        F̂ = F̂s[n]
+        @inbounds for I ∈ eachindex(grid_fourier)
+            k⃗ = grid_fourier[I]  # = (kx, ky, kz)
+            k² = sum(abs2, k⃗)
+            F̂[I] = -F̂[I] - ν * k² * v̂[I]
+        end
+    end
+
+    # 5. Transform RHS back to physical space
+    map((dv, dv̂) -&gt; ldiv!(dv, plan, dv̂), dvs, F̂s)
+
+    nothing
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ns_rhs! (generic function with 1 method)</code></pre><p>For the time-stepping, we load OrdinaryDiffEq.jl from the DifferentialEquations.jl suite and set-up the simulation. Since DifferentialEquations.jl can&#39;t directly deal with tuples of arrays, we convert the input data to the <a href="https://github.com/SciML/RecursiveArrayTools.jl#arraypartition"><code>ArrayPartition</code></a> type and write an interface function to make things work with our functions defined above.</p><pre><code class="language-julia hljs">using OrdinaryDiffEqLowOrderRK  # includes RK4
+using RecursiveArrayTools: ArrayPartition
+
+ns_rhs!(dv::ArrayPartition, v::ArrayPartition, args...) = ns_rhs!(dv.x, v.x, args...)
+vs_init_ode = ArrayPartition(v⃗₀)
+summary(vs_init_ode)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;RecursiveArrayTools.ArrayPartition{Float64, Tuple{PencilArray{Float64, 3, Array{Float64, 3}, 3, 0, Pencil{3, 2, NoPermutation, Vector{UInt8}}}, PencilArray{Float64, 3, Array{Float64, 3}, 3, 0, Pencil{3, 2, NoPermutation, Vector{UInt8}}}, PencilArray{Float64, 3, Array{Float64, 3}, 3, 0, Pencil{3, 2, NoPermutation, Vector{UInt8}}}}} with arrays:&quot;</code></pre><p>We now define solver parameters and temporary variables, and initialise the problem:</p><pre><code class="language-julia hljs">params = (;
+    ν = 5e-3,  # kinematic viscosity
+    plan, grid_fourier, ks_global,
+    cache = (
+        v̂s = similar.(v̂s),
+        F̂s = similar.(v̂s),
+    )
+)
+
+tspan = (0.0, 10.0)
+prob = ODEProblem{true}(ns_rhs!, vs_init_ode, tspan, params)
+integrator = init(prob, RK4(); dt = 1e-3, save_everystep = false);</code></pre><p>We finally solve the problem over time and plot the vorticity associated to the solution. It is also useful to look at the energy spectrum <span>$E(k)$</span>, to see if the small scales are correctly resolved. To obtain a turbulent flow, the viscosity <span>$ν$</span> must be small enough to allow the transient appearance of an energy cascade towards the small scales (i.e. from small to large <span>$k$</span>), while high enough to allow the small-scale motions to be correctly resolved.</p><pre><code class="language-julia hljs">function energy_spectrum!(Ek, ks, v̂s, grid_fourier)
+    Nk = length(Ek)
+    @assert Nk == length(ks)
+    Ek .= 0
+    for I ∈ eachindex(grid_fourier)
+        k⃗ = grid_fourier[I]  # = (kx, ky, kz)
+        knorm = sqrt(sum(abs2, k⃗))
+        i = searchsortedfirst(ks, knorm)
+        i &gt; Nk &amp;&amp; continue
+        v⃗ = getindex.(v̂s, Ref(I))  # = (v̂s[1][I], v̂s[2][I], ...)
+        factor = k⃗[1] == 0 ? 1 : 2  # account for Hermitian symmetry and r2c transform
+        Ek[i] += factor * sum(abs2, v⃗) / 2
+    end
+    MPI.Allreduce!(Ek, +, get_comm(v̂s[1]))  # sum across all processes
+    Ek
+end
+
+ks = rfftfreq(Ns[1], 2π * Ns[1] / Ls[1])
+Ek = similar(ks)
+v̂s = plan .* integrator.u.x
+energy_spectrum!(Ek, ks, v̂s, grid_fourier)
+Ek ./= scale_factor(plan)^2  # rescale energy
+
+curl_fourier!(ω̂s, v̂s, grid_fourier)
+ldiv!.(ωs, plan, ω̂s)
+ω⃗_plot = Observable(ωs)
+k_plot = @view ks[2:end]
+E_plot = Observable(@view Ek[2:end])
+t_plot = Observable(integrator.t)
+
+fig = let
+    fig = Figure(size = (1200, 600))
+    ax = Axis3(
+        fig[1, 1][1, 1]; title = @lift(&quot;t = $(round($t_plot, digits = 3))&quot;),
+        aspect = :data, xlabel = &quot;x&quot;, ylabel = &quot;y&quot;, zlabel = &quot;z&quot;,
+    )
+    ω_mag = @lift parent(vecnorm($ω⃗_plot))
+    ω_mag_norm = @lift $ω_mag ./ maximum($ω_mag)
+    ct = contour!(
+        ax, to_intervals(grid)..., ω_mag_norm;
+        alpha = 0.3, levels = 3,
+        colormap = :viridis, colorrange = (0.0, 1.0),
+        highclip = (:red, 0.2), lowclip = (:green, 0.2),
+    )
+    cb = Colorbar(fig[1, 1][1, 2], ct; label = &quot;Normalised vorticity magnitude&quot;)
+    ax_sp = Axis(
+        fig[1, 2];
+        xlabel = &quot;k&quot;, ylabel = &quot;E(k)&quot;, xscale = log2, yscale = log10,
+        title = &quot;Kinetic energy spectrum&quot;,
+    )
+    ylims!(ax_sp, 1e-8, 1e0)
+    scatterlines!(ax_sp, k_plot, E_plot)
+    ks_slope = exp.(range(log(2.5), log(25.0), length = 3))
+    E_fivethirds = @. 0.3 * ks_slope^(-5/3)
+    @views lines!(ax_sp, ks_slope, E_fivethirds; color = :black, linestyle = :dot)
+    text!(ax_sp, L&quot;k^{-5/3}&quot;; position = (ks_slope[2], E_fivethirds[2]), align = (:left, :bottom))
+    fig
+end
+
+record(fig, &quot;vorticity_proc$procid.mp4&quot;; framerate = 10) do io
+    while integrator.t &lt; 20
+        dt = 0.001
+        step!(integrator, dt)
+        t_plot[] = integrator.t
+        mul!.(v̂s, plan, integrator.u.x)  # current velocity in Fourier space
+        curl_fourier!(ω̂s, v̂s, grid_fourier)
+        ldiv!.(ω⃗_plot[], plan, ω̂s)
+        ω⃗_plot[] = ω⃗_plot[]  # to force updating the plot
+        energy_spectrum!(Ek, ks, v̂s, grid_fourier)
+        Ek ./= scale_factor(plan)^2  # rescale energy
+        E_plot[] = E_plot[]
+        recordframe!(io)
+    end
+end;</code></pre><figure class="video_container">
+  <video controls="true" allowfullscreen="true">
+    <source src="../vorticity_proc1.mp4" type="video/mp4">
+  </video>
+</figure><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gradient/">« Gradient of a scalar field</a><a class="docs-footer-nextpage" href="../in-place/">In-place transforms »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 20 August 2025 10:22">Wednesday 20 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
