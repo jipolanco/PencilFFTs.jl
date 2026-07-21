@@ -1,7 +1,7 @@
 name = "PencilFFTs"
 uuid = "4a48f351-57a6-4416-9ec4-c37015456aae"
 authors = ["Juan Ignacio Polanco <juan-ignacio.polanco@cnrs.fr>"]
-version = "0.15.3"
+version = "0.15.4"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
@@ -19,5 +19,5 @@ LinearAlgebra = "1.8"
 MPI = "0.20"
 PencilArrays = "0.19"
 Reexport = "1"
-TimerOutputs = "0.5"
+TimerOutputs = "0.5, 1"
 julia = "1.10"
